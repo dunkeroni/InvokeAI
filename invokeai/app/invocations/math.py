@@ -3,12 +3,14 @@
 from typing import Literal
 
 import numpy as np
+import torch
 from pydantic import ValidationInfo, field_validator
 
-from invokeai.app.invocations.primitives import FloatOutput, IntegerOutput
+from invokeai.app.invocations.primitives import FloatOutput, IntegerOutput, ConditioningField, ConditioningOutput
 from invokeai.app.shared.fields import FieldDescriptions
+from invokeai.app.invocations.compel import ConditioningFieldData, BasicConditioningInfo
 
-from .baseinvocation import BaseInvocation, InputField, InvocationContext, invocation
+from .baseinvocation import BaseInvocation, InputField, Input, InvocationContext, invocation
 
 
 @invocation("add", title="Add Integers", tags=["math", "add"], category="math", version="1.0.0")
@@ -290,3 +292,95 @@ class FloatMathInvocation(BaseInvocation):
             return FloatOutput(value=min(self.a, self.b))
         else:  # self.operation == "MAX":
             return FloatOutput(value=max(self.a, self.b))
+
+
+CONDITIONING_OPERATIONS = Literal[
+    "ADD",
+    "SUB",
+    "LERP",
+    #"SLERP", #NOT IMPLEMENTED in torch at this time. May be worth writing our own method
+    "PERP",
+    "PROJ"
+]
+
+
+CONDITIONING_OPERATIONS_LABELS = {
+    "ADD": "Add A+αB",
+    "SUB": "Subtract A-αB",
+    "LERP": "Linear Interpolation A->B",
+    #"SLERP": "Spherical Linear Interpolation A~>B",
+    "PERP": "Perpendicular A⊥B",
+    "PROJ": "Projection A||B",
+}
+
+
+@invocation(
+    "SD_1.X_Conditioning_Math",
+    title="SD 1.X Conditioning Math",
+    tags=["math", "conditioning"],
+    category="conditioning",
+    version="1.0.0",
+)
+class SD1XConditioningMathInvocation(BaseInvocation):
+    """Compute between two conditioning latents"""
+    
+    operation: CONDITIONING_OPERATIONS = InputField(
+        default="ADD", description="The operation to perform", ui_choice_labels=CONDITIONING_OPERATIONS_LABELS
+    )
+    a: ConditioningField = InputField(
+        description="Conditioning A",
+        input=Input.Connection,
+    )
+    b: ConditioningField = InputField(
+        description="Conditioning B",
+        input=Input.Connection,
+    )
+    alpha: float = InputField(
+        default=1,
+        description="Alpha value for interpolation",
+        ge=0.0,
+        le=2,
+    )
+
+    @torch.no_grad()
+    def invoke(self, context: InvocationContext) -> ConditioningOutput:
+        conditioning_A = context.services.latents.get(self.a.conditioning_name)
+        conditioning_B = context.services.latents.get(self.b.conditioning_name)
+
+        cA = conditioning_A.conditionings[0].embeds
+        cB = conditioning_B.conditionings[0].embeds
+        cOut = torch.zeros_like(cA)
+
+        if self.operation == "ADD":
+            torch.add(cA, cB, alpha=self.alpha, out=cOut)
+        elif self.operation == "sub":
+            torch.sub(cA, cB, alpha=self.alpha, out=cOut)
+        elif self.operation == "LERP":
+            torch.lerp(cA, cB, self.alpha, out=cOut)
+        #elif self.operation == "SLERP":
+            #torch.slerp(cA, cB, self.alpha, out=cOut)
+        elif self.operation == "PERP":
+            # https://github.com/Perp-Neg/Perp-Neg-stablediffusion/blob/main/perpneg_diffusion/perpneg_stable_diffusion/pipeline_perpneg_stable_diffusion.py
+            #x - ((torch.mul(x, y).sum())/(torch.norm(y)**2)) * y
+            cOut = (cA - ((torch.mul(cA, cB).sum())/(torch.norm(cB)**2)) * cB).detach().clone()
+        else:  # self.operation == "PROJ":
+            cOut = (((torch.mul(cA, cB).sum())/(torch.norm(cB)**2)) * cB).detach().clone()
+
+        conditioning_data = ConditioningFieldData(
+            conditionings=[
+                BasicConditioningInfo(
+                    embeds=cOut,
+                    extra_conditioning=None,
+                )
+            ]
+        )
+
+        conditioning_name = f"{context.graph_execution_state_id}_{self.id}_conditioning"
+        context.services.latents.save(conditioning_name, conditioning_data)
+
+        return ConditioningOutput(
+            conditioning=ConditioningField(
+                conditioning_name=conditioning_name,
+            ),
+        )
+
