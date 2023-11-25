@@ -846,25 +846,6 @@ class TiledDenoiseLatentsInvocation(DenoiseLatentsInvocation):
         num_tiles_x = int(np.ceil(image_width / self.tile_x_res))
         num_tiles_y = int(np.ceil(image_height / self.tile_y_res))
 
-        #determine the size of the latent for each tile
-        #tile_latent_height = self.tile_y_res // 8
-        #tile_latent_width = self.tile_x_res // 8
-
-        tile_components = {}
-
-        #create a new latent for the full image
-        #output_latent = np.zeros((1, 4, latent_height, latent_width))
-        #output_latent = torch.from_numpy(output_latent).to(latents.device)
-
-        #create buffers dictionary
-        buffers = {
-            "left": 0,
-            "right": 0,
-            "top": 0,
-            "bottom": 0,
-        }
-                   
-
         #create chopped tile information
         for tile_y in range(num_tiles_y):
             for tile_x in range(num_tiles_x):
@@ -916,7 +897,6 @@ class TiledDenoiseLatentsInvocation(DenoiseLatentsInvocation):
                 saved_tile_noise = self.create_latentField(context, tile_noise, tile_x, tile_y, "noise", 0)
 
                 #chop control images into tiles
-                #tile_components[(tile_x, tile_y)]["control"] = []
                 tile_controls = []
                 if self.control == None:
                     control_input = None
@@ -1017,7 +997,7 @@ class TiledDenoiseLatentsInvocation(DenoiseLatentsInvocation):
                     ip_adapter=self.ip_adapter, #Not chopped because output should not be regionally affected by IP Adapter
                     t2i_adapter=tile_t2is,
                     latents=saved_tile_latent,
-                    denoise_mask=tile_mask_field, #tile_components[(tile_x, tile_y)]["mask"],
+                    denoise_mask=tile_mask_field,
                     id=uuid_string(),
                 )
                 resultname = denoiser.denoise(context, step_callback).latents.latents_name
