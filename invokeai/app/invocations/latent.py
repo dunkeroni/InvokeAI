@@ -2,7 +2,7 @@
 
 from contextlib import ExitStack
 from functools import singledispatchmethod
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union, Callable
 
 import einops
 import numpy as np
@@ -40,6 +40,7 @@ from invokeai.app.util.step_callback import stable_diffusion_step_callback
 from invokeai.backend.ip_adapter.ip_adapter import IPAdapter, IPAdapterPlus
 from invokeai.backend.model_management.models import ModelType, SilenceWarnings
 from invokeai.backend.stable_diffusion.diffusion.conditioning_data import ConditioningData, IPAdapterConditioningInfo
+from invokeai.app.util.misc import uuid_string
 
 from ...backend.model_management.lora import ModelPatcher
 from ...backend.model_management.models import BaseModelType
@@ -649,6 +650,19 @@ class DenoiseLatentsInvocation(BaseInvocation):
 
     @torch.no_grad()
     def invoke(self, context: InvocationContext) -> LatentsOutput:
+        # Get the source node id (we are invoking the prepared node)
+        graph_execution_state = context.services.graph_execution_manager.get(context.graph_execution_state_id)
+        source_node_id = graph_execution_state.prepared_source_mapping[self.id]
+
+        def step_callback(state: PipelineIntermediateState):
+            self.dispatch_progress(context, source_node_id, state, self.unet.unet.base_model)
+
+        return self.denoise(context, step_callback)
+
+    @torch.no_grad()
+    def denoise(
+        self, context: InvocationContext, step_callback: Callable[[PipelineIntermediateState], None]
+    ) -> LatentsOutput:
         with SilenceWarnings():  # this quenches NSFW nag from diffusers
             seed = None
             noise = None
@@ -682,13 +696,6 @@ class DenoiseLatentsInvocation(BaseInvocation):
                 latents.shape,
                 do_classifier_free_guidance=True,
             )
-
-            # Get the source node id (we are invoking the prepared node)
-            graph_execution_state = context.services.graph_execution_manager.get(context.graph_execution_state_id)
-            source_node_id = graph_execution_state.prepared_source_mapping[self.id]
-
-            def step_callback(state: PipelineIntermediateState):
-                self.dispatch_progress(context, source_node_id, state, self.unet.unet.base_model)
 
             def _lora_loader():
                 for lora in self.unet.loras:
@@ -782,6 +789,256 @@ class DenoiseLatentsInvocation(BaseInvocation):
             name = f"{context.graph_execution_state_id}__{self.id}"
             context.services.latents.save(name, result_latents)
         return build_latents_output(latents_name=name, latents=result_latents, seed=seed)
+
+
+
+
+
+
+
+@invocation(
+    "tiled_denoise_latents",
+    title="Tiled Denoise Latents",
+    tags=["tile", "tiling", "latents", "denoise", "txt2img", "t2i", "t2l", "img2img", "i2i", "l2l"],
+    category="latents",
+    version="1.0.0",
+)
+class TiledDenoiseLatentsInvocation(DenoiseLatentsInvocation):
+    tile_x_res: int = InputField(default=512, ge=64, multiple_of=64, description="The width of the tiles to use")
+    tile_y_res: int = InputField(default=512, ge=64, multiple_of=64, description="The height of the tiles to use")
+    tile_padding: int = InputField(default=128, ge=0, multiple_of=64, description="The amount of padding to use around the tiles (adds to the size of the latent)")
+
+    def create_latentField(self, context: InvocationContext, latents: torch.Tensor, tile_x: int, tile_y: int, tag: str, seed: int) -> LatentsField:
+        name = f"{tile_x}_{tile_y}_{tag}__{self.id}"
+        context.services.latents.save(name, latents)
+        return LatentsField(latents_name=name, latents=latents, seed=seed)
+
+    def crop_latent(self, source_latents: torch.Tensor, start_x, start_y, end_x, end_y):
+        tile_latent = np.zeros((1, 4, end_y - start_y, end_x - start_x))
+        tile_latent = torch.from_numpy(tile_latent).to(source_latents.device)
+        return source_latents[:, :, start_y:end_y, start_x:end_x]
+
+    def invoke(self, context: InvocationContext) -> LatentsOutput:
+        graph_execution_state = context.services.graph_execution_manager.get(context.graph_execution_state_id)
+        source_node_id = graph_execution_state.prepared_source_mapping[self.id]
+        def step_callback(state: PipelineIntermediateState):
+            self.dispatch_progress(context, source_node_id, state, self.unet.unet.base_model)
+
+
+        latents = context.services.latents.get(self.latents.latents_name)
+        noise = context.services.latents.get(self.noise.latents_name)
+        if latents is None:
+            raise Exception("'latents' must be provided!")
+        latent_height = latents.shape[2]
+        latent_width = latents.shape[3]
+        image_height = latent_height * 8
+        image_width = latent_width * 8
+        latent_padding = self.tile_padding // 8
+        denoise_x = self.tile_x_res // 8
+        denoise_y = self.tile_y_res // 8
+        tile_latent_height = denoise_y + latent_padding
+        tile_latent_width = denoise_x + latent_padding
+
+        if self.tile_x_res + self.tile_padding > image_width or self.tile_y_res + self.tile_padding > image_height:
+            raise Exception("Tile size plus padding must be smaller than the image size")
+
+        #determine number of tiles in each dimension, accounting for overlap
+        num_tiles_x = int(np.ceil(image_width / self.tile_x_res))
+        num_tiles_y = int(np.ceil(image_height / self.tile_y_res))
+
+        #determine the size of the latent for each tile
+        #tile_latent_height = self.tile_y_res // 8
+        #tile_latent_width = self.tile_x_res // 8
+
+        tile_components = {}
+
+        #create a new latent for the full image
+        #output_latent = np.zeros((1, 4, latent_height, latent_width))
+        #output_latent = torch.from_numpy(output_latent).to(latents.device)
+
+        #create buffers dictionary
+        buffers = {
+            "left": 0,
+            "right": 0,
+            "top": 0,
+            "bottom": 0,
+        }
+                   
+
+        #create chopped tile information
+        for tile_y in range(num_tiles_y):
+            for tile_x in range(num_tiles_x):
+
+                denoise_end_x = min(denoise_x * (tile_x + 1), latent_width) - 1 #clips the last tile to the image edge
+                denoise_end_y = min(denoise_y * (tile_y + 1), latent_height) - 1
+                denoise_start_x = denoise_x * tile_x
+                denoise_start_y = denoise_y * tile_y
+
+                #calculate the boundaries of the full tile, which is always the same size fit around the denoise area
+                if denoise_start_x  - latent_padding / 2 < 0:
+                    tile_start_x = 0
+                    tile_end_x = tile_start_x + tile_latent_width - 1
+                elif denoise_end_x + latent_padding / 2 >= latent_width:
+                    tile_end_x = latent_width
+                    tile_start_x = tile_end_x - tile_latent_width + 1
+                else:
+                    tile_start_x = denoise_start_x - latent_padding // 2
+                    tile_end_x = denoise_end_x + latent_padding // 2
+                
+                if denoise_start_y  - latent_padding / 2 < 0:
+                    tile_start_y = 0
+                    tile_end_y = tile_start_y + tile_latent_height - 1
+                elif denoise_end_y + latent_padding / 2 >= latent_height:
+                    tile_end_y = latent_height
+                    tile_start_y = tile_end_y - tile_latent_height + 1
+                else:
+                    tile_start_y = denoise_start_y - latent_padding // 2
+                    tile_end_y = denoise_end_y + latent_padding // 2
+                
+                print(f"Tile {tile_x}, {tile_y}: {tile_start_x}, {tile_start_y}, {tile_end_x}, {tile_end_y}")
+                print(f"Denoise {tile_x}, {tile_y}: {denoise_start_x}, {denoise_start_y}, {denoise_end_x}, {denoise_end_y}")
+
+                #copy the latent values from the original latent
+                tile_latent = latents[:, :, tile_start_y:tile_end_y, tile_start_x:tile_end_x].detach().clone()
+
+                #Mask everything except for the denoise area
+                tile_mask = np.zeros((1, 4, tile_latent_height, tile_latent_width))
+                tile_mask = torch.from_numpy(tile_mask).to(latents.device)
+                tile_mask[0, :, :, :] = 1
+                tile_mask[0, :, (denoise_start_y - tile_start_y):(denoise_end_y - tile_start_y), (denoise_start_x - tile_start_x):(denoise_end_x - tile_start_x)] = 0
+
+                #crop latent from self.noise
+                tile_noise = noise[:, :, tile_start_y:tile_end_y, tile_start_x:tile_end_x].detach().clone()
+
+                saved_tile_latent = self.create_latentField(context, tile_latent, tile_x, tile_y, "latent", 0)
+                saved_tile_mask = self.create_latentField(context, tile_mask, tile_x, tile_y, "mask", 0)
+                tile_mask_field = DenoiseMaskField(mask_name=f"{tile_x}_{tile_y}_mask__{self.id}", masked_latents_name=saved_tile_mask.latents_name)
+                saved_tile_noise = self.create_latentField(context, tile_noise, tile_x, tile_y, "noise", 0)
+
+                #chop control images into tiles
+                #tile_components[(tile_x, tile_y)]["control"] = []
+                tile_controls = []
+                if self.control == None:
+                    control_input = None
+                elif isinstance(self.control, list) and len(self.control) == 0:
+                    control_input = None
+                elif isinstance(self.control, ControlField):
+                    control_input = [self.control]
+                else: #list[ControlField]
+                    control_input = self.control
+                
+                if control_input != None:
+                    for control in control_input:
+                        control_image = context.services.images.get_pil_image(control.image.image_name)
+
+                        #resize the control image to 8x the size of the latent
+                        control_image = control_image.resize((image_width, image_height))
+
+                        #crop the control image to the size of the tile
+                        control_image = control_image.crop((tile_start_x * 8, tile_start_y * 8, tile_end_x * 8, tile_end_y * 8))
+                        saved_control_image = context.services.images.create(
+                            image=control_image,
+                            image_origin=ResourceOrigin.INTERNAL,
+                            image_category=ImageCategory.CONTROL,
+                            node_id=self.id,
+                            is_intermediate=True,
+                            session_id=context.graph_execution_state_id,
+                            metadata=None,
+                            workflow=None,
+                        )
+                        
+                        tile_control = ControlField(
+                            image=ImageField(image_name=saved_control_image.image_name),
+                            control_model=control.control_model,
+                            control_weight=control.control_weight,
+                            begin_step_percent=control.begin_step_percent,
+                            end_step_percent=control.end_step_percent,
+                            control_mode=control.control_mode,
+                            resize_mode=control.resize_mode,
+                        )
+                        tile_controls.append(tile_control)
+                else:
+                    tile_controls = None
+                
+                #chop t2i adapters into tiles
+                tile_t2is = []
+                if self.t2i_adapter == None:
+                    t2i_adapter_input = None
+                elif isinstance(self.t2i_adapter, list) and len(self.t2i_adapter) == 0:
+                    t2i_adapter_input = None
+                elif isinstance(self.t2i_adapter, T2IAdapterField):
+                    t2i_adapter_input = [self.t2i_adapter]
+                else: #list[T2IAdapterField]
+                    t2i_adapter_input = self.t2i_adapter
+
+                if t2i_adapter_input != None:
+                    for t2i_adapter in t2i_adapter_input:
+                        t2i_adapter_image = context.services.images.get_pil_image(t2i_adapter.image.image_name)
+
+                        #resize the t2i_adapter image to 8x the size of the latent
+                        t2i_adapter_image = t2i_adapter_image.resize((image_width, image_height))
+
+                        #crop the t2i_adapter image to the size of the tile
+                        t2i_adapter_image = t2i_adapter_image.crop((tile_start_x * 8, tile_start_y * 8, tile_end_x * 8, tile_end_y * 8))
+                        saved_t2i_adapter_image = context.services.images.create(
+                            image=t2i_adapter_image,
+                            image_origin=ResourceOrigin.INTERNAL,
+                            image_category=ImageCategory.CONTROL,
+                            node_id=self.id,
+                            is_intermediate=True,
+                            session_id=context.graph_execution_state_id,
+                            metadata=None,
+                            workflow=None,
+                        )
+                        
+                        tile_t2i_adapter = T2IAdapterField(
+                            image=saved_t2i_adapter_image.image_name,
+                            t2i_adapter_model=t2i_adapter.t2i_adapter_model,
+                            weight=t2i_adapter.weight,
+                            begin_step_percent=t2i_adapter.begin_step_percent,
+                            end_step_percent=t2i_adapter.end_step_percent,
+                            resize_mode=t2i_adapter.resize_mode,
+                        )
+                        tile_t2is.append(tile_t2i_adapter)
+                else:
+                    tile_t2is = None
+                
+                denoiser = DenoiseLatentsInvocation(
+                    positive_conditioning=self.positive_conditioning,
+                    negative_conditioning=self.negative_conditioning,
+                    noise=saved_tile_noise,
+                    steps=self.steps,
+                    cfg_scale=self.cfg_scale,
+                    denoising_start=self.denoising_start,
+                    denoising_end=self.denoising_end,
+                    scheduler=self.scheduler,
+                    unet=self.unet,
+                    control=tile_controls,
+                    ip_adapter=self.ip_adapter, #Not chopped because output should not be regionally affected by IP Adapter
+                    t2i_adapter=tile_t2is,
+                    latents=saved_tile_latent,
+                    denoise_mask=tile_mask_field, #tile_components[(tile_x, tile_y)]["mask"],
+                    id=uuid_string(),
+                )
+                resultname = denoiser.denoise(context, step_callback).latents.latents_name
+                result = context.services.latents.get(resultname)
+                
+                #re-insert the denoised tile into the full image
+                latents[:, :, tile_start_y:tile_end_y, tile_start_x:tile_end_x] = result.detach().clone()
+
+        output_latent = latents.to("cpu")
+        torch.cuda.empty_cache()
+        if choose_torch_device() == torch.device("mps"):
+            mps.empty_cache()
+
+        name = f"{context.graph_execution_state_id}__{self.id}_final"
+        context.services.latents.save(name, output_latent)
+        return build_latents_output(latents_name=name, latents=output_latent)
+
+
+
+
+
 
 
 @invocation(
