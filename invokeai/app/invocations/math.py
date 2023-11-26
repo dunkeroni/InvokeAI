@@ -328,8 +328,7 @@ class SD1XConditioningMathInvocation(BaseInvocation):
         default="ADD", description="The operation to perform", ui_choice_labels=CONDITIONING_OPERATIONS_LABELS
     )
     a: ConditioningField = InputField(
-        description="Conditioning A",
-        input=Input.Connection,
+        description="Conditioning A"
     )
     b: ConditioningField = InputField(
         description="Conditioning B",
@@ -341,15 +340,30 @@ class SD1XConditioningMathInvocation(BaseInvocation):
         ge=0.0,
         le=2,
     )
+    normalize: bool = InputField(
+        default=False,
+        description="Normalize conditioning result to the same mean as B (might be worthless)",
+    )
 
     @torch.no_grad()
     def invoke(self, context: InvocationContext) -> ConditioningOutput:
-        conditioning_A = context.services.latents.get(self.a.conditioning_name)
-        conditioning_B = context.services.latents.get(self.b.conditioning_name)
+        NORMALIZE_TARGET_MEAN = -0.105
 
-        cA = conditioning_A.conditionings[0].embeds
+        conditioning_B = context.services.latents.get(self.b.conditioning_name)
+        cB = conditioning_B.conditionings[0].embeds
+        if self.a is None:
+            cA = torch.zeros_like(cB)
+        else:
+            conditioning_A = context.services.latents.get(self.a.conditioning_name)
+            cA = conditioning_A.conditionings[0].embeds
+
         cB = conditioning_B.conditionings[0].embeds
         cOut = torch.zeros_like(cA)
+
+        mean_A, std_A, var_A = torch.mean(cA), torch.std(cA), torch.var(cA)
+        print(f"Conditioning A: Mean: {mean_A}, Std: {std_A}, Var: {var_A}")
+        mean_B, std_B, var_B = torch.mean(cB), torch.std(cB), torch.var(cB)
+        print(f"Conditioning B: Mean: {mean_B}, Std: {std_B}, Var: {var_B}")
 
         if self.operation == "ADD":
             torch.add(cA, cB, alpha=self.alpha, out=cOut)
@@ -365,6 +379,15 @@ class SD1XConditioningMathInvocation(BaseInvocation):
             cOut = (cA - ((torch.mul(cA, cB).sum())/(torch.norm(cB)**2)) * cB).detach().clone()
         else:  # self.operation == "PROJ":
             cOut = (((torch.mul(cA, cB).sum())/(torch.norm(cB)**2)) * cB).detach().clone()
+        
+        mean_Out, std_Out, var_Out = torch.mean(cOut), torch.std(cOut), torch.var(cOut)
+        print(f"Conditioning Out: Mean: {mean_Out}, Std: {std_Out}, Var: {var_Out}")
+
+        if self.normalize:
+            cOut = cOut * (mean_B / mean_Out)
+        
+        mean_Out, std_Out, var_Out = torch.mean(cOut), torch.std(cOut), torch.var(cOut)
+        print(f"Conditioning Out: Mean: {mean_Out}, Std: {std_Out}, Var: {var_Out}")
 
         conditioning_data = ConditioningFieldData(
             conditionings=[
