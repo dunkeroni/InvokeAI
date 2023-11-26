@@ -337,8 +337,7 @@ class SD1XConditioningMathInvocation(BaseInvocation):
     alpha: float = InputField(
         default=1,
         description="Alpha value for interpolation",
-        ge=0.0,
-        le=2,
+        ge=0.0
     )
     normalize: bool = InputField(
         default=False,
@@ -350,15 +349,14 @@ class SD1XConditioningMathInvocation(BaseInvocation):
         NORMALIZE_TARGET_MEAN = -0.105
 
         conditioning_B = context.services.latents.get(self.b.conditioning_name)
-        cB = conditioning_B.conditionings[0].embeds
+        cB = conditioning_B.conditionings[0].embeds.detach().clone().to("cpu")
         if self.a is None:
-            cA = torch.zeros_like(cB)
+            cA = torch.zeros_like(cB).to(cB.device)
         else:
             conditioning_A = context.services.latents.get(self.a.conditioning_name)
-            cA = conditioning_A.conditionings[0].embeds
+            cA = conditioning_A.conditionings[0].embeds.detach().clone().to("cpu")
 
-        cB = conditioning_B.conditionings[0].embeds
-        cOut = torch.zeros_like(cA)
+        cOut = torch.zeros_like(cA).to(cB.device)
 
         mean_A, std_A, var_A = torch.mean(cA), torch.std(cA), torch.var(cA)
         print(f"Conditioning A: Mean: {mean_A}, Std: {std_A}, Var: {var_A}")
@@ -384,7 +382,7 @@ class SD1XConditioningMathInvocation(BaseInvocation):
         print(f"Conditioning Out: Mean: {mean_Out}, Std: {std_Out}, Var: {var_Out}")
 
         if self.normalize:
-            cOut = cOut * (mean_B / mean_Out)
+            cOut = ((cOut - mean_Out) / std_Out)*np.sqrt(var_B) + mean_B
         
         mean_Out, std_Out, var_Out = torch.mean(cOut), torch.std(cOut), torch.var(cOut)
         print(f"Conditioning Out: Mean: {mean_Out}, Std: {std_Out}, Var: {var_Out}")
