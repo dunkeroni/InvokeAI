@@ -300,17 +300,19 @@ CONDITIONING_OPERATIONS = Literal[
     "LERP",
     #"SLERP", #NOT IMPLEMENTED in torch at this time. May be worth writing our own method
     "PERP",
-    "PROJ"
+    "PROJ",
+    "APPEND",
 ]
 
 
 CONDITIONING_OPERATIONS_LABELS = {
+    "LERP": "Linear Interpolation A->B",
+    "APPEND": "Append [A, B]",
     "ADD": "Add A+αB",
     "SUB": "Subtract A-αB",
-    "LERP": "Linear Interpolation A->B",
     #"SLERP": "Spherical Linear Interpolation A~>B",
     "PERP": "Perpendicular A⊥B",
-    "PROJ": "Projection A||B",
+    "PROJ": "Projection A||B"
 }
 
 
@@ -341,7 +343,7 @@ class SD1XConditioningMathInvocation(BaseInvocation):
     )
     normalize: bool = InputField(
         default=False,
-        description="Normalize conditioning result to the same mean as B (might be worthless)",
+        description="Normalize conditioning result to be similar to B (might be worthless)",
     )
 
     @torch.no_grad()
@@ -365,7 +367,7 @@ class SD1XConditioningMathInvocation(BaseInvocation):
 
         if self.operation == "ADD":
             torch.add(cA, cB, alpha=self.alpha, out=cOut)
-        elif self.operation == "sub":
+        elif self.operation == "SUB":
             torch.sub(cA, cB, alpha=self.alpha, out=cOut)
         elif self.operation == "LERP":
             torch.lerp(cA, cB, self.alpha, out=cOut)
@@ -375,8 +377,11 @@ class SD1XConditioningMathInvocation(BaseInvocation):
             # https://github.com/Perp-Neg/Perp-Neg-stablediffusion/blob/main/perpneg_diffusion/perpneg_stable_diffusion/pipeline_perpneg_stable_diffusion.py
             #x - ((torch.mul(x, y).sum())/(torch.norm(y)**2)) * y
             cOut = (cA - ((torch.mul(cA, cB).sum())/(torch.norm(cB)**2)) * cB).detach().clone()
-        else:  # self.operation == "PROJ":
+        elif self.operation == "PROJ":
             cOut = (((torch.mul(cA, cB).sum())/(torch.norm(cB)**2)) * cB).detach().clone()
+        elif self.operation == "APPEND":
+            print(f"Conditioning A: {cA.shape}")
+            cOut = torch.cat((cA, cB), dim=1)
         
         mean_Out, std_Out, var_Out = torch.mean(cOut), torch.std(cOut), torch.var(cOut)
         print(f"Conditioning Out: Mean: {mean_Out}, Std: {std_Out}, Var: {var_Out}")
@@ -404,4 +409,5 @@ class SD1XConditioningMathInvocation(BaseInvocation):
                 conditioning_name=conditioning_name,
             ),
         )
+
 
