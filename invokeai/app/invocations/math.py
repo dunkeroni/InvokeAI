@@ -10,7 +10,16 @@ from invokeai.app.invocations.primitives import FloatOutput, IntegerOutput, Cond
 from invokeai.app.shared.fields import FieldDescriptions
 from invokeai.app.invocations.compel import ConditioningFieldData, BasicConditioningInfo
 
-from .baseinvocation import BaseInvocation, InputField, Input, InvocationContext, invocation
+from .baseinvocation import (
+    BaseInvocation,
+    InputField,
+    Input,
+    InvocationContext,
+    invocation,
+    OutputField,
+    invocation_output,
+    BaseInvocationOutput
+)
 
 
 @invocation("add", title="Add Integers", tags=["math", "add"], category="math", version="1.0.0")
@@ -295,13 +304,13 @@ class FloatMathInvocation(BaseInvocation):
 
 
 CONDITIONING_OPERATIONS = Literal[
+    "LERP",
+    "APPEND",
     "ADD",
     "SUB",
-    "LERP",
     #"SLERP", #NOT IMPLEMENTED in torch at this time. May be worth writing our own method
     "PERP",
     "PROJ",
-    "APPEND",
 ]
 
 
@@ -319,8 +328,8 @@ CONDITIONING_OPERATIONS_LABELS = {
 @invocation(
     "SD_1.X_Conditioning_Math",
     title="SD 1.X Conditioning Math",
-    tags=["math", "conditioning"],
-    category="conditioning",
+    tags=["math", "conditioning", "prompt", "blend", "interpolate", "append", "perpendicular", "projection"],
+    category="math",
     version="1.0.0",
 )
 class SD1XConditioningMathInvocation(BaseInvocation):
@@ -336,19 +345,19 @@ class SD1XConditioningMathInvocation(BaseInvocation):
         description="Conditioning B",
         input=Input.Connection,
     )
+    empty_conditioning: ConditioningField = InputField(
+        description="Optional: Result of an empty prompt conditioning, used to pad the inputs if they are different sizes. Leave blank to use zeros.",
+        title="[optional] Empty tensor",
+        default = None,
+    )
     alpha: float = InputField(
         default=1,
         description="Alpha value for interpolation",
         ge=0.0
     )
-    normalize: bool = InputField(
-        default=False,
-        description="Normalize conditioning result to be similar to B (might be worthless)",
-    )
 
     @torch.no_grad()
     def invoke(self, context: InvocationContext) -> ConditioningOutput:
-        NORMALIZE_TARGET_MEAN = -0.105
 
         conditioning_B = context.services.latents.get(self.b.conditioning_name)
         cB = conditioning_B.conditionings[0].embeds.detach().clone().to("cpu")
@@ -382,15 +391,6 @@ class SD1XConditioningMathInvocation(BaseInvocation):
         elif self.operation == "APPEND":
             print(f"Conditioning A: {cA.shape}")
             cOut = torch.cat((cA, cB), dim=1)
-        
-        mean_Out, std_Out, var_Out = torch.mean(cOut), torch.std(cOut), torch.var(cOut)
-        print(f"Conditioning Out: Mean: {mean_Out}, Std: {std_Out}, Var: {var_Out}")
-
-        if self.normalize:
-            cOut = ((cOut - mean_Out) / std_Out)*np.sqrt(var_B) + mean_B
-        
-        mean_Out, std_Out, var_Out = torch.mean(cOut), torch.std(cOut), torch.var(cOut)
-        print(f"Conditioning Out: Mean: {mean_Out}, Std: {std_Out}, Var: {var_Out}")
 
         conditioning_data = ConditioningFieldData(
             conditionings=[
@@ -411,3 +411,91 @@ class SD1XConditioningMathInvocation(BaseInvocation):
         )
 
 
+@invocation_output("extended_conditioning_output")
+class ExtendedConditioningOutput(BaseInvocationOutput):
+    """Base class for nodes that output a single conditioning tensor"""
+
+    conditioning: ConditioningField = OutputField(description=FieldDescriptions.cond)
+    mean: float = OutputField(description="Mean of conditioning")
+    variance: float = OutputField(description="Standard deviation of conditioning")
+
+
+NORMALIZE_OPERATIONS = Literal[
+    "INFO",
+    "MEAN",
+    "VAR",
+    "MEAN_VAR",
+]
+
+
+NORMALIZE_OPERATIONS_LABELS = {
+    "INFO": "Get Info (do nothing)",
+    "MEAN": "Normalize Mean",
+    "VAR": "Normalize Variance",
+    "MEAN_VAR": "Normalize Mean and Variance",
+}
+
+
+@invocation(
+    "normalize_conditioning",
+    title="Normalize Conditioning",
+    tags=["math", "conditioning", "normalize"],
+    category="math",
+    version="1.0.0",
+)
+class NormalizeConditioningInvocation(BaseInvocation):
+    """Normalize a conditioning latent to have a mean and variance similar to another conditioning latent"""
+    
+    conditioning: ConditioningField = InputField(
+        description="Conditioning"
+    )
+    operation: NORMALIZE_OPERATIONS = InputField(
+        default="INFO", description="The operation to perform", ui_choice_labels=NORMALIZE_OPERATIONS_LABELS
+    )
+    mean: float = InputField(
+        default=-0.1,
+        description="Mean to normalize to"
+    )
+    var: float = InputField(
+        default=1.0,
+        description="Standard Deviation to normalize to",
+        title="Variance"
+    )
+
+    @torch.no_grad()
+    def invoke(self, context: InvocationContext) -> ExtendedConditioningOutput:
+        conditioning = context.services.latents.get(self.conditioning.conditioning_name)
+        c = conditioning.conditionings[0].embeds.detach().clone().to("cpu")
+
+        mean_c, std_c, var_c = torch.mean(c), torch.std(c), torch.var(c)
+
+        if self.operation == "INFO":
+            pass
+        elif self.operation == "MEAN":
+            c = c * self.mean / mean_c
+        elif self.operation == "VAR":
+            c = ((c - mean_c) * self.var / std_c) + mean_c
+        elif self.operation == "MEAN_VAR":
+            c = ((c - mean_c) * np.sqrt(self.var) / std_c) + self.mean
+        
+        mean_out, std_out, var_out = torch.mean(c), torch.std(c), torch.var(c)
+
+        conditioning_data = ConditioningFieldData(
+            conditionings=[
+                BasicConditioningInfo(
+                    embeds=c,
+                    extra_conditioning=None,
+                )
+            ]
+        )
+
+        conditioning_name = f"{context.graph_execution_state_id}_{self.id}_conditioning"
+        context.services.latents.save(conditioning_name, conditioning_data)
+
+        return ExtendedConditioningOutput(
+            conditioning=ConditioningField(
+                conditioning_name=conditioning_name,
+            ),
+            mean=mean_out,
+            variance=var_out,
+        )
