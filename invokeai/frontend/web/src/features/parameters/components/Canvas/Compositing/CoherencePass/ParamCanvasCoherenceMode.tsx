@@ -19,6 +19,7 @@ const ParamCanvasCoherenceMode = () => {
       { label: t('parameters.unmasked'), value: 'unmasked' },
       { label: t('unifiedCanvas.mask'), value: 'mask' },
       { label: t('parameters.maskEdge'), value: 'edge' },
+      { label: t('parameters.gradient'), value: 'gradient' },
     ],
     [t]
   );

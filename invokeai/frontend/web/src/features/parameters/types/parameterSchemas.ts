@@ -266,6 +266,7 @@ export const zParameterCanvasCoherenceMode = z.enum([
   'unmasked',
   'mask',
   'edge',
+  'gradient',
 ]);
 export type ParameterCanvasCoherenceMode = z.infer<
   typeof zParameterCanvasCoherenceMode

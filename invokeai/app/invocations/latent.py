@@ -124,6 +124,7 @@ class CreateDenoiseMaskInvocation(BaseInvocation):
     vae: VaeField = InputField(description=FieldDescriptions.vae, input=Input.Connection, ui_order=0)
     image: Optional[ImageField] = InputField(default=None, description="Image which will be masked", ui_order=1)
     mask: ImageField = InputField(description="The mask to use when pasting", ui_order=2)
+    gradient: bool = InputField(default=False, description="Use gradient mask", ui_order=3)
     tiled: bool = InputField(default=False, description=FieldDescriptions.tiled, ui_order=3)
     fp32: bool = InputField(
         default=DEFAULT_PRECISION == "float32",
