@@ -2,6 +2,7 @@ import { logger } from 'app/logging/logger';
 import type { RootState } from 'app/store/store';
 import type {
   CreateDenoiseMaskInvocation,
+  DenoiseLatentsInvocation,
   ImageBlurInvocation,
   ImageDTO,
   ImageToLatentsInvocation,
@@ -539,9 +540,13 @@ export const buildCanvasSDXLInpaintGraph = (
       }
     );
   }
+  if (canvasCoherenceMode === 'gradient') {
+    (graph.nodes[INPAINT_CREATE_MASK] as CreateDenoiseMaskInvocation).gradient = true;
+    (graph.nodes[CANVAS_COHERENCE_DENOISE_LATENTS] as DenoiseLatentsInvocation).denoising_start = 1;
+  }
 
   // Handle Coherence Mode
-  if (canvasCoherenceMode !== 'unmasked') {
+  if (canvasCoherenceMode !== 'unmasked' && canvasCoherenceMode !== 'gradient') {
     // Create Mask If Coherence Mode Is Not Full
     graph.nodes[CANVAS_COHERENCE_INPAINT_CREATE_MASK] = {
       type: 'create_denoise_mask',

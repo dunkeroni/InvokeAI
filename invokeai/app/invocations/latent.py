@@ -179,6 +179,7 @@ class CreateDenoiseMaskInvocation(BaseInvocation):
             denoise_mask=DenoiseMaskField(
                 mask_name=mask_name,
                 masked_latents_name=masked_latents_name,
+                is_gradient=self.gradient,
             ),
         )
 
@@ -653,7 +654,8 @@ class DenoiseLatentsInvocation(BaseInvocation):
             return None, None
 
         mask = context.services.latents.get(self.denoise_mask.mask_name)
-        mask = tv_resize(mask, latents.shape[-2:], T.InterpolationMode.BILINEAR, antialias=False)
+        #mask = tv_resize(mask, latents.shape[-2:], T.InterpolationMode.NEAREST, antialias=False)
+        mask = torch.nn.functional.interpolate(mask, latents.shape[-2:], mode="nearest")
         if self.denoise_mask.masked_latents_name is not None:
             masked_latents = context.services.latents.get(self.denoise_mask.masked_latents_name)
         else:
@@ -687,6 +689,7 @@ class DenoiseLatentsInvocation(BaseInvocation):
                 seed = 0
 
             mask, masked_latents = self.prep_inpaint_mask(context, latents)
+            is_gradient = self.denoise_mask.is_gradient if self.denoise_mask is not None else False
 
             # TODO(ryand): I have hard-coded `do_classifier_free_guidance=True` to mirror the behaviour of ControlNets,
             # below. Investigate whether this is appropriate.
@@ -779,6 +782,7 @@ class DenoiseLatentsInvocation(BaseInvocation):
                     seed=seed,
                     mask=mask,
                     masked_latents=masked_latents,
+                    use_gradient_mask=is_gradient,
                     num_inference_steps=num_inference_steps,
                     conditioning_data=conditioning_data,
                     control_data=controlnet_data,

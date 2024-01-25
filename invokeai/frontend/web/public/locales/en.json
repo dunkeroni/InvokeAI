@@ -1163,6 +1163,7 @@
         "maskBlur": "Blur",
         "maskBlurMethod": "Blur Method",
         "maskEdge": "Mask Edge",
+        "gradient": "Gradient",
         "negativePromptPlaceholder": "Negative Prompt",
         "noiseSettings": "Noise",
         "noiseThreshold": "Noise Threshold",

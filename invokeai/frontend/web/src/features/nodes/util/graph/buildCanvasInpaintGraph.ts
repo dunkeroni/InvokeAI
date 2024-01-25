@@ -502,6 +502,7 @@ export const buildCanvasInpaintGraph = (
     graph.nodes[INPAINT_CREATE_MASK] = {
       ...(graph.nodes[INPAINT_CREATE_MASK] as CreateDenoiseMaskInvocation),
       image: canvasInitImage,
+      gradient: canvasCoherenceMode === 'gradient',
     };
 
     graph.edges.push(
@@ -528,9 +529,13 @@ export const buildCanvasInpaintGraph = (
       }
     );
   }
+  if (canvasCoherenceMode === 'gradient') {
+    (graph.nodes[INPAINT_CREATE_MASK] as CreateDenoiseMaskInvocation).gradient = true;
+    (graph.nodes[CANVAS_COHERENCE_DENOISE_LATENTS] as DenoiseLatentsInvocation).denoising_start = 1;
+  }
 
   // Handle Coherence Mode
-  if (canvasCoherenceMode !== 'unmasked') {
+  if (canvasCoherenceMode !== 'unmasked' && canvasCoherenceMode !== 'gradient') {
     // Create Mask If Coherence Mode Is Not Full
     graph.nodes[CANVAS_COHERENCE_INPAINT_CREATE_MASK] = {
       type: 'create_denoise_mask',

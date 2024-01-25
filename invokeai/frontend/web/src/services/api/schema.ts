@@ -2769,6 +2769,8 @@ export type components = {
       image?: components["schemas"]["ImageField"] | null;
       /** @description The mask to use when pasting */
       mask?: components["schemas"]["ImageField"];
+      /** @description whether to use gradient masking */
+      gradient?: boolean;
       /**
        * Tiled
        * @description Processing using overlapping tiles (reduce memory consumption)

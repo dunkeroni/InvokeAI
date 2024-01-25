@@ -633,7 +633,7 @@ export const buildCanvasOutpaintGraph = (
   }
 
   // Handle Coherence Mode
-  if (canvasCoherenceMode !== 'unmasked') {
+  if (canvasCoherenceMode !== 'unmasked' && canvasCoherenceMode !== 'gradient') {
     graph.nodes[CANVAS_COHERENCE_INPAINT_CREATE_MASK] = {
       type: 'create_denoise_mask',
       id: CANVAS_COHERENCE_INPAINT_CREATE_MASK,

@@ -144,7 +144,7 @@ export const addVAEToGraph = (
     );
 
     // Handle Coherence Mode
-    if (canvasCoherenceMode !== 'unmasked') {
+    if (canvasCoherenceMode !== 'unmasked' && canvasCoherenceMode !== 'gradient') {
       graph.edges.push({
         source: {
           node_id: isAutoVae ? modelLoaderNodeId : VAE_LOADER,
