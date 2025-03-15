@@ -152,6 +152,7 @@ class FieldDescriptions:
     sd3_model = "SD3 model (MMDiTX) to load"
     sdxl_main_model = "SDXL Main model (UNet, VAE, CLIP1, CLIP2) to load"
     sdxl_refiner_model = "SDXL Refiner Main Modde (UNet, VAE, CLIP2) to load"
+    sdxl_color_correction = "Apply Color Correction to VAE decode (SDXL Only)"
     onnx_main_model = "ONNX Main model (UNet, VAE, CLIP) to load"
     spandrel_image_to_image_model = "Image-to-Image model"
     vllm_model = "VLLM model"

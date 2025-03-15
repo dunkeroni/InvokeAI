@@ -24,9 +24,37 @@ from invokeai.app.invocations.fields import (
 from invokeai.app.invocations.model import VAEField
 from invokeai.app.invocations.primitives import ImageOutput
 from invokeai.app.services.shared.invocation_context import InvocationContext
+from invokeai.backend.model_manager.config import BaseModelType
 from invokeai.backend.stable_diffusion.extensions.seamless import SeamlessExt
 from invokeai.backend.stable_diffusion.vae_tiling import patch_vae_tiling_params
 from invokeai.backend.util.devices import TorchDevice
+
+
+def color_correction_SDXL(image: torch.Tensor) -> torch.Tensor:
+    """image is an RGB image in [-1, 1] range as output from the vae decoder.
+    We apply correction before quantization to bytes to get smoother and more correct color transitions."""
+
+    # Values are determined experimentally. We may in the future apply more advanced curves or some form of 3D LUT instead.
+    red_low, red_high = 2.3, 1.4
+    green_low, green_high = 2.6, 1.5
+    blue_low, blue_high = 2.3, 3.5
+
+    """
+    Theory: The VAE is supposed to output colors in the range [-1, 1]. However, some artifact of training means it never reaches the extremes.
+    We want to stretch the colors to the extremes so that the darkest values are true black and the brightest values are true white.
+    The low and high offsets are in units of the RGB output values (i.e. the darkest black the VAE ever outputs is around a value of 3)
+    """
+    image[:, 0, :, :] = (
+        (image[:, 0, :, :].float() + (1 - (red_low / 255) * 2)) / (2 - (red_low / 255) * 2 - (red_high / 255) * 2)
+    ).clamp(0, 1)
+    image[:, 1, :, :] = (
+        (image[:, 1, :, :].float() + (1 - (green_low / 255) * 2)) / (2 - (green_low / 255) * 2 - (green_high / 255) * 2)
+    ).clamp(0, 1)
+    image[:, 2, :, :] = (
+        (image[:, 2, :, :].float() + (1 - (blue_low / 255) * 2)) / (2 - (blue_low / 255) * 2 - (blue_high / 255) * 2)
+    ).clamp(0, 1)
+
+    return image
 
 
 @invocation(
@@ -34,7 +62,7 @@ from invokeai.backend.util.devices import TorchDevice
     title="Latents to Image",
     tags=["latents", "image", "vae", "l2i"],
     category="latents",
-    version="1.3.1",
+    version="1.4.1",
 )
 class LatentsToImageInvocation(BaseInvocation, WithMetadata, WithBoard):
     """Generates an image from latents."""
@@ -52,6 +80,7 @@ class LatentsToImageInvocation(BaseInvocation, WithMetadata, WithBoard):
     # offer a way to directly set None values.
     tile_size: int = InputField(default=0, multiple_of=8, description=FieldDescriptions.vae_tile_size)
     fp32: bool = InputField(default=False, description=FieldDescriptions.fp32)
+    color_correction: bool = InputField(default=True, description=FieldDescriptions.sdxl_color_correction)
 
     def _estimate_working_memory(
         self, latents: torch.Tensor, use_tiling: bool, vae: AutoencoderKL | AutoencoderTiny
@@ -149,7 +178,12 @@ class LatentsToImageInvocation(BaseInvocation, WithMetadata, WithBoard):
                 # copied from diffusers pipeline
                 latents = latents / vae.config.scaling_factor
                 image = vae.decode(latents, return_dict=False)[0]
-                image = (image / 2 + 0.5).clamp(0, 1)  # denormalize
+
+                if self.color_correction and self.vae.vae.base == BaseModelType.StableDiffusionXL:
+                    image = color_correction_SDXL(image)
+                else:
+                    image = (image / 2 + 0.5).clamp(0, 1)  # standard denormalize
+
                 # we always cast to float32 as this does not cause significant overhead and is compatible with bfloat16
                 np_image = image.cpu().permute(0, 2, 3, 1).float().numpy()
 
