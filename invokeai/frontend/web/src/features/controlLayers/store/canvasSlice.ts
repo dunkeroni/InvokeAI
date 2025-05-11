@@ -1157,6 +1157,30 @@ export const canvasSlice = createSlice({
         payload: { ...payload, newId: getPrefixedId('regional_guidance') },
       }),
     },
+    inpaintMaskDenoiseLimitAdded: (state, action: PayloadAction<EntityIdentifierPayload<void, 'inpaint_mask'>>) => {
+      const { entityIdentifier } = action.payload;
+      const entity = selectEntity(state, entityIdentifier);
+      if (entity && entity.type === 'inpaint_mask') {
+        entity.denoiseLimit = 0.5; // Default denoise limit
+      }
+    },
+    inpaintMaskDenoiseLimitChanged: (
+      state,
+      action: PayloadAction<EntityIdentifierPayload<{ denoiseLimit: number }, 'inpaint_mask'>>
+    ) => {
+      const { entityIdentifier, denoiseLimit } = action.payload;
+      const entity = selectEntity(state, entityIdentifier);
+      if (entity && entity.type === 'inpaint_mask') {
+        entity.denoiseLimit = denoiseLimit;
+      }
+    },
+    inpaintMaskDenoiseLimitDeleted: (state, action: PayloadAction<EntityIdentifierPayload<void, 'inpaint_mask'>>) => {
+      const { entityIdentifier } = action.payload;
+      const entity = selectEntity(state, entityIdentifier);
+      if (entity && entity.type === 'inpaint_mask') {
+        entity.denoiseLimit = null;
+      }
+    },
     //#region BBox
     bboxScaledWidthChanged: (state, action: PayloadAction<number>) => {
       const gridSize = getGridSize(state.bbox.modelBase);
@@ -1892,6 +1916,9 @@ export const {
   inpaintMaskNoiseAdded,
   inpaintMaskNoiseChanged,
   inpaintMaskNoiseDeleted,
+  inpaintMaskDenoiseLimitAdded,
+  inpaintMaskDenoiseLimitChanged,
+  inpaintMaskDenoiseLimitDeleted,
   // inpaintMaskRecalled,
 } = canvasSlice.actions;
 
