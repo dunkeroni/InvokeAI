@@ -1348,3 +1348,113 @@ class PasteImageIntoBoundingBoxInvocation(BaseInvocation, WithMetadata, WithBoar
 
         image_dto = context.images.save(image=target_image)
         return ImageOutput.build(image_dto)
+
+@invocation(
+    "grabcut_mask",
+    title="Refine Mask with GrabCut",
+    tags=["image", "mask", "grabcut", "refine"],
+    category="image",
+    version="1.0.0",
+)
+class GrabCutMaskInvocation(BaseInvocation, WithMetadata, WithBoard):
+    """
+    Refines a rough mask to better match object boundaries using the GrabCut algorithm.
+    
+    Takes a binary mask (white=foreground, black=background) and the corresponding image,
+    then uses OpenCV's GrabCut algorithm to fit the mask to the actual object edges.
+    """
+
+    image: ImageField = InputField(description="The image containing the object")
+    mask: ImageField = InputField(description="The initial mask (white=foreground)")
+    soften: int = InputField(
+        default=10, 
+        ge=0,
+        description="Margin in pixels to soften the mask boundary for better edge detection"
+    )
+    iterations: int = InputField(
+        default=5,
+        ge=1,
+        le=10,
+        description="Number of GrabCut iterations (more iterations = better quality but slower)"
+    )
+
+    def invoke(self, context: InvocationContext) -> ImageOutput:
+        # Load the input image and mask
+        image = context.images.get_pil(self.image.image_name)
+        mask = context.images.get_pil(self.mask.image_name, mode="L")
+        
+        # Ensure image is in RGB format for GrabCut
+        if image.mode == "RGBA":
+            # Create a white background for transparency
+            bg = Image.new("RGB", image.size, (255, 255, 255))
+            bg.paste(image, mask=image.split()[3])
+            image = bg
+        else:
+            image = image.convert("RGB")
+        
+        # Convert PIL images to numpy arrays for OpenCV
+        np_image = numpy.array(image)
+        np_mask = numpy.array(mask)
+        
+        # Threshold the mask to create a binary mask
+        _, binary_mask = cv2.threshold(np_mask, 127, 255, cv2.THRESH_BINARY)
+        
+        # Prepare GrabCut mask using the input mask as a guide
+        grabcut_mask = numpy.zeros(binary_mask.shape, dtype=numpy.uint8)
+        
+        # Create certainty regions using morphological operations
+        kernel = numpy.ones((self.soften, self.soften), numpy.uint8) if self.soften > 0 else None
+        
+        if kernel is not None:
+            # Definite foreground (eroded mask)
+            fg_mask = cv2.erode(binary_mask, kernel, iterations=1)
+            
+            # Definite background (far outside the mask)
+            bg_mask = cv2.dilate(binary_mask, kernel, iterations=2)
+            bg_mask = cv2.bitwise_not(bg_mask)
+            
+            # Set values in the GrabCut mask
+            grabcut_mask[binary_mask > 0] = cv2.GC_PR_FGD  # Probable foreground
+            grabcut_mask[fg_mask > 0] = cv2.GC_FGD         # Definite foreground
+            grabcut_mask[bg_mask > 0] = cv2.GC_BGD         # Definite background
+            
+            # Everything else is probable background (default 0 = GC_BGD)
+            mask_inside = (binary_mask > 0)
+            mask_outside = (bg_mask > 0)
+            probable_bg = ~(mask_inside | mask_outside)
+            grabcut_mask[probable_bg] = cv2.GC_PR_BGD
+        else:
+            # Simple approach when no softening is applied
+            grabcut_mask[binary_mask == 0] = cv2.GC_BGD
+            grabcut_mask[binary_mask > 0] = cv2.GC_PR_FGD
+        
+        # Initialize background and foreground models
+        bgd_model = numpy.zeros((1, 65), numpy.float64)
+        fgd_model = numpy.zeros((1, 65), numpy.float64)
+        
+        # Run GrabCut algorithm
+        try:
+            cv2.grabCut(
+                np_image, grabcut_mask, None, 
+                bgd_model, fgd_model, 
+                self.iterations, cv2.GC_INIT_WITH_MASK
+            )
+        except cv2.error as e:
+            context.logger.warning(f"GrabCut failed: {e}. Falling back to original mask.")
+            return ImageOutput.build(
+                context.images.save(image=mask, image_category=ImageCategory.MASK)
+            )
+            
+        # Create output mask where probable and definite foreground are white
+        result_mask = numpy.where(
+            (grabcut_mask == cv2.GC_FGD) | (grabcut_mask == cv2.GC_PR_FGD), 
+            255, 0
+        ).astype(numpy.uint8)
+        
+        # Convert back to PIL image
+        refined_mask = Image.fromarray(result_mask)
+        
+        # Save and return the new mask
+        image_dto = context.images.save(image=refined_mask, image_category=ImageCategory.MASK)
+        
+        return ImageOutput.build(image_dto)
