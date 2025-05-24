@@ -1,3 +1,4 @@
+import { CanvasBooleanCutoutModule } from 'features/controlLayers/konva/CanvasBooleanCutoutModule';
 import { CanvasEntityAdapterBase } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterBase';
 import { CanvasEntityBufferObjectRenderer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityBufferObjectRenderer';
 import { CanvasEntityObjectRenderer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityObjectRenderer';
@@ -15,6 +16,7 @@ export class CanvasEntityAdapterInpaintMask extends CanvasEntityAdapterBase<
   renderer: CanvasEntityObjectRenderer;
   bufferRenderer: CanvasEntityBufferObjectRenderer;
   transformer: CanvasEntityTransformer;
+  booleanCutout: CanvasBooleanCutoutModule; // Added
   filterer = undefined;
   segmentAnything = undefined;
 
@@ -24,6 +26,7 @@ export class CanvasEntityAdapterInpaintMask extends CanvasEntityAdapterBase<
     this.renderer = new CanvasEntityObjectRenderer(this);
     this.bufferRenderer = new CanvasEntityBufferObjectRenderer(this);
     this.transformer = new CanvasEntityTransformer(this);
+    this.booleanCutout = new CanvasBooleanCutoutModule(this); // Instantiated
 
     this.subscriptions.add(this.manager.stateApi.createStoreSubscription(this.selectState, this.sync));
   }
@@ -80,5 +83,20 @@ export class CanvasEntityAdapterInpaintMask extends CanvasEntityAdapterBase<
     const attrs: GroupConfig = { opacity: 1, filters: [] };
     const canvas = this.renderer.getCanvas({ rect, attrs });
     return canvas;
+  };
+
+  repr = () => {
+    return {
+      ...super.repr(),
+      renderer: this.renderer.repr(),
+      bufferRenderer: this.bufferRenderer.repr(),
+      transformer: this.transformer.repr(),
+      booleanCutout: this.booleanCutout.repr(), // Added
+    };
+  };
+
+  destroy = () => {
+    super.destroy();
+    this.booleanCutout.destroy(); // Added
   };
 }
