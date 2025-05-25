@@ -96,7 +96,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
 
     if (visibleRasterLayers.length === 0) {
       this.log.warn('No visible raster layers to composite');
-      toast({ status: 'warning', title: 'No visible raster layers for operation.' });
+      toast({ status: 'warning', title: t('controlLayers.booleanCutout.noVisibleLayers', 'No visible raster layers for operation.') });
       return null;
     }
 
@@ -106,7 +106,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
         { error: serializeError(canvasImageDTOResult.error) },
         'Failed to get canvas image DTO for composite'
       );
-      toast({ status: 'error', title: 'Failed to create composite image.' });
+      toast({ status: 'error', title: t('controlLayers.booleanCutout.compositeFailed', 'Failed to create composite image.') });
       return null;
     }
     return imageDTOToImageObject(canvasImageDTOResult.value);
@@ -117,7 +117,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     const maskLayer = this.parent;
     if (maskLayer.state.objects.length === 0 || maskLayer.state.objects[0]?.type !== 'image_object') {
       this.log.warn('InpaintMask layer has no image object or is not an image object.');
-      toast({ status: 'warning', title: 'InpaintMask layer has no image.' });
+      toast({ status: 'warning', title: t('controlLayers.booleanCutout.noInpaintMaskImage', 'InpaintMask layer has no image.') });
       return null;
     }
     return maskLayer.state.objects[0] as ImageObject;
@@ -129,7 +129,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
         { channels: mat.channels(), isEmpty: mat.empty() },
         'Invalid Mat for matToImageDTO: must be RGBA and not empty.'
       );
-      toast({ title: 'Image Conversion Error', description: 'Cannot process empty or non-RGBA image.', status: 'error' });
+      toast({ title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'), description: t('controlLayers.booleanCutout.matConversionErrorDetail', 'Cannot process empty or non-RGBA image.'), status: 'error' });
       return null;
     }
 
@@ -139,7 +139,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       this.log.error('Failed to get 2D context from canvas for matToImageDTO.');
-      toast({ title: 'Image Conversion Error', description: 'Cannot access canvas context.', status: 'error' });
+      toast({ title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'), description: t('controlLayers.booleanCutout.canvasContextErrorDetail', 'Cannot access canvas context.'), status: 'error' });
       return null;
     }
 
@@ -148,7 +148,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
 
     if (!this.manager.stateApi.createImageDTOFromCanvas) {
       this.log.error('stateApi.createImageDTOFromCanvas is not available for Mat to ImageDTO conversion.');
-      toast({ title: 'Image Conversion Error', description: 'Cannot process image result.', status: 'error' });
+      toast({ title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'), description: t('controlLayers.booleanCutout.cannotProcessResult', 'Cannot process image result.'), status: 'error' });
       return null;
     }
     try {
@@ -158,7 +158,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
       return await this.manager.stateApi.createImageDTOFromCanvas(canvas, newName, boardId);
     } catch (error) {
       this.log.error({ error: serializeError(error) }, 'Failed during createImageDTOFromCanvas');
-      toast({ title: 'Image Conversion Error', description: 'Failed to save processed image.', status: 'error' });
+      toast({ title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'), description: t('controlLayers.booleanCutout.failedToSaveProcessed', 'Failed to save processed image.'), status: 'error' });
       return null;
     }
   }
@@ -167,9 +167,13 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
    * @param operationType The type of operation: "erase", "extract", "extract (fit)", "erase (fit)".
    */
   async performOperation(operationType: 'erase' | 'extract' | 'extract (fit)' | 'erase (fit)') {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this; // For t function if we decide to pass it or use it globally
+    const { t } = { t: (key: string, fallback: string) => fallback }; // Minimal t for now, replace with actual i18n instance if available directly
+
     if (this.$isProcessing.get()) {
       this.log.warn('Already processing');
-      toast({ status: 'warning', title: 'Operation already in progress.' });
+      toast({ status: 'warning', title: t('controlLayers.booleanCutout.opInProgress', 'Operation already in progress.') });
       return;
     }
     this.$isProcessing.set(true);
@@ -211,7 +215,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
       if (operationType === 'erase (fit)' || operationType === 'extract (fit)') {
         if (typeof cv === 'undefined' || typeof cv.imread !== 'function' || typeof cv.Mat === 'undefined') {
           this.log.error('OpenCV is not loaded, cv.imread, or cv.Mat is not available.');
-          toast({ status: 'error', title: 'OpenCV Error', description: 'OpenCV library failed to load or is invalid.' });
+          toast({ status: 'error', title: t('controlLayers.booleanCutout.opencvErrorTitle', 'OpenCV Error'), description: t('controlLayers.booleanCutout.opencvLoadError', 'OpenCV library failed to load or is invalid.') });
           this.$isProcessing.set(false);
           return;
         }
@@ -323,11 +327,11 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
               nodes: {
                 boolean_op_node: {
                   id: 'boolean_op_node',
-                  type: 'boolean_op',
+                  type: 'boolean_op', // This node type is hypothetical
                   image_a: { image_name: compositeRasterImageObject.image.image_name },
                   image_b: { image_name: maskImageObject.image.image_name },
-                  operation: operationType,
-                  bbox: operationBbox,
+                  operation: operationType, 
+                  bbox: operationBbox, 
                 },
               },
               edges: [],
@@ -338,7 +342,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
 
         if (kompositeResult.isErr()) {
           this.log.error({ error: serializeError(kompositeResult.error), operationType }, 'Kompositor boolean operation failed');
-          toast({ status: 'error', title: `Boolean operation (${operationType}) failed.` });
+          toast({ status: 'error', title: t('controlLayers.booleanCutout.kompositorOpFailed', `Boolean operation (${operationType}) failed.`) });
           this.$isProcessing.set(false);
           return;
         }
@@ -354,12 +358,12 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
           position: { x: operationBbox.x, y: operationBbox.y },
           isSelected: true,
         });
-        toast({ status: 'success', title: `"${operationType}" operation complete.` });
+        toast({ status: 'success', title: t('controlLayers.booleanCutout.opComplete', `"${operationType}" operation complete.`) });
       }
     } catch (error) {
       this.$lastResultImageObject.set(null);
       this.log.error({ error: serializeError(error), operationType }, 'Error during boolean operation');
-      toast({ status: 'error', title: 'An unexpected error occurred during operation.' });
+      toast({ status: 'error', title: t('controlLayers.booleanCutout.unexpectedError', 'An unexpected error occurred during operation.') });
     } finally {
       // Ensure all OpenCV Mats are deleted
       srcMat?.delete();
@@ -408,10 +412,11 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
    * Saves the last operation's result as a new InpaintMask layer.
    */
   saveAsInpaintMask = () => {
+    const { t } = { t: (key: string, fallback: string) => fallback }; // Minimal t for now
     const imageToSave = this.$lastResultImageObject.get();
     if (!imageToSave) {
       this.log.warn('No last result image to save as InpaintMask');
-      toast({ status: 'warning', title: 'No result to save.' });
+      toast({ status: 'warning', title: t('controlLayers.booleanCutout.noResultToSave', 'No result to save.') });
       return;
     }
 
@@ -428,15 +433,15 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     try {
       this.manager.stateApi.addInpaintMask({
         imageObject: imageToSave,
-        position: { x: parentBbox.x, y: parentBbox.y }, // Or a more specific bbox if available
+        position: { x: parentBbox.x, y: parentBbox.y }, 
         isSelected: true,
       });
-      toast({ status: 'success', title: 'Result saved as InpaintMask.' });
+      toast({ status: 'success', title: t('controlLayers.booleanCutout.saveAsInpaintMaskSuccess', 'Result saved as InpaintMask.') });
       // Optionally, clear the last result after saving to prevent re-saving the same data
       // this.$lastResultImageObject.set(null);
     } catch (error) {
       this.log.error({ error: serializeError(error) }, 'Failed to save as InpaintMask');
-      toast({ status: 'error', title: 'Failed to save as InpaintMask.' });
+      toast({ status: 'error', title: t('controlLayers.booleanCutout.saveAsInpaintMaskFailed', 'Failed to save as InpaintMask.') });
     }
   };
 

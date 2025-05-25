@@ -14,14 +14,30 @@ import { withResultAsync } from 'common/util/result';
 const mockMatDeleteSpies: jest.Mock[] = [];
 const mockMatVectorDeleteSpies: jest.Mock[] = [];
 
-const createMockMat = (rows = 100, cols = 100, channels = 4, type = global.cv?.CV_8UC4 || 24) => {
+// Define a type for our mock Mat instance for better type safety in tests
+type MockCvMat = {
+  rows: number;
+  cols: number;
+  channels: jest.Mock<number, []>;
+  type: jest.Mock<number, []>;
+  data: Uint8Array;
+  delete: jest.Mock<void, []>;
+  empty: jest.Mock<boolean, []>;
+  clone: jest.Mock<MockCvMat, []>;
+  copyTo: jest.Mock<void, [MockCvMat]>;
+  setTo: jest.Mock<void, [unknown]>; // `unknown` as Scalar can be an array or object
+  ucharPtr: jest.Mock<Uint8Array, [number, number]>;
+  release: jest.Mock<void, []>;
+};
+
+const createMockMat = (rows = 100, cols = 100, channels = 4, type = global.cv?.CV_8UC4 || 24): MockCvMat => {
   const deleteSpy = jest.fn();
   mockMatDeleteSpies.push(deleteSpy);
   const dataArray = new Uint8Array(rows * cols * channels);
-  // Fill with some default value, e.g., 128
-  dataArray.fill(128);
+  dataArray.fill(128); // Default pixel value
 
-  return {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mocking a complex external library structure
+  const mockMat: MockCvMat = {
     rows,
     cols,
     channels: jest.fn().mockReturnValue(channels),
@@ -29,31 +45,36 @@ const createMockMat = (rows = 100, cols = 100, channels = 4, type = global.cv?.C
     data: dataArray,
     delete: deleteSpy,
     empty: jest.fn().mockReturnValue(false),
-    clone: jest.fn(function(this: any) { return createMockMat(this.rows, this.cols, this.channels()); }),
+    clone: jest.fn(function(this: MockCvMat) { // Use `this` with explicit type
+      return createMockMat(this.rows, this.cols, this.channels());
+    }),
     copyTo: jest.fn(),
     setTo: jest.fn(),
-    ucharPtr: jest.fn((r: number, c: number) => { // More flexible ucharPtr
+    ucharPtr: jest.fn((r: number, c: number) => {
         const baseIndex = (r * cols + c) * channels;
         return dataArray.subarray(baseIndex, baseIndex + channels);
     }),
     release: jest.fn(), // Alias for delete sometimes
   };
+  return mockMat;
 };
 
 const createMockMatVector = () => {
   const deleteSpy = jest.fn();
   mockMatVectorDeleteSpies.push(deleteSpy);
-  const mats: any[] = [];
+  const mats: MockCvMat[] = [];
   return {
     delete: deleteSpy,
-    push_back: jest.fn((mat) => mats.push(mat)),
-    get: jest.fn((index) => mats[index] || createMockMat()),
-    set: jest.fn((index, mat) => { mats[index] = mat; }),
+    push_back: jest.fn((mat: MockCvMat) => mats.push(mat)),
+    get: jest.fn((index: number) => mats[index] || createMockMat()),
+    set: jest.fn((index: number, mat: MockCvMat) => { mats[index] = mat; }),
     size: jest.fn(() => mats.length),
   };
 };
 
-
+// global.cv is a mock for the opencv-ts library.
+// It's cast to `any` because providing a full type definition for a complex external library
+// within a test file is impractical. The focus is on mocking specific functions and properties.
 global.cv = {
   imread: jest.fn(() => createMockMat()),
   Mat: jest.fn(() => createMockMat()),
@@ -66,11 +87,11 @@ global.cv = {
   Size: jest.fn((w, h) => ({ width: w, height: h })),
   Point: jest.fn((x, y) => ({ x, y })),
   Scalar: jest.fn((v0, v1, v2, v3) => [v0, v1, v2, v3]),
-  getStructuringElement: jest.fn(() => createMockMat(3,3,1)), // Default kernel
+  getStructuringElement: jest.fn(() => createMockMat(3,3,1)),
   erode: jest.fn(),
   dilate: jest.fn(),
   grabCut: jest.fn(),
-  split: jest.fn((srcMat, destVec) => { // Mock split to populate destVec
+  split: jest.fn((srcMat, destVec) => {
     const channels = srcMat.channels();
     for(let i = 0; i < channels; ++i) {
       destVec.push_back(createMockMat(srcMat.rows, srcMat.cols, 1));
@@ -81,10 +102,10 @@ global.cv = {
   cvtColor: jest.fn(),
   imshow: jest.fn(),
   Rect: jest.fn((x,y,w,h) => ({x,y,width:w,height:h})),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;
 // #endregion OpenCV Mock
 
-// Mock other dependencies
 jest.mock('features/controlLayers/konva/CanvasModuleBase', () => ({ CanvasModuleBase: class {} }));
 jest.mock('features/controlLayers/store/util', () => ({
   imageDTOToImageObject: jest.fn((dto) => ({
@@ -118,14 +139,14 @@ describe('CanvasBooleanCutoutModule', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockMatDeleteSpies.length = 0; // Clear spies list
+    mockMatDeleteSpies.length = 0;
     mockMatVectorDeleteSpies.length = 0;
 
     mockCanvasManager = {
       stateApi: {
         addRasterLayer: jest.fn(), addInpaintMask: jest.fn(),
         getEntities: jest.fn().mockReturnValue([]), getIsHidden: jest.fn().mockReturnValue(false),
-        createImageDTOFromCanvas: jest.fn().mockImplementation((canvas, namePrefix) =>
+        createImageDTOFromCanvas: jest.fn().mockImplementation((_canvas, namePrefix) =>
           Promise.resolve(mockImageDTO(`${namePrefix}_result`))
         ),
       },
@@ -146,15 +167,18 @@ describe('CanvasBooleanCutoutModule', () => {
 
     module = new CanvasBooleanCutoutModule(mockParentAdapter);
 
+    // Spy on private/protected methods for testing purposes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jest.spyOn(module as any, 'getInpaintMaskImage').mockResolvedValue(mockParentAdapter.state.objects[0] as ImageObject);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jest.spyOn(module as any, 'getCompositeRasterImage').mockResolvedValue(imageDTOToImageObject(mockImageDTO('composite_raster')));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jest.spyOn(module as any, 'loadImageElement').mockImplementation(async (url: string) => {
       const mockImg = { src: url, width: 100, height: 100, decode: jest.fn().mockResolvedValue(undefined), onload: () => {}, onerror: () => {} } as unknown as HTMLImageElement;
       setTimeout(() => mockImg.onload(), 0); return mockImg;
     });
-    // Mock matToImageDTO to simplify testing the main performOperation logic
-    jest.spyOn(module as any, 'matToImageDTO').mockImplementation((mat, nameBase) => Promise.resolve(mockImageDTO(`${nameBase}_processed_dto`)));
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    jest.spyOn(module as any, 'matToImageDTO').mockImplementation((_mat, nameBase) => Promise.resolve(mockImageDTO(`${nameBase}_processed_dto`)));
   });
 
   afterEach(() => {
@@ -163,11 +187,9 @@ describe('CanvasBooleanCutoutModule', () => {
   });
 
   describe('performOperation', () => {
-    // Non-fit tests remain the same
     const nonFitTestCases: Array<'erase' | 'extract'> = ['erase', 'extract'];
     nonFitTestCases.forEach((opType) => {
       test(`${opType} operation (Kompositor) success`, async () => {
-        // ... (existing non-fit tests are fine)
         const mockResultDTO = mockImageDTO('result_image_kompositor');
         (kompositor.runGraphAndReturnImageOutput as jest.Mock).mockResolvedValue(mockResultDTO);
         await module.performOperation(opType);
@@ -176,6 +198,7 @@ describe('CanvasBooleanCutoutModule', () => {
           expect.objectContaining({ imageObject: imageDTOToImageObject(mockResultDTO) })
         );
         expect(module.$lastResultImageObject.get()).toEqual(imageDTOToImageObject(mockResultDTO));
+        // eslint-disable-next-line i18next/no-literal-string
         expect(toast).toHaveBeenCalledWith({ status: 'success', title: `"${opType}" operation complete.` });
       });
     });
@@ -185,13 +208,8 @@ describe('CanvasBooleanCutoutModule', () => {
       describe(`${opType} operation (OpenCV)`, () => {
         test('success path', async () => {
           module.setRange(50); module.setIterations(5);
-
-          // Configure ucharPtr for grabCutCvMask to simulate grabCut output
-          const mockGrabCutResultMat = createMockMat();
-          (global.cv.grabCut as jest.Mock).mockImplementation((src, mask, rect, bgd, fgd, iter, mode) => {
-            // Simulate grabCut modifying the mask
+          (global.cv.grabCut as jest.Mock).mockImplementation((_src, mask, _rect, _bgd, _fgd, _iter, _mode) => {
             for(let i=0; i < mask.rows * mask.cols; ++i) {
-                // Example: make some foreground, some background
                 mask.data[i] = (i % 2 === 0) ? global.cv.GC_FGD : global.cv.GC_BGD;
             }
           });
@@ -210,21 +228,25 @@ describe('CanvasBooleanCutoutModule', () => {
           );
           expect(global.cv.split).toHaveBeenCalled();
           expect(global.cv.merge).toHaveBeenCalled();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           expect((module as any).matToImageDTO).toHaveBeenCalled();
           expect(mockCanvasManager.stateApi.addRasterLayer).toHaveBeenCalled();
           expect(module.$lastResultImageObject.get()).not.toBeNull();
+          // eslint-disable-next-line i18next/no-literal-string
           expect(toast).toHaveBeenCalledWith({ status: 'success', title: `"${opType}" operation complete.` });
         });
         
         test('OpenCV not loaded error', async () => {
           const originalCvImread = global.cv.imread;
-          global.cv.imread = undefined as any; // Simulate OpenCV not loaded properly
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          global.cv.imread = undefined as any; 
           
           await module.performOperation(opType);
           
+          // eslint-disable-next-line i18next/no-literal-string
           expect(toast).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', title: 'OpenCV Error' }));
           expect(mockCanvasManager.stateApi.addRasterLayer).not.toHaveBeenCalled();
-          global.cv.imread = originalCvImread; // Restore
+          global.cv.imread = originalCvImread;
         });
 
         test('cv.imread returns empty Mat for source', async () => {
@@ -234,25 +256,29 @@ describe('CanvasBooleanCutoutModule', () => {
             return mat;
           });
           await module.performOperation(opType);
+          // eslint-disable-next-line i18next/no-literal-string
           expect(toast).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', title: 'An unexpected error occurred during operation.' }));
           expect(module.log.error).toHaveBeenCalledWith(expect.objectContaining({ message: 'OpenCV: Failed to load source image.' }), expect.stringContaining("Error during boolean operation"));
         });
+
          test('cv.imread returns empty Mat for mask', async () => {
           (global.cv.imread as jest.Mock)
-            .mockImplementationOnce(() => createMockMat()) // Source image success
-            .mockImplementationOnce(() => { // Mask image fails
+            .mockImplementationOnce(() => createMockMat()) 
+            .mockImplementationOnce(() => { 
                 const mat = createMockMat();
                 (mat.empty as jest.Mock).mockReturnValue(true);
                 return mat;
             });
           await module.performOperation(opType);
+          // eslint-disable-next-line i18next/no-literal-string
           expect(toast).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', title: 'An unexpected error occurred during operation.' }));
            expect(module.log.error).toHaveBeenCalledWith(expect.objectContaining({ message: 'OpenCV: Failed to load mask image.' }), expect.stringContaining("Error during boolean operation"));
         });
-
       });
     });
+
      test('fails if getInpaintMaskImage returns null (fit op)', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (module as any).getInpaintMaskImage.mockResolvedValue(null);
       await module.performOperation('extract (fit)');
       expect(module.log.error).toHaveBeenCalledWith('Failed to get InpaintMask image object.');
@@ -260,6 +286,7 @@ describe('CanvasBooleanCutoutModule', () => {
     });
 
     test('fails if getCompositeRasterImage returns null (fit op)', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (module as any).getCompositeRasterImage.mockResolvedValue(null);
       await module.performOperation('extract (fit)');
       expect(module.log.error).toHaveBeenCalledWith('Failed to get composite raster image object.');
@@ -267,7 +294,6 @@ describe('CanvasBooleanCutoutModule', () => {
     });
   });
 
-  // ... (other test suites like saveAsInpaintMask, setRange, reset remain the same)
   describe('saveAsInpaintMask', () => {
     test('saves last result if available', () => {
       const mockResultImageObj = imageDTOToImageObject(mockImageDTO('last_op_result'));
@@ -276,12 +302,15 @@ describe('CanvasBooleanCutoutModule', () => {
       expect(mockCanvasManager.stateApi.addInpaintMask).toHaveBeenCalledWith(
         expect.objectContaining({ imageObject: mockResultImageObj, position: { x: 10, y: 10 }, isSelected: true, })
       );
+      // eslint-disable-next-line i18next/no-literal-string
       expect(toast).toHaveBeenCalledWith({ status: 'success', title: 'Result saved as InpaintMask.' });
     });
+
      test('does nothing and warns if no last result', () => {
       module.$lastResultImageObject.set(null);
       module.saveAsInpaintMask();
       expect(mockCanvasManager.stateApi.addInpaintMask).not.toHaveBeenCalled();
+      // eslint-disable-next-line i18next/no-literal-string
       expect(toast).toHaveBeenCalledWith({ status: 'warning', title: 'No result to save.' });
     });
   });

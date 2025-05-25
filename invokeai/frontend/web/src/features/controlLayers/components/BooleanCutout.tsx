@@ -19,13 +19,18 @@ const BooleanCutoutContent = memo(
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const hasLastResult = useStore(booleanCutoutModule.$hasLastResult);
 
-    const handleOptionClick = useCallback(
+    const baseHandleOptionClick = useCallback(
       (option: 'erase' | 'extract' | 'extract (fit)' | 'erase (fit)') => {
         setSelectedOption(option);
         booleanCutoutModule.performOperation(option);
       },
       [booleanCutoutModule]
     );
+
+    const handleEraseClick = useCallback(() => baseHandleOptionClick('erase'), [baseHandleOptionClick]);
+    const handleExtractClick = useCallback(() => baseHandleOptionClick('extract'), [baseHandleOptionClick]);
+    const handleExtractFitClick = useCallback(() => baseHandleOptionClick('extract (fit)'), [baseHandleOptionClick]);
+    const handleEraseFitClick = useCallback(() => baseHandleOptionClick('erase (fit)'), [baseHandleOptionClick]);
 
     const handleSaveAsInpaintMask = useCallback(() => {
       booleanCutoutModule.saveAsInpaintMask();
@@ -75,16 +80,10 @@ const BooleanCutoutContent = memo(
               : t('controlLayers.booleanCutout.selectAction', 'Select Action')}
           </MenuButton>
           <MenuList>
-            <MenuItem onClick={() => handleOptionClick('erase')}>{t('controlLayers.booleanCutout.erase', 'Erase')}</MenuItem>
-            <MenuItem onClick={() => handleOptionClick('extract')}>
-              {t('controlLayers.booleanCutout.extract', 'Extract')}
-            </MenuItem>
-            <MenuItem onClick={() => handleOptionClick('extract (fit)')}>
-              {t('controlLayers.booleanCutout.extractFit', 'Extract (Fit)')}
-            </MenuItem>
-            <MenuItem onClick={() => handleOptionClick('erase (fit)')}>
-              {t('controlLayers.booleanCutout.eraseFit', 'Erase (Fit)')}
-            </MenuItem>
+            <MenuItem onClick={handleEraseClick}>{t('controlLayers.booleanCutout.erase', 'Erase')}</MenuItem>
+            <MenuItem onClick={handleExtractClick}>{t('controlLayers.booleanCutout.extract', 'Extract')}</MenuItem>
+            <MenuItem onClick={handleExtractFitClick}>{t('controlLayers.booleanCutout.extractFit', 'Extract (Fit)')}</MenuItem>
+            <MenuItem onClick={handleEraseFitClick}>{t('controlLayers.booleanCutout.eraseFit', 'Erase (Fit)')}</MenuItem>
             <MenuItem icon={<PiFloppyDiskBold />} isDisabled={!hasLastResult} onClick={handleSaveAsInpaintMask}>
               {t('controlLayers.booleanCutout.saveAsInpaintMask', 'Save As Inpaint Mask')}
             </MenuItem>
