@@ -23,10 +23,12 @@ jest.mock('@invoke-ai/ui-library', () => ({
   MenuList: jest.fn(({ children }) => <div data-testid="mock-menulist">{children}</div>),
   MenuItem: jest.fn(({ children, onClick, isDisabled, icon }) => (
     <button data-testid="mock-menuitem" onClick={onClick} disabled={isDisabled}>
+      {/* eslint-disable-next-line i18next/no-literal-string -- Test-specific mock content */}
       {icon && <span data-testid="mock-menuitem-icon">icon</span>}
       {children}
     </button>
   )),
+  // eslint-disable-next-line react/jsx-no-bind -- This is a Jest mock definition, not a component in rendering tree
   Slider: jest.fn(({ onChange, value, min, max }) => (
     <input
       type="range"

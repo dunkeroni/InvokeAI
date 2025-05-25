@@ -5,14 +5,13 @@ import type { CanvasBooleanCutoutModule } from 'features/controlLayers/konva/Can
 import type { CanvasEntityAdapterInpaintMaskLayer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterInpaintMaskLayer';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PiCaretDownBold, PiFloppyDiskBold } from 'react-icons/pi';
+import { PiCaretDownBold, PiFloppyDiskBold, PiShapesFill } from 'react-icons/pi';
 
 const BooleanCutoutContent = memo(
   ({
-    adapter,
     booleanCutoutModule,
   }: {
-    adapter: CanvasEntityAdapterInpaintMaskLayer; // Adapter might still be useful for context
+    // adapter: CanvasEntityAdapterInpaintMaskLayer; // Prop removed as it was unused
     booleanCutoutModule: CanvasBooleanCutoutModule;
   }) => {
     const { t } = useTranslation();
@@ -74,7 +73,7 @@ const BooleanCutoutContent = memo(
         </Heading>
 
         <Menu>
-          <MenuButton as={Button} w="full" rightIcon={<PiCaretDownBold />}>
+          <MenuButton as={Button} w="full" leftIcon={<PiShapesFill />} rightIcon={<PiCaretDownBold />}>
             {selectedOption
               ? t(`controlLayers.booleanCutout.${selectedOption}`, selectedOption)
               : t('controlLayers.booleanCutout.selectAction', 'Select Action')}
@@ -137,7 +136,7 @@ export const BooleanCutout = memo(() => {
 
   return (
     <BooleanCutoutContent
-      adapter={selectedLayerAdapter as CanvasEntityAdapterInpaintMaskLayer}
+      // adapter={selectedLayerAdapter as CanvasEntityAdapterInpaintMaskLayer} // Prop removed
       booleanCutoutModule={booleanCutoutModule}
     />
   );

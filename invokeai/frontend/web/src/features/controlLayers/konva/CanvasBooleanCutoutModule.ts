@@ -78,17 +78,17 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     this.log.trace({ iterations }, 'Set iterations');
   };
 
-  private async loadImageElement(url: string): Promise<HTMLImageElement> {
+  private loadImageElement(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = 'Anonymous'; // Important for canvas operations if image is from a different origin
+      img.crossOrigin = 'Anonymous';
       img.onload = () => resolve(img);
       img.onerror = (err) => reject(err);
       img.src = url;
     });
   }
 
-  private async getCompositeRasterImage(): Promise<ImageObject | null> {
+  private async getCompositeRasterImage(): Promise<ImageObject | null> { // This one uses await, so it's fine.
     this.log.debug('Getting composite raster image');
     const visibleRasterLayers = this.manager.stateApi
       .getEntities<CanvasEntityAdapterRasterLayer>('raster_layer')
@@ -112,8 +112,9 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     return imageDTOToImageObject(canvasImageDTOResult.value);
   }
 
-  private async getInpaintMaskImage(): Promise<ImageObject | null> {
+  private getInpaintMaskImage(): ImageObject | null { // Removed async, returns directly or via toast
     this.log.debug('Getting InpaintMask layer image');
+    const { t } = { t: (key: string, fallback: string) => fallback }; // Minimal t for now
     const maskLayer = this.parent;
     if (maskLayer.state.objects.length === 0 || maskLayer.state.objects[0]?.type !== 'image_object') {
       this.log.warn('InpaintMask layer has no image object or is not an image object.');
@@ -167,9 +168,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
    * @param operationType The type of operation: "erase", "extract", "extract (fit)", "erase (fit)".
    */
   async performOperation(operationType: 'erase' | 'extract' | 'extract (fit)' | 'erase (fit)') {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this; // For t function if we decide to pass it or use it globally
-    const { t } = { t: (key: string, fallback: string) => fallback }; // Minimal t for now, replace with actual i18n instance if available directly
+    const { t } = { t: (key: string, fallback: string) => fallback }; // Minimal t for now
 
     if (this.$isProcessing.get()) {
       this.log.warn('Already processing');
@@ -180,7 +179,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     this.$lastResultImageObject.set(null);
     this.log.info({ operationType }, 'Performing boolean operation');
 
-    const maskImageObject = await this.getInpaintMaskImage();
+    const maskImageObject = this.getInpaintMaskImage(); // Removed await
     if (!maskImageObject) {
       this.$isProcessing.set(false);
       this.log.error('Failed to get InpaintMask image object.');
