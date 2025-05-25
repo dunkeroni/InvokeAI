@@ -1,5 +1,5 @@
 import { withResultAsync } from 'common/util/result';
-import type { CanvasEntityAdapterInpaintMaskLayer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterInpaintMaskLayer';
+import type { CanvasEntityAdapterInpaintMask } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterInpaintMask';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
@@ -22,7 +22,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
   readonly type = 'canvas_boolean_cutout';
   readonly id: string;
   readonly path: string[];
-  readonly parent: CanvasEntityAdapterInpaintMaskLayer;
+  readonly parent: CanvasEntityAdapterInpaintMask;
   readonly manager: CanvasManager;
   readonly log: Logger;
 
@@ -41,7 +41,7 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
   };
   KONVA_GROUP_NAME = `${this.type}:group`;
 
-  constructor(parent: CanvasEntityAdapterInpaintMaskLayer) {
+  constructor(parent: CanvasEntityAdapterInpaintMask) {
     super();
     this.id = getPrefixedId(this.type);
     this.parent = parent;
