@@ -2,7 +2,6 @@ import { Button, Flex, Heading, Menu, MenuButton, MenuItem, MenuList, Slider, Te
 import { useStore } from '@nanostores/react';
 import { useCanvasManager } from 'features/controlLayers/contexts/CanvasManagerProviderGate';
 import type { CanvasBooleanCutoutModule } from 'features/controlLayers/konva/CanvasBooleanCutoutModule';
-import type { CanvasEntityAdapterInpaintMaskLayer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterInpaintMaskLayer';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PiCaretDownBold, PiFloppyDiskBold, PiShapesFill } from 'react-icons/pi';
@@ -81,8 +80,12 @@ const BooleanCutoutContent = memo(
           <MenuList>
             <MenuItem onClick={handleEraseClick}>{t('controlLayers.booleanCutout.erase', 'Erase')}</MenuItem>
             <MenuItem onClick={handleExtractClick}>{t('controlLayers.booleanCutout.extract', 'Extract')}</MenuItem>
-            <MenuItem onClick={handleExtractFitClick}>{t('controlLayers.booleanCutout.extractFit', 'Extract (Fit)')}</MenuItem>
-            <MenuItem onClick={handleEraseFitClick}>{t('controlLayers.booleanCutout.eraseFit', 'Erase (Fit)')}</MenuItem>
+            <MenuItem onClick={handleExtractFitClick}>
+              {t('controlLayers.booleanCutout.extractFit', 'Extract (Fit)')}
+            </MenuItem>
+            <MenuItem onClick={handleEraseFitClick}>
+              {t('controlLayers.booleanCutout.eraseFit', 'Erase (Fit)')}
+            </MenuItem>
             <MenuItem icon={<PiFloppyDiskBold />} isDisabled={!hasLastResult} onClick={handleSaveAsInpaintMask}>
               {t('controlLayers.booleanCutout.saveAsInpaintMask', 'Save As Inpaint Mask')}
             </MenuItem>

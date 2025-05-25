@@ -1,18 +1,18 @@
+import { withResultAsync } from 'common/util/result';
+import type { CanvasEntityAdapterInpaintMaskLayer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterInpaintMaskLayer';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
-import type { CanvasEntityAdapterInpaintMaskLayer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterInpaintMaskLayer';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
-import type { Logger } from 'roarr';
-import { atom, computed } from 'nanostores';
-import Konva from 'konva';
 import type { ImageObject } from 'features/controlLayers/store/types';
 import { imageDTOToImageObject } from 'features/controlLayers/store/util';
-import { kompositor } from 'services/kompositor';
-import type { ImageDTO } from 'services/api/types';
 import { toast } from 'features/toast/toast';
+import Konva from 'konva';
+import { atom, computed } from 'nanostores';
 import cv from 'opencv-ts';
+import type { Logger } from 'roarr';
 import { serializeError } from 'serialize-error';
-import { withResultAsync } from 'common/util/result';
+import type { ImageDTO } from 'services/api/types';
+import { kompositor } from 'services/kompositor';
 
 // Ensure cv is typed, even if it's dynamically loaded.
 // Depending on tsconfig, `cv.Mat` might require `cv any` or proper types.
@@ -88,7 +88,8 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     });
   }
 
-  private async getCompositeRasterImage(): Promise<ImageObject | null> { // This one uses await, so it's fine.
+  private async getCompositeRasterImage(): Promise<ImageObject | null> {
+    // This one uses await, so it's fine.
     this.log.debug('Getting composite raster image');
     const visibleRasterLayers = this.manager.stateApi
       .getEntities<CanvasEntityAdapterRasterLayer>('raster_layer')
@@ -96,7 +97,10 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
 
     if (visibleRasterLayers.length === 0) {
       this.log.warn('No visible raster layers to composite');
-      toast({ status: 'warning', title: t('controlLayers.booleanCutout.noVisibleLayers', 'No visible raster layers for operation.') });
+      toast({
+        status: 'warning',
+        title: t('controlLayers.booleanCutout.noVisibleLayers', 'No visible raster layers for operation.'),
+      });
       return null;
     }
 
@@ -106,19 +110,26 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
         { error: serializeError(canvasImageDTOResult.error) },
         'Failed to get canvas image DTO for composite'
       );
-      toast({ status: 'error', title: t('controlLayers.booleanCutout.compositeFailed', 'Failed to create composite image.') });
+      toast({
+        status: 'error',
+        title: t('controlLayers.booleanCutout.compositeFailed', 'Failed to create composite image.'),
+      });
       return null;
     }
     return imageDTOToImageObject(canvasImageDTOResult.value);
   }
 
-  private getInpaintMaskImage(): ImageObject | null { // Removed async, returns directly or via toast
+  private getInpaintMaskImage(): ImageObject | null {
+    // Removed async, returns directly or via toast
     this.log.debug('Getting InpaintMask layer image');
     const { t } = { t: (key: string, fallback: string) => fallback }; // Minimal t for now
     const maskLayer = this.parent;
     if (maskLayer.state.objects.length === 0 || maskLayer.state.objects[0]?.type !== 'image_object') {
       this.log.warn('InpaintMask layer has no image object or is not an image object.');
-      toast({ status: 'warning', title: t('controlLayers.booleanCutout.noInpaintMaskImage', 'InpaintMask layer has no image.') });
+      toast({
+        status: 'warning',
+        title: t('controlLayers.booleanCutout.noInpaintMaskImage', 'InpaintMask layer has no image.'),
+      });
       return null;
     }
     return maskLayer.state.objects[0] as ImageObject;
@@ -130,7 +141,14 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
         { channels: mat.channels(), isEmpty: mat.empty() },
         'Invalid Mat for matToImageDTO: must be RGBA and not empty.'
       );
-      toast({ title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'), description: t('controlLayers.booleanCutout.matConversionErrorDetail', 'Cannot process empty or non-RGBA image.'), status: 'error' });
+      toast({
+        title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'),
+        description: t(
+          'controlLayers.booleanCutout.matConversionErrorDetail',
+          'Cannot process empty or non-RGBA image.'
+        ),
+        status: 'error',
+      });
       return null;
     }
 
@@ -140,7 +158,11 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       this.log.error('Failed to get 2D context from canvas for matToImageDTO.');
-      toast({ title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'), description: t('controlLayers.booleanCutout.canvasContextErrorDetail', 'Cannot access canvas context.'), status: 'error' });
+      toast({
+        title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'),
+        description: t('controlLayers.booleanCutout.canvasContextErrorDetail', 'Cannot access canvas context.'),
+        status: 'error',
+      });
       return null;
     }
 
@@ -149,7 +171,11 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
 
     if (!this.manager.stateApi.createImageDTOFromCanvas) {
       this.log.error('stateApi.createImageDTOFromCanvas is not available for Mat to ImageDTO conversion.');
-      toast({ title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'), description: t('controlLayers.booleanCutout.cannotProcessResult', 'Cannot process image result.'), status: 'error' });
+      toast({
+        title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'),
+        description: t('controlLayers.booleanCutout.cannotProcessResult', 'Cannot process image result.'),
+        status: 'error',
+      });
       return null;
     }
     try {
@@ -159,7 +185,11 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
       return await this.manager.stateApi.createImageDTOFromCanvas(canvas, newName, boardId);
     } catch (error) {
       this.log.error({ error: serializeError(error) }, 'Failed during createImageDTOFromCanvas');
-      toast({ title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'), description: t('controlLayers.booleanCutout.failedToSaveProcessed', 'Failed to save processed image.'), status: 'error' });
+      toast({
+        title: t('controlLayers.booleanCutout.imageConversionErrorTitle', 'Image Conversion Error'),
+        description: t('controlLayers.booleanCutout.failedToSaveProcessed', 'Failed to save processed image.'),
+        status: 'error',
+      });
       return null;
     }
   }
@@ -172,7 +202,10 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
 
     if (this.$isProcessing.get()) {
       this.log.warn('Already processing');
-      toast({ status: 'warning', title: t('controlLayers.booleanCutout.opInProgress', 'Operation already in progress.') });
+      toast({
+        status: 'warning',
+        title: t('controlLayers.booleanCutout.opInProgress', 'Operation already in progress.'),
+      });
       return;
     }
     this.$isProcessing.set(true);
@@ -214,7 +247,14 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
       if (operationType === 'erase (fit)' || operationType === 'extract (fit)') {
         if (typeof cv === 'undefined' || typeof cv.imread !== 'function' || typeof cv.Mat === 'undefined') {
           this.log.error('OpenCV is not loaded, cv.imread, or cv.Mat is not available.');
-          toast({ status: 'error', title: t('controlLayers.booleanCutout.opencvErrorTitle', 'OpenCV Error'), description: t('controlLayers.booleanCutout.opencvLoadError', 'OpenCV library failed to load or is invalid.') });
+          toast({
+            status: 'error',
+            title: t('controlLayers.booleanCutout.opencvErrorTitle', 'OpenCV Error'),
+            description: t(
+              'controlLayers.booleanCutout.opencvLoadError',
+              'OpenCV library failed to load or is invalid.'
+            ),
+          });
           this.$isProcessing.set(false);
           return;
         }
@@ -230,20 +270,33 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
         ]);
 
         srcMat = cv.imread(compositeImgElement);
-        if (srcMat.empty()) throw new Error('OpenCV: Failed to load source image.');
+        if (srcMat.empty()) {
+          throw new Error('OpenCV: Failed to load source image.');
+        }
         // Ensure source is RGBA for alpha channel manipulation later
-        if (srcMat.channels() === 3) cv.cvtColor(srcMat, srcMat, cv.COLOR_BGR2RGBA);
-        else if (srcMat.channels() === 1) cv.cvtColor(srcMat, srcMat, cv.COLOR_GRAY2RGBA);
-        else if (srcMat.channels() !== 4) throw new Error('OpenCV: Source image has unsupported channel count.');
+        if (srcMat.channels() === 3) {
+          cv.cvtColor(srcMat, srcMat, cv.COLOR_BGR2RGBA);
+        } else if (srcMat.channels() === 1) {
+          cv.cvtColor(srcMat, srcMat, cv.COLOR_GRAY2RGBA);
+        } else if (srcMat.channels() !== 4) {
+          throw new Error('OpenCV: Source image has unsupported channel count.');
+        }
 
         inputMaskCvMat = cv.imread(maskImgElement);
-        if (inputMaskCvMat.empty()) throw new Error('OpenCV: Failed to load mask image.');
+        if (inputMaskCvMat.empty()) {
+          throw new Error('OpenCV: Failed to load mask image.');
+        }
         grayMaskCvMat = new cv.Mat(inputMaskCvMat.rows, inputMaskCvMat.cols, cv.CV_8UC1);
         // Convert input mask to grayscale
-        if (inputMaskCvMat.channels() === 4) cv.cvtColor(inputMaskCvMat, grayMaskCvMat, cv.COLOR_RGBA2GRAY);
-        else if (inputMaskCvMat.channels() === 3) cv.cvtColor(inputMaskCvMat, grayMaskCvMat, cv.COLOR_BGR2GRAY);
-        else if (inputMaskCvMat.channels() === 1) inputMaskCvMat.copyTo(grayMaskCvMat);
-        else throw new Error('OpenCV: Mask image has unsupported channel count.');
+        if (inputMaskCvMat.channels() === 4) {
+          cv.cvtColor(inputMaskCvMat, grayMaskCvMat, cv.COLOR_RGBA2GRAY);
+        } else if (inputMaskCvMat.channels() === 3) {
+          cv.cvtColor(inputMaskCvMat, grayMaskCvMat, cv.COLOR_BGR2GRAY);
+        } else if (inputMaskCvMat.channels() === 1) {
+          inputMaskCvMat.copyTo(grayMaskCvMat);
+        } else {
+          throw new Error('OpenCV: Mask image has unsupported channel count.');
+        }
         // Binarize the grayscale mask
         cv.threshold(grayMaskCvMat, grayMaskCvMat, 1, 255, cv.THRESH_BINARY);
 
@@ -284,7 +337,15 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
         // ROI for grabCut can be the whole image if the mask guides it well
         const rectForGrabCut = new cv.Rect(0, 0, srcMat.cols, srcMat.rows);
 
-        cv.grabCut(srcMat, grabCutCvMask, rectForGrabCut, bgdModel, fgdModel, this.$iterations.get(), cv.GC_INIT_WITH_MASK);
+        cv.grabCut(
+          srcMat,
+          grabCutCvMask,
+          rectForGrabCut,
+          bgdModel,
+          fgdModel,
+          this.$iterations.get(),
+          cv.GC_INIT_WITH_MASK
+        );
 
         // Create the final alpha mask from grabCut output
         finalAlphaCvMask = new cv.Mat(srcMat.rows, srcMat.cols, cv.CV_8UC1, new cv.Scalar(0)); // Initialize to transparent
@@ -296,7 +357,8 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
               if (gcVal === cv.GC_FGD || gcVal === cv.GC_PR_FGD) {
                 finalAlphaCvMask.ucharPtr(r, c)[0] = 255; // Opaque
               }
-            } else { // 'erase (fit)'
+            } else {
+              // 'erase (fit)'
               // Keep background pixels (erase foreground)
               if (gcVal === cv.GC_BGD || gcVal === cv.GC_PR_BGD) {
                 finalAlphaCvMask.ucharPtr(r, c)[0] = 255; // Opaque
@@ -304,21 +366,25 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
             }
           }
         }
-        
+
         // Apply the finalAlphaCvMask to the original source image's alpha channel
         // srcMat is already RGBA
         tempVec = new cv.MatVector();
-        cv.split(srcMat, tempVec);    // Split into R, G, B, A channels
+        cv.split(srcMat, tempVec); // Split into R, G, B, A channels
         tempVec.set(3, finalAlphaCvMask); // Replace original alpha channel with the new mask
-        
+
         resultRgbaCvMat = new cv.Mat(); // Create a new Mat for the merged result
         cv.merge(tempVec, resultRgbaCvMat); // Merge back into resultRgbaCvMat
 
-        resultImageDTO = await this.matToImageDTO(resultRgbaCvMat, compositeRasterImageObject.image.image_name.split('.')[0] ?? 'image');
+        resultImageDTO = await this.matToImageDTO(
+          resultRgbaCvMat,
+          compositeRasterImageObject.image.image_name.split('.')[0] ?? 'image'
+        );
         if (!resultImageDTO) {
           throw new Error('OpenCV: Failed to convert processed Mat to ImageDTO.');
         }
-      } else { // Basic erase/extract (non-fit operations using Kompositor)
+      } else {
+        // Basic erase/extract (non-fit operations using Kompositor)
         this.log.debug({ operationType }, 'Using Kompositor for basic operation');
         const kompositeResult = await withResultAsync(
           kompositor.runGraphAndReturnImageOutput({
@@ -329,8 +395,8 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
                   type: 'boolean_op', // This node type is hypothetical
                   image_a: { image_name: compositeRasterImageObject.image.image_name },
                   image_b: { image_name: maskImageObject.image.image_name },
-                  operation: operationType, 
-                  bbox: operationBbox, 
+                  operation: operationType,
+                  bbox: operationBbox,
                 },
               },
               edges: [],
@@ -340,8 +406,14 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
         );
 
         if (kompositeResult.isErr()) {
-          this.log.error({ error: serializeError(kompositeResult.error), operationType }, 'Kompositor boolean operation failed');
-          toast({ status: 'error', title: t('controlLayers.booleanCutout.kompositorOpFailed', `Boolean operation (${operationType}) failed.`) });
+          this.log.error(
+            { error: serializeError(kompositeResult.error), operationType },
+            'Kompositor boolean operation failed'
+          );
+          toast({
+            status: 'error',
+            title: t('controlLayers.booleanCutout.kompositorOpFailed', `Boolean operation (${operationType}) failed.`),
+          });
           this.$isProcessing.set(false);
           return;
         }
@@ -357,12 +429,18 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
           position: { x: operationBbox.x, y: operationBbox.y },
           isSelected: true,
         });
-        toast({ status: 'success', title: t('controlLayers.booleanCutout.opComplete', `"${operationType}" operation complete.`) });
+        toast({
+          status: 'success',
+          title: t('controlLayers.booleanCutout.opComplete', `"${operationType}" operation complete.`),
+        });
       }
     } catch (error) {
       this.$lastResultImageObject.set(null);
       this.log.error({ error: serializeError(error), operationType }, 'Error during boolean operation');
-      toast({ status: 'error', title: t('controlLayers.booleanCutout.unexpectedError', 'An unexpected error occurred during operation.') });
+      toast({
+        status: 'error',
+        title: t('controlLayers.booleanCutout.unexpectedError', 'An unexpected error occurred during operation.'),
+      });
     } finally {
       // Ensure all OpenCV Mats are deleted
       srcMat?.delete();
@@ -432,15 +510,21 @@ export class CanvasBooleanCutoutModule extends CanvasModuleBase {
     try {
       this.manager.stateApi.addInpaintMask({
         imageObject: imageToSave,
-        position: { x: parentBbox.x, y: parentBbox.y }, 
+        position: { x: parentBbox.x, y: parentBbox.y },
         isSelected: true,
       });
-      toast({ status: 'success', title: t('controlLayers.booleanCutout.saveAsInpaintMaskSuccess', 'Result saved as InpaintMask.') });
+      toast({
+        status: 'success',
+        title: t('controlLayers.booleanCutout.saveAsInpaintMaskSuccess', 'Result saved as InpaintMask.'),
+      });
       // Optionally, clear the last result after saving to prevent re-saving the same data
       // this.$lastResultImageObject.set(null);
     } catch (error) {
       this.log.error({ error: serializeError(error) }, 'Failed to save as InpaintMask');
-      toast({ status: 'error', title: t('controlLayers.booleanCutout.saveAsInpaintMaskFailed', 'Failed to save as InpaintMask.') });
+      toast({
+        status: 'error',
+        title: t('controlLayers.booleanCutout.saveAsInpaintMaskFailed', 'Failed to save as InpaintMask.'),
+      });
     }
   };
 
