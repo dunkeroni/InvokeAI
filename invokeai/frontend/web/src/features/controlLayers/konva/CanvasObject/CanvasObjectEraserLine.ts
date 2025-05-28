@@ -56,13 +56,38 @@ export class CanvasObjectEraserLine extends CanvasModuleBase {
   update(state: CanvasEraserLineState, force = false): boolean {
     if (force || this.state !== state) {
       this.log.trace({ state }, 'Updating eraser line');
-      const { points, strokeWidth } = state;
+      const { points } = state;
+      let { strokeWidth } = state; // Make strokeWidth mutable for softness calculation
+
+      // A line with only one point will not be rendered, so we duplicate the points to make it visible
+      const konvaPoints = points.length === 2 ? [...points, ...points] : points;
+
+      // Apply softness
+      const canvasSettings = this.manager.stateApi.getStore().getState().canvasSettings;
+      const softness = canvasSettings.softness ?? 0; // Default to 0 if undefined
+      const softnessRatio = softness / 100;
+
+      let newStrokeWidth = strokeWidth * (1 - softnessRatio);
+      let newShadowBlur = (strokeWidth * softnessRatio) / 2;
+
+      if (newStrokeWidth < 3) {
+        newStrokeWidth = 3;
+        newShadowBlur = Math.max(0, (strokeWidth - 3) / 2);
+      }
+
       this.konva.line.setAttrs({
-        // A line with only one point will not be rendered, so we duplicate the points to make it visible
-        points: points.length === 2 ? [...points, ...points] : points,
-        strokeWidth,
+        points: konvaPoints,
+        strokeWidth: newStrokeWidth,
+        shadowBlur: newShadowBlur,
+        // For erasers, shadowColor should ideally be what's "behind" the erased area.
+        // Using the current tool color from canvasSettings.
+        // The globalCompositeOperation='destination-out' will make the shadow also "erase".
+        shadowColor: rgbaColorToString(canvasSettings.color), // Updated to use canvasSettings.color
+        shadowOpacity: 1,
+        shadowEnabled: newShadowBlur > 0,
       });
-      this.state = state;
+
+      this.state = state; // Update the component's state
       return true;
     }
 

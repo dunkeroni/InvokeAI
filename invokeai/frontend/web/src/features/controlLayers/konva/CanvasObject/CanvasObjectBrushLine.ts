@@ -52,7 +52,35 @@ export class CanvasObjectBrushLine extends CanvasModuleBase {
     };
     this.konva.group.add(this.konva.line);
     this.state = state;
+    this.finalize(); // Call finalize after initial setup
   }
+
+  finalize = () => { // Added finalize method
+    this.log.debug('Finalizing brush line');
+    const konvaNode = this.konva.line;
+    const { strokeWidth, color } = this.state;
+
+    // Apply softness
+    const canvasSettings = this.manager.stateApi.getStore().getState().canvasSettings;
+    const softness = canvasSettings.softness ?? 0;
+    const softnessRatio = softness / 100;
+
+    let newStrokeWidth = strokeWidth * (1 - softnessRatio);
+    let newShadowBlur = (strokeWidth * softnessRatio) / 2;
+
+    if (newStrokeWidth < 3) {
+      newStrokeWidth = 3;
+      newShadowBlur = Math.max(0, (strokeWidth - 3) / 2);
+    }
+
+    konvaNode.setAttrs({
+      strokeWidth: newStrokeWidth,
+      shadowBlur: newShadowBlur,
+      shadowColor: rgbaColorToString(color),
+      shadowOpacity: 1,
+      shadowEnabled: newShadowBlur > 0,
+    });
+  };
 
   update(state: CanvasBrushLineState, force = false): boolean {
     if (force || this.state !== state) {
@@ -62,9 +90,10 @@ export class CanvasObjectBrushLine extends CanvasModuleBase {
         // A line with only one point will not be rendered, so we duplicate the points to make it visible
         points: points.length === 2 ? [...points, ...points] : points,
         stroke: rgbaColorToString(color),
-        strokeWidth,
+        strokeWidth, // Keep original strokeWidth here for state consistency
       });
       this.state = state;
+      this.finalize(); // Re-apply softness and other effects on update
       return true;
     }
 

@@ -79,6 +79,10 @@ type CanvasSettingsState = {
    * Whether to use pressure sensitivity for the brush and eraser tool when a pen device is used.
    */
   pressureSensitivity: boolean;
+  /**
+   * The softness of the brush and eraser tools.
+   */
+  softness: number; // Added softness
 };
 
 const initialState: CanvasSettingsState = {
@@ -99,6 +103,7 @@ const initialState: CanvasSettingsState = {
   isolatedStagingPreview: true,
   isolatedLayerPreview: true,
   pressureSensitivity: true,
+  softness: 0, // Initialize softness
 };
 
 export const canvasSettingsSlice = createSlice({
@@ -156,6 +161,9 @@ export const canvasSettingsSlice = createSlice({
     settingsPressureSensitivityToggled: (state) => {
       state.pressureSensitivity = !state.pressureSensitivity;
     },
+    settingsSoftnessChanged: (state, action: PayloadAction<number>) => { // Added setSoftness action
+      state.softness = Math.round(action.payload); // Assuming softness should be an integer
+    },
   },
   extraReducers(builder) {
     builder.addCase(newGallerySessionRequested, (state) => {
@@ -185,6 +193,7 @@ export const {
   settingsIsolatedStagingPreviewToggled,
   settingsIsolatedLayerPreviewToggled,
   settingsPressureSensitivityToggled,
+  settingsSoftnessChanged, // Export setSoftness (using 'settingsSoftnessChanged' to match naming convention)
 } = canvasSettingsSlice.actions;
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */

@@ -58,15 +58,34 @@ export class CanvasObjectEraserLineWithPressure extends CanvasModuleBase {
   update(state: CanvasEraserLineWithPressureState, force = false): boolean {
     if (force || this.state !== state) {
       this.log.trace({ state }, 'Updating eraser line with pressure');
-      const { points, strokeWidth } = state;
+      const { points, strokeWidth: currentStrokeWidth } = state; // Renamed for clarity
+
+      // Apply softness
+      const canvasSettings = this.manager.stateApi.getStore().getState().canvasSettings; // Updated path
+      const softness = canvasSettings.softness ?? 0; // Default to 0 if undefined
+      const softnessRatio = softness / 100;
+
+      // For Konva.Path, the shadow creates the soft edge *outside* the fill.
+      // The main path data itself is not shrunk like a stroked Konva.Line.
+      let shadowBlur = (currentStrokeWidth * softnessRatio) / 2;
+      shadowBlur = Math.max(0, shadowBlur); // Ensure shadowBlur is not negative
+
       this.konva.line.setAttrs({
         data: getSVGPathDataFromPoints(points, {
-          size: strokeWidth / 2,
+          size: currentStrokeWidth / 2, // Original size for path data
           simulatePressure: false,
           last: true,
           thinning: 1,
         }),
+        // fill is already 'red' and globalCompositeOperation is 'destination-out' from constructor
+        // Apply shadow for softness
+        shadowBlur: shadowBlur,
+        // Shadow color should be the "erasing" color. Using current tool color from canvasSettings.
+        shadowColor: rgbaColorToString(canvasSettings.color), // Updated to use canvasSettings.color
+        shadowOpacity: 1,
+        shadowEnabled: shadowBlur > 0,
       });
+
       this.state = state;
       return true;
     }

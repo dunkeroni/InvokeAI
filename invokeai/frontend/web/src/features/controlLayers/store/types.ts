@@ -611,3 +611,63 @@ export const isMaskEntityIdentifier = (
 ): entityIdentifier is CanvasEntityIdentifier<'inpaint_mask' | 'regional_guidance'> => {
   return isInpaintMaskEntityIdentifier(entityIdentifier) || isRegionalGuidanceEntityIdentifier(entityIdentifier);
 };
+
+// Below is the ToolState interface based on the problem description
+// TODO: Ensure all types used below (ToolName, ToolType, HrfMethod, CLIPVisionModel, Scheduler, DenoiseMode) are defined or imported.
+// Assuming RgbaColor is already defined in this file.
+
+// Placeholder types - these should be defined elsewhere or imported
+// Ensure these types are compatible with their usage in ToolState and initialParamsState
+export type ToolName = 'brush' | 'eraser' | 'move' | 'rect' | 'view' | 'bbox' | 'colorPicker'; // From zTool
+export type ToolType = 'raster_layer' | 'vector_layer'; // Example, needs actual definition if used
+export type HrfMethod = string; // Generic string, or define specific values
+export type CLIPVisionModel = string; // Generic string for model identifiers
+export type Scheduler = string; // Generic string, or define specific scheduler names
+export type DenoiseMode = string; // Generic string, or define specific modes
+
+export interface ToolState {
+  activeToolName: ToolName;
+  activeToolType: ToolType | null;
+  color: RgbaColor;
+  eraserSize: number;
+  fillColor: RgbaColor; // Added based on initialParamsState in prompt, though not in original ToolState
+  maskColor: RgbaColor; // Added based on initialParamsState in prompt, though not in original ToolState
+  brushSize: number;
+  // softness: number; // <<<< REMOVED THIS FIELD >>>>
+  clipSkip: number;
+  hrfEnabled: boolean;
+  hrfMethod: HrfMethod;
+  hrfStrength: number;
+  inpaintReplace: number;
+  positivePrompt: string;
+  negativePrompt: string;
+  positivePrompt2: string;
+  negativePrompt2: string;
+  shouldUseSymmetry: boolean;
+  verticalSymmetry: boolean;
+  horizontalSymmetry: boolean;
+  sdxlPositiveStylePrompt: string;
+  sdxlNegativeStylePrompt: string;
+  clipVisionModel: CLIPVisionModel;
+  iterations: number;
+  seed: number;
+  scheduler: Scheduler;
+  guidance: number;
+  steps: number;
+  img2imgStrength: number;
+  refinerSteps: number;
+  refinerCFGScale: number;
+  refinerScheduler: Scheduler;
+  refinerPositiveAestheticScore: number;
+  refinerNegativeAestheticScore: number;
+  shouldUseNoiseSettings: boolean;
+  noiseSeed: number;
+  noiseUseDifferentSeed: boolean;
+  noiseThreshold: number;
+  perlinNoise: number;
+  noiseDenoiseStrength: number;
+  noiseDenoiseMode: DenoiseMode;
+  noiseDenoiseStart: number;
+  noiseDenoiseEnd: number;
+  noiseInpaintReplace: number;
+}

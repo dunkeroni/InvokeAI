@@ -2,7 +2,7 @@ import type { PayloadAction, Selector } from '@reduxjs/toolkit';
 import { createSelector, createSlice } from '@reduxjs/toolkit';
 import type { PersistConfig, RootState } from 'app/store/store';
 import { deepClone } from 'common/util/deepClone';
-import type { RgbaColor } from 'features/controlLayers/store/types';
+import type { RgbaColor, ToolState } from 'features/controlLayers/store/types'; // Import ToolState
 import { CLIP_SKIP_MAP } from 'features/parameters/types/constants';
 import type {
   ParameterCanvasCoherenceMode,
@@ -79,6 +79,7 @@ export type ParamsState = {
   clipLEmbedModel: ParameterCLIPLEmbedModel | null;
   clipGEmbedModel: ParameterCLIPGEmbedModel | null;
   controlLora: ParameterControlLoRAModel | null;
+  tool: ToolState; // Added tool field to ParamsState
 };
 
 const initialState: ParamsState = {
@@ -128,6 +129,53 @@ const initialState: ParamsState = {
   clipLEmbedModel: null,
   clipGEmbedModel: null,
   controlLora: null,
+  // Initialize tool state as per problem description
+  tool: {
+    activeToolName: 'brush',
+    activeToolType: 'raster_layer', // Assuming 'raster_layer' is a valid ToolType
+    color: { r: 127, g: 127, b: 127, a: 1 },
+    eraserSize: 100,
+    fillColor: { r: 0, g: 0, b: 0, a: 1 }, // Default fillColor
+    maskColor: { r: 255, g: 0, b: 0, a: 1 }, // Default maskColor
+    brushSize: 50,
+    // softness: 0, // <<<< REMOVED INITIALIZATION >>>>
+    clipSkip: 0,
+    hrfEnabled: false,
+    hrfMethod: 'bilinear', // Example default
+    hrfStrength: 0.5, // Example default
+    inpaintReplace: 0.5, // Example default
+    positivePrompt: '',
+    negativePrompt: '',
+    positivePrompt2: '',
+    negativePrompt2: '',
+    shouldUseSymmetry: false,
+    verticalSymmetry: false,
+    horizontalSymmetry: false,
+    sdxlPositiveStylePrompt: '',
+    sdxlNegativeStylePrompt: '',
+    clipVisionModel: 'ViT-L/14', // Example default, ensure this is a valid CLIPVisionModel
+    iterations: 1,
+    seed: 0,
+    scheduler: 'euler', // Example default, ensure this is a valid Scheduler
+    guidance: 7.5, // Example default
+    steps: 20, // Example default
+    img2imgStrength: 0.75, // Example default
+    refinerSteps: 20, // Example default
+    refinerCFGScale: 7.5, // Example default
+    refinerScheduler: 'euler', // Example default
+    refinerPositiveAestheticScore: 2.5, // Example default
+    refinerNegativeAestheticScore: 2.5, // Example default
+    shouldUseNoiseSettings: false,
+    noiseSeed: 0,
+    noiseUseDifferentSeed: false,
+    noiseThreshold: 0,
+    perlinNoise: 0.5, // Example default
+    noiseDenoiseStrength: 0.5, // Example default
+    noiseDenoiseMode: 'classic', // Example default
+    noiseDenoiseStart: 0,
+    noiseDenoiseEnd: 1,
+    noiseInpaintReplace: 0.5, // Example default
+  },
 };
 
 export const paramsSlice = createSlice({
@@ -290,6 +338,9 @@ export const paramsSlice = createSlice({
     setCanvasCoherenceMinDenoise: (state, action: PayloadAction<number>) => {
       state.canvasCoherenceMinDenoise = action.payload;
     },
+    // setSoftness: (state, action: PayloadAction<number>) => { // REMOVED setSoftness action
+    //   state.tool.softness = action.payload;
+    // },
     paramsReset: (state) => resetState(state),
   },
   extraReducers(builder) {
@@ -357,6 +408,7 @@ export const {
   setRefinerStart,
   modelChanged,
   paramsReset,
+  // setSoftness, // REMOVED setSoftness export
 } = paramsSlice.actions;
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
