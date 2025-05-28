@@ -7,12 +7,20 @@ import {
   PopoverContent,
   PopoverTrigger,
   Tooltip,
+  FormControl,
+  FormLabel,
+  CompositeSlider,
 } from '@invoke-ai/ui-library';
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import RgbaColorPicker from 'common/components/ColorPicker/RgbaColorPicker';
 import { rgbaColorToString } from 'common/util/colorCodeTransformers';
-import { selectCanvasSettingsSlice, settingsColorChanged } from 'features/controlLayers/store/canvasSettingsSlice';
+import {
+  selectCanvasSettingsBrushSoftness,
+  selectCanvasSettingsSlice,
+  settingsBrushSoftnessChanged,
+  settingsColorChanged,
+} from 'features/controlLayers/store/canvasSettingsSlice';
 import type { RgbaColor } from 'features/controlLayers/store/types';
 import { useImageViewer } from 'features/gallery/components/ImageViewer/useImageViewer';
 import { useRegisteredHotkeys } from 'features/system/components/HotkeysModal/useHotkeyData';
@@ -23,11 +31,20 @@ const selectColor = createSelector(selectCanvasSettingsSlice, (settings) => sett
 
 export const ToolColorPicker = memo(() => {
   const { t } = useTranslation();
-  const fill = useAppSelector(selectColor);
   const dispatch = useAppDispatch();
-  const onChange = useCallback(
+  const fill = useAppSelector(selectColor);
+  const brushSoftness = useAppSelector(selectCanvasSettingsBrushSoftness);
+
+  const handleColorChange = useCallback(
     (color: RgbaColor) => {
       dispatch(settingsColorChanged(color));
+    },
+    [dispatch]
+  );
+
+  const handleBrushSoftnessChange = useCallback(
+    (v: number) => {
+      dispatch(settingsBrushSoftnessChanged(v));
     },
     [dispatch]
   );
@@ -61,8 +78,19 @@ export const ToolColorPicker = memo(() => {
       </PopoverTrigger>
       <PopoverContent>
         <PopoverArrow />
-        <PopoverBody minH={64}>
-          <RgbaColorPicker color={fill} onChange={onChange} withNumberInput withSwatches />
+        <PopoverBody minH={64} p={4} gap={4} display="flex" flexDir="column">
+          <RgbaColorPicker color={fill} onChange={handleColorChange} withNumberInput withSwatches />
+          <FormControl>
+            <FormLabel>{t('controlLayers.tool.softness')}</FormLabel>
+            <CompositeSlider
+              value={brushSoftness}
+              onChange={handleBrushSoftnessChange}
+              min={0}
+              max={100}
+              step={1}
+              marks
+            />
+          </FormControl>
         </PopoverBody>
       </PopoverContent>
     </Popover>

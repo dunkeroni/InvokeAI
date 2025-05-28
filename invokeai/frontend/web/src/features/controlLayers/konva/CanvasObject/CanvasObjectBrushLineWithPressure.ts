@@ -58,15 +58,27 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
   update(state: CanvasBrushLineWithPressureState, force = false): boolean {
     if (force || this.state !== state) {
       this.log.trace({ state }, 'Updating brush line with pressure');
-      const { points, color, strokeWidth } = state;
+      const { points, color, strokeWidth: baseStrokeWidth } = state;
+      const brushSoftness = this.manager.store.getState().canvasSettings.brushSoftness;
+
+      const softnessRatio = brushSoftness / 100;
+      const actualVisibleStrokeWidth = Math.max(3, baseStrokeWidth * (1 - softnessRatio));
+      const shadowBlurAmount = (baseStrokeWidth - actualVisibleStrokeWidth) / 2;
+
       this.konva.line.setAttrs({
         data: getSVGPathDataFromPoints(points, {
-          size: strokeWidth / 2,
-          simulatePressure: false,
+          size: actualVisibleStrokeWidth / 2, // Use the new width for the path data
+          simulatePressure: false, // This is for the tldraw algorithm, pressure is in points
           last: true,
-          thinning: 1,
+          thinning: 1, // Default thinning
         }),
         fill: rgbaColorToString(color),
+        shadowColor: rgbaColorToString(color),
+        shadowBlur: shadowBlurAmount,
+        shadowOpacity: 1,
+        shadowEnabled: shadowBlurAmount > 0,
+        // Ensure stroke is not drawn, as we are using fill + shadow for the effect
+        strokeEnabled: false,
       });
       this.state = state;
       return true;

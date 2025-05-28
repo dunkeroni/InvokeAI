@@ -79,6 +79,10 @@ type CanvasSettingsState = {
    * Whether to use pressure sensitivity for the brush and eraser tool when a pen device is used.
    */
   pressureSensitivity: boolean;
+  /**
+   * The softness of the brush tool, a value between 0 and 100.
+   */
+  brushSoftness: number;
 };
 
 const initialState: CanvasSettingsState = {
@@ -99,6 +103,7 @@ const initialState: CanvasSettingsState = {
   isolatedStagingPreview: true,
   isolatedLayerPreview: true,
   pressureSensitivity: true,
+  brushSoftness: 0,
 };
 
 export const canvasSettingsSlice = createSlice({
@@ -156,6 +161,9 @@ export const canvasSettingsSlice = createSlice({
     settingsPressureSensitivityToggled: (state) => {
       state.pressureSensitivity = !state.pressureSensitivity;
     },
+    settingsBrushSoftnessChanged: (state, action: PayloadAction<number>) => {
+      state.brushSoftness = Math.min(Math.max(0, action.payload), 100);
+    },
   },
   extraReducers(builder) {
     builder.addCase(newGallerySessionRequested, (state) => {
@@ -185,6 +193,7 @@ export const {
   settingsIsolatedStagingPreviewToggled,
   settingsIsolatedLayerPreviewToggled,
   settingsPressureSensitivityToggled,
+  settingsBrushSoftnessChanged,
 } = canvasSettingsSlice.actions;
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -196,7 +205,26 @@ export const canvasSettingsPersistConfig: PersistConfig<CanvasSettingsState> = {
   name: canvasSettingsSlice.name,
   initialState,
   migrate,
-  persistDenylist: [],
+  allowlist: [
+    'showHUD',
+    'clipToBbox',
+    'dynamicGrid',
+    'brushWidth',
+    'eraserWidth',
+    'invertScrollForToolWidth',
+    'color',
+    'sendToCanvas',
+    'outputOnlyMaskedRegions',
+    'autoProcess',
+    'snapToGrid',
+    'showProgressOnCanvas',
+    'bboxOverlay',
+    'preserveMask',
+    'isolatedStagingPreview',
+    'isolatedLayerPreview',
+    'pressureSensitivity',
+    'brushSoftness', // Added brushSoftness here
+  ],
 };
 
 export const selectCanvasSettingsSlice = (s: RootState) => s.canvasSettings;
@@ -219,3 +247,4 @@ export const selectShowProgressOnCanvas = createCanvasSettingsSelector(
 export const selectIsolatedStagingPreview = createCanvasSettingsSelector((settings) => settings.isolatedStagingPreview);
 export const selectIsolatedLayerPreview = createCanvasSettingsSelector((settings) => settings.isolatedLayerPreview);
 export const selectPressureSensitivity = createCanvasSettingsSelector((settings) => settings.pressureSensitivity);
+export const selectCanvasSettingsBrushSoftness = createCanvasSettingsSelector((settings) => settings.brushSoftness);

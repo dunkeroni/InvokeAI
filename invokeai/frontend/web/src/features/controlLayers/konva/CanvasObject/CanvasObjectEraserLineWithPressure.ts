@@ -1,3 +1,4 @@
+import { rgbaColorToString } from 'common/util/colorCodeTransformers';
 import { deepClone } from 'common/util/deepClone';
 import type { CanvasEntityBufferObjectRenderer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityBufferObjectRenderer';
 import type { CanvasEntityObjectRenderer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityObjectRenderer';
@@ -58,14 +59,28 @@ export class CanvasObjectEraserLineWithPressure extends CanvasModuleBase {
   update(state: CanvasEraserLineWithPressureState, force = false): boolean {
     if (force || this.state !== state) {
       this.log.trace({ state }, 'Updating eraser line with pressure');
-      const { points, strokeWidth } = state;
+      const { points, strokeWidth: baseStrokeWidth } = state;
+      const brushSoftness = this.manager.store.getState().canvasSettings.brushSoftness;
+      const brushColor = this.manager.store.getState().canvasSettings.color;
+
+      const softnessRatio = brushSoftness / 100;
+      const actualVisibleStrokeWidth = Math.max(3, baseStrokeWidth * (1 - softnessRatio));
+      const shadowBlurAmount = (baseStrokeWidth - actualVisibleStrokeWidth) / 2;
+
       this.konva.line.setAttrs({
         data: getSVGPathDataFromPoints(points, {
-          size: strokeWidth / 2,
-          simulatePressure: false,
+          size: actualVisibleStrokeWidth / 2, // Use the new width for the path data
+          simulatePressure: false, // This is for the tldraw algorithm, pressure is in points
           last: true,
-          thinning: 1,
+          thinning: 1, // Default thinning
         }),
+        // fill is set in constructor and doesn't need to change for eraser
+        shadowColor: rgbaColorToString(brushColor),
+        shadowBlur: shadowBlurAmount,
+        shadowOpacity: 1,
+        shadowEnabled: shadowBlurAmount > 0,
+        globalCompositeOperation: 'destination-out', // Ensure this is set
+        strokeEnabled: false, // Ensure stroke is not drawn
       });
       this.state = state;
       return true;

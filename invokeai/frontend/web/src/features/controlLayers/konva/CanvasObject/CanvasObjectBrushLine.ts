@@ -57,12 +57,22 @@ export class CanvasObjectBrushLine extends CanvasModuleBase {
   update(state: CanvasBrushLineState, force = false): boolean {
     if (force || this.state !== state) {
       this.log.trace({ state }, 'Updating brush line');
-      const { points, color, strokeWidth } = state;
+      const { points, color, strokeWidth: baseStrokeWidth } = state;
+      const brushSoftness = this.manager.store.getState().canvasSettings.brushSoftness;
+
+      const softnessRatio = brushSoftness / 100;
+      const newStrokeWidth = Math.max(3, baseStrokeWidth * (1 - softnessRatio));
+      const shadowBlur = (baseStrokeWidth - newStrokeWidth) / 2;
+
       this.konva.line.setAttrs({
         // A line with only one point will not be rendered, so we duplicate the points to make it visible
         points: points.length === 2 ? [...points, ...points] : points,
         stroke: rgbaColorToString(color),
-        strokeWidth,
+        strokeWidth: newStrokeWidth,
+        shadowColor: rgbaColorToString(color),
+        shadowBlur: shadowBlur,
+        shadowOpacity: 1,
+        shadowForStrokeEnabled: shadowBlur > 0,
       });
       this.state = state;
       return true;

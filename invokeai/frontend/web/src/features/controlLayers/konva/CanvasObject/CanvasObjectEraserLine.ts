@@ -1,3 +1,4 @@
+import { rgbaColorToString } from 'common/util/colorCodeTransformers';
 import { deepClone } from 'common/util/deepClone';
 import type { CanvasEntityBufferObjectRenderer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityBufferObjectRenderer';
 import type { CanvasEntityObjectRenderer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityObjectRenderer';
@@ -56,11 +57,23 @@ export class CanvasObjectEraserLine extends CanvasModuleBase {
   update(state: CanvasEraserLineState, force = false): boolean {
     if (force || this.state !== state) {
       this.log.trace({ state }, 'Updating eraser line');
-      const { points, strokeWidth } = state;
+      const { points, strokeWidth: baseStrokeWidth } = state;
+      const brushSoftness = this.manager.store.getState().canvasSettings.brushSoftness;
+      const brushColor = this.manager.store.getState().canvasSettings.color;
+
+      const softnessRatio = brushSoftness / 100;
+      const newStrokeWidth = Math.max(3, baseStrokeWidth * (1 - softnessRatio));
+      const shadowBlur = (baseStrokeWidth - newStrokeWidth) / 2;
+
       this.konva.line.setAttrs({
         // A line with only one point will not be rendered, so we duplicate the points to make it visible
         points: points.length === 2 ? [...points, ...points] : points,
-        strokeWidth,
+        strokeWidth: newStrokeWidth,
+        shadowColor: rgbaColorToString(brushColor),
+        shadowBlur: shadowBlur,
+        shadowOpacity: 1,
+        shadowForStrokeEnabled: shadowBlur > 0,
+        globalCompositeOperation: 'destination-out', // Ensure this is set
       });
       this.state = state;
       return true;
