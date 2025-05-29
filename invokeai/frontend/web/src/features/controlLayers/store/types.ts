@@ -157,6 +157,10 @@ const zCanvasBrushLineState = z.object({
   points: zPoints,
   color: zRgbaColor,
   clip: zRect.nullable(),
+  /**
+   * The softness of the brush when this line was created (0-100)
+   */
+  brushSoftness: z.number().min(0).max(100),
 });
 export type CanvasBrushLineState = z.infer<typeof zCanvasBrushLineState>;
 

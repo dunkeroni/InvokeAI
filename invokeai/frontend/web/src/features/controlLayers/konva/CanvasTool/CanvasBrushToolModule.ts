@@ -220,6 +220,7 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
         strokeWidth: settings.brushWidth,
         color: this.manager.stateApi.getCurrentColor(),
         clip: this.parent.getClip(selectedEntity.state),
+        // No softness for pressure lines (optional: add if needed)
       });
     } else {
       // Else, add the point without pressure
@@ -230,6 +231,7 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
         strokeWidth: settings.brushWidth,
         color: this.manager.stateApi.getCurrentColor(),
         clip: this.parent.getClip(selectedEntity.state),
+        brushSoftness: settings.brushSoftness,
       });
     }
   };
@@ -329,6 +331,7 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
         // When shift is held, the line may extend beyond the clip region. Clip only if we are clipping to bbox. If we
         // are clipping to stage, we don't need to clip at all.
         clip: isShiftDraw && !settings.clipToBbox ? null : this.parent.getClip(selectedEntity.state),
+        brushSoftness: settings.brushSoftness,
       });
     }
   };
