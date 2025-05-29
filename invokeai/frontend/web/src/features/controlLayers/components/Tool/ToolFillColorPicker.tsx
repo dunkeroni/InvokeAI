@@ -1,15 +1,15 @@
 import {
   Box,
+  CompositeSlider,
   Flex,
+  FormControl,
+  FormLabel,
   Popover,
   PopoverArrow,
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
   Tooltip,
-  FormControl,
-  FormLabel,
-  CompositeSlider,
 } from '@invoke-ai/ui-library';
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';

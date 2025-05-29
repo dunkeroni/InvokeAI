@@ -205,26 +205,7 @@ export const canvasSettingsPersistConfig: PersistConfig<CanvasSettingsState> = {
   name: canvasSettingsSlice.name,
   initialState,
   migrate,
-  allowlist: [
-    'showHUD',
-    'clipToBbox',
-    'dynamicGrid',
-    'brushWidth',
-    'eraserWidth',
-    'invertScrollForToolWidth',
-    'color',
-    'sendToCanvas',
-    'outputOnlyMaskedRegions',
-    'autoProcess',
-    'snapToGrid',
-    'showProgressOnCanvas',
-    'bboxOverlay',
-    'preserveMask',
-    'isolatedStagingPreview',
-    'isolatedLayerPreview',
-    'pressureSensitivity',
-    'brushSoftness', // Added brushSoftness here
-  ],
+  persistDenylist: [],
 };
 
 export const selectCanvasSettingsSlice = (s: RootState) => s.canvasSettings;
