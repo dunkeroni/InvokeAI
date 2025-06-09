@@ -214,6 +214,7 @@ class FieldDescriptions:
     flux_redux_conditioning = "FLUX Redux conditioning tensor"
     vllm_model = "The VLLM model to use"
     flux_fill_conditioning = "FLUX Fill conditioning tensor"
+    denoise_extensions = "Optional extensions to apply during denoising. These are used to alter the denoising process in some way, such as inpaint masking or LoRAs."
 
 
 class ImageField(BaseModel):
