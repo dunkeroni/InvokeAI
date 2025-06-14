@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 from contextlib import ExitStack, contextmanager
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type
 
 import torch
 from diffusers import UNet2DConditionModel
 
 from invokeai.app.services.session_processor.session_processor_common import CanceledException
+from invokeai.backend.unified_denoise.unified_extensions_base import CallbackFunctionWithMetadata, UnifiedExtensionBase
 from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
-from invokeai.backend.unified_denoise.unified_extensions_base import UnifiedExtensionBase, CallbackFunctionWithMetadata
-
-if TYPE_CHECKING:
-    from invokeai.backend.stable_diffusion.denoise_context import DenoiseContext
-    from invokeai.backend.stable_diffusion.extension_callback_type import ExtensionCallbackType
+from invokeai.backend.unified_denoise.unified_extensions_base import DENOISE_EXTENSIONS, ExtensionField, UnifiedExtensionBase
+from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
+from invokeai.backend.unified_denoise.extension_callback_type import ExtensionCallbackType
 
 
 class UnifiedExtensionsManager:
@@ -22,6 +21,14 @@ class UnifiedExtensionsManager:
         # A list of extensions in the order that they were added to the ExtensionsManager.
         self._extensions: List[UnifiedExtensionBase] = []
         self._ordered_callbacks: Dict[ExtensionCallbackType, List[CallbackFunctionWithMetadata]] = {}
+    
+    def add_extension_from_field(self, extension_field: ExtensionField, ctx: DenoiseContext):
+        """Adds an extension to the manager from an ExtensionField."""
+        if extension_field.name not in DENOISE_EXTENSIONS:
+            raise ValueError(f"Extension {extension_field.name} is not registered.")
+        ext_class: Type[UnifiedExtensionBase] = DENOISE_EXTENSIONS[extension_field.name]
+        extension = ext_class(ctx=ctx, kwargs=extension_field.kwargs)
+        self.add_extension(extension)
 
     def add_extension(self, extension: UnifiedExtensionBase):
         self._extensions.append(extension)

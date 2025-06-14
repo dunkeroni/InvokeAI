@@ -1,15 +1,24 @@
-from typing import Any, Type
+from __future__ import annotations
 
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Type
+
+from diffusers import UNet2DConditionModel
 from pydantic import BaseModel
 
 from invokeai.app.invocations.fields import Field
-from invokeai.backend.stable_diffusion.extensions.base import ExtensionBase
 from invokeai.backend.util.logging import info
 from invokeai.invocation_api import (
     BaseInvocationOutput,
     OutputField,
     invocation_output,
 )
+
+if TYPE_CHECKING:
+    from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
+    from invokeai.backend.unified_denoise.extension_callback_type import ExtensionCallbackType
+    from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
 
 DENOISE_EXTENSIONS = {}
 
@@ -41,18 +50,7 @@ class GuidanceDataOutput(BaseInvocationOutput):
     )
 
 
-from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List
-
-from diffusers import UNet2DConditionModel
-
-if TYPE_CHECKING:
-    from invokeai.backend.stable_diffusion.denoise_context import DenoiseContext
-    from invokeai.backend.stable_diffusion.extension_callback_type import ExtensionCallbackType
-    from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
 
 
 @dataclass
@@ -79,7 +77,7 @@ def callback(callback_type: ExtensionCallbackType, order: int = 0):
 
 
 class UnifiedExtensionBase:
-    def __init__(self):
+    def __init__(self, ctx: DenoiseContext, kwargs: dict[str, Any]):
         self._callbacks: Dict[ExtensionCallbackType, List[CallbackFunctionWithMetadata]] = {}
 
         # Register all of the callback methods for this instance.
@@ -90,6 +88,12 @@ class UnifiedExtensionBase:
                 if metadata.callback_type not in self._callbacks:
                     self._callbacks[metadata.callback_type] = []
                 self._callbacks[metadata.callback_type].append(CallbackFunctionWithMetadata(metadata, func))
+
+        self._post_init(ctx, **kwargs)
+
+    def _post_init(self, ctx: DenoiseContext, **kwargs: dict[str, Any]):
+        """Post-initialization hook for the extension. Handle inputs from the user node here."""
+        pass
 
     def get_callbacks(self):
         return self._callbacks

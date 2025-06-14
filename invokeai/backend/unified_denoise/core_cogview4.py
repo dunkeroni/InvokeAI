@@ -1,34 +1,16 @@
-from typing import Callable, Optional, Union, List
 import torch
-import torchvision.transforms as tv_transforms
 from diffusers.models.transformers.transformer_cogview4 import CogView4Transformer2DModel
-from torchvision.transforms.functional import resize as tv_resize
 from tqdm import tqdm
 
-from invokeai.app.invocations.baseinvocation import BaseInvocation, Classification, invocation
 from invokeai.app.invocations.constants import LATENT_SCALE_FACTOR
-from invokeai.app.invocations.fields import (
-    CogView4ConditioningField,
-    DenoiseMaskField,
-    FieldDescriptions,
-    Input,
-    InputField,
-    LatentsField,
-    WithBoard,
-    WithMetadata,
-)
-from invokeai.app.invocations.model import TransformerField
-from invokeai.app.invocations.primitives import LatentsOutput
 from invokeai.app.services.shared.invocation_context import InvocationContext
 from invokeai.backend.flux.sampling_utils import clip_timestep_schedule_fractional
 from invokeai.backend.model_manager.config import BaseModelType
 from invokeai.backend.rectified_flow.rectified_flow_inpaint_extension import RectifiedFlowInpaintExtension
 from invokeai.backend.stable_diffusion.diffusers_pipeline import PipelineIntermediateState
 from invokeai.backend.stable_diffusion.diffusion.conditioning_data import CogView4ConditioningInfo
-from invokeai.backend.util.devices import TorchDevice
-from invokeai.backend.unified_denoise.unified_extensions_base import UnifiedExtensionBase
-from invokeai.backend.model_manager.taxonomy import BaseModelType
 from invokeai.backend.unified_denoise.core_base import BaseCore, denoise_core
+from invokeai.backend.util.devices import TorchDevice
 
 
 @denoise_core(f"CORE_{BaseModelType.CogView4}")
@@ -50,31 +32,7 @@ class CogView4Core(BaseCore):
         cogview4_conditioning = cogview4_conditioning.to(dtype=dtype, device=device)
 
         return cogview4_conditioning.glm_embeds
-
-    def _get_noise(
-        self,
-        batch_size: int,
-        num_channels_latents: int,
-        height: int,
-        width: int,
-        dtype: torch.dtype,
-        device: torch.device,
-        seed: int,
-    ) -> torch.Tensor:
-        # We always generate noise on the same device and dtype then cast to ensure consistency across devices/dtypes.
-        rand_device = "cpu"
-        rand_dtype = torch.float16
-
-        return torch.randn(
-            batch_size,
-            num_channels_latents,
-            int(height) // LATENT_SCALE_FACTOR,
-            int(width) // LATENT_SCALE_FACTOR,
-            device=rand_device,
-            dtype=rand_dtype,
-            generator=torch.Generator(device=rand_device).manual_seed(seed),
-        ).to(device=device, dtype=dtype)
-
+    
     def _prepare_cfg_scale(self, num_timesteps: int) -> list[float]:
         """Prepare the CFG scale list.
 

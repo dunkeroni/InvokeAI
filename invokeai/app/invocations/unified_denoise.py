@@ -1,12 +1,8 @@
-from typing import Callable, Optional, Union, List, Type
+from typing import Callable, List, Optional, Type
+
 import torch
-import torchvision.transforms as tv_transforms
-from diffusers.models.transformers.transformer_cogview4 import CogView4Transformer2DModel
-from torchvision.transforms.functional import resize as tv_resize
-from tqdm import tqdm
 
 from invokeai.app.invocations.baseinvocation import BaseInvocation, Classification, invocation
-from invokeai.app.invocations.constants import LATENT_SCALE_FACTOR
 from invokeai.app.invocations.fields import (
     CogView4ConditioningField,
     FieldDescriptions,
@@ -16,20 +12,15 @@ from invokeai.app.invocations.fields import (
     WithBoard,
     WithMetadata,
 )
-from invokeai.app.invocations.model import TransformerField, UNetField, BaseModelType
+from invokeai.app.invocations.model import BaseModelType, TransformerField, UNetField
 from invokeai.app.invocations.primitives import LatentsOutput
 from invokeai.app.services.shared.invocation_context import InvocationContext
-from invokeai.backend.flux.sampling_utils import clip_timestep_schedule_fractional
-from invokeai.backend.rectified_flow.rectified_flow_inpaint_extension import RectifiedFlowInpaintExtension
 from invokeai.backend.stable_diffusion.diffusers_pipeline import PipelineIntermediateState
-from invokeai.backend.stable_diffusion.diffusion.conditioning_data import CogView4ConditioningInfo
-from invokeai.backend.util.devices import TorchDevice
-from invokeai.backend.unified_denoise.unified_extensions_base import ExtensionField
-
-from invokeai.backend.unified_denoise.unified_extensions_base import UnifiedExtensionBase, DENOISE_EXTENSIONS
-from invokeai.backend.unified_denoise.core_base import BaseCore
-from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
+from invokeai.backend.unified_denoise.core_base import DENOISE_CORES, BaseCore
 from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
+from invokeai.backend.unified_denoise.unified_extensions_base import DENOISE_EXTENSIONS, ExtensionField
+from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
+from invokeai.backend.unified_denoise.extension_callback_type import ExtensionCallbackType
 
 
 @invocation(
@@ -68,17 +59,37 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
     steps: int = InputField(default=25, gt=0, description=FieldDescriptions.steps)
     seed: int = InputField(default=0, description="Randomness seed for reproducibility.")
 
+
+    def select_core(self, inputs: DenoiseInputs) -> BaseCore:
+        """Select the core to use for the denoising process based on the model type."""
+        model_type: BaseModelType = BaseModelType.Any
+        if isinstance(inputs.model_field, UNetField):
+            model_type = self.model.unet.base
+        elif isinstance(inputs.model_field, TransformerField):
+            model_type = self.model.transformer.base
+        else:
+            raise ValueError(f"Unsupported model type: {type(inputs.model_field)}")
+
+        model_core_string = f"CORE_{model_type}"
+        if model_core_string not in DENOISE_CORES:
+            raise NotImplementedError(f"No {model_core_string} core registered for {model_type}.")
+        coretype: Type[BaseCore] = DENOISE_CORES[model_core_string]
+        return coretype(is_canceled=inputs.context.util.is_canceled)
+
+
     @torch.no_grad()
     def invoke(self, context: InvocationContext) -> LatentsOutput:
         """Run the denoising process with the provided model and inputs."""
 
+        # PREP VARIABLES
+
+        orig_latents = None
         if self.latents:
             latents = context.tensors.load(self.latents.latents_name)
             orig_latents = latents.clone()
-        else:
-            latents = None
 
         denoise_inputs = DenoiseInputs(
+            context=context,
             orig_latents=orig_latents,
             model_field=self.model,
             denoising_start=self.denoising_start,
@@ -90,45 +101,40 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
             steps=self.steps,
             seed=self.seed,
         )
+
+        core = self.select_core(denoise_inputs)
+        ext_manager = UnifiedExtensionsManager(is_canceled=context.util.is_canceled)
+
+        # denoise_ctx holds all the state variables for the denoising process.
         denoise_ctx = DenoiseContext(
             inputs=denoise_inputs,
-            device=TorchDevice.get_torch_device(),
-            util=context.util,
-            step_callback=self._build_step_callback(context),
+            core=core,
+            extension_manager=ext_manager,
         )
-
-
-        # Determine which core to use. Cores are registered as extensions in the format "CORE_modeltype"
-        model_type: BaseModelType = BaseModelType.Any
-        if isinstance(self.model, UNetField):
-            model_type = self.model.unet.base
-        elif isinstance(self.model, TransformerField):
-            model_type = self.model.transformer.base
-
-        model_core_string = f"CORE_{model_type}"
-        if model_core_string not in DENOISE_EXTENSIONS:
-            raise NotImplementedError(f"No {model_core_string} extension registered for {model_type}.")
-        core: Type[BaseCore] = DENOISE_EXTENSIONS[model_core_string]
-        assert isinstance(core, BaseCore)
-
-        ext_manager = UnifiedExtensionsManager(is_canceled=context.util.is_canceled)
 
         # create list of extensions if they exist
         if self.extensions:
             if not isinstance(self.extensions, list):
                 self.extensions = [self.extensions]
             for ext in self.extensions:
-                if isinstance(ext, ExtensionField):
-                    ext_class = DENOISE_EXTENSIONS.get(ext.name)
-                    if ext_class is None:
-                        raise ValueError(f"Extension {ext.name} not found.")
-                    ext_manager.add_extension(ext)
-                else:
-                    raise ValueError(f"Invalid extension type: {type(ext)}. Expected ExtensionField.")
+                ext_manager.add_extension_from_field(ext, denoise_ctx)
         
+        # RUN DENOISE PROCESS
 
+        # give all components a chance to raise exceptions before starting
+        core.validate(denoise_ctx)
+        ext_manager.run_callback(ExtensionCallbackType.VALIDATE, denoise_ctx)
 
+        # create scheduler object (type depends on the core)
+        denoise_ctx.scheduler = core.get_scheduler(denoise_ctx)
 
+        # create noise if necessary, apply to latents
+        core.initialize_noise(denoise_ctx)
+
+        # let extensions modify the denoise context before starting
+        ext_manager.run_callback(ExtensionCallbackType.PRE_DENOISE_LOOP, denoise_ctx)
+
+        
 
 
         latents = self._run_diffusion(context)
@@ -136,7 +142,6 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
 
         name = context.tensors.save(tensor=latents)
         return LatentsOutput.build(latents_name=name, latents=latents, seed=None)
-
 
     def _build_step_callback(self, context: InvocationContext) -> Callable[[PipelineIntermediateState], None]:
         def step_callback(state: PipelineIntermediateState) -> None:

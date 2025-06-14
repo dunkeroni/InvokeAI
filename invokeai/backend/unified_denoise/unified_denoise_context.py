@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
 import torch
 from diffusers import UNet2DConditionModel
 from diffusers.schedulers.scheduling_utils import SchedulerMixin, SchedulerOutput
+
 from invokeai.app.invocations.model import TransformerField, UNetField
+from invokeai.app.services.shared.invocation_context import InvocationContext
+from invokeai.backend.unified_denoise.core_base import BaseCore
+from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
 
 if TYPE_CHECKING:
     from invokeai.backend.stable_diffusion.diffusion.conditioning_data import ConditioningMode, TextConditioningData
@@ -33,6 +37,8 @@ class UNetKwargs:
 @dataclass
 class DenoiseInputs:
     """Initial variables passed to denoise. Supposed to remain unchanged."""
+
+    context: InvocationContext
 
     # The latent-space image to denoise.
     # Shape: [batch, channels, latent_height, latent_width]
@@ -69,8 +75,12 @@ class DenoiseContext:
     # Initial variables passed to denoise. Supposed to be unchanged.
     inputs: DenoiseInputs
 
+    core: BaseCore
+
+    extension_manager: UnifiedExtensionsManager
+    
     # Scheduler which used to apply noise predictions.
-    scheduler: SchedulerMixin
+    scheduler: Optional[SchedulerMixin] = None
 
     # UNet model.
     unet: Optional[UNet2DConditionModel] = None
