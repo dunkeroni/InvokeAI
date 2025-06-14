@@ -122,14 +122,14 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
         # RUN DENOISE PROCESS
 
         # give all components a chance to raise exceptions before starting
-        core.validate(denoise_ctx)
+        ext_manager.call_swappable("validate", core, denoise_ctx)
         ext_manager.run_callback(ExtensionCallbackType.VALIDATE, denoise_ctx)
 
         # create scheduler object (type depends on the core)
         denoise_ctx.scheduler = core.get_scheduler(denoise_ctx)
 
         # create noise if necessary, apply to latents
-        core.initialize_noise(denoise_ctx)
+        ext_manager.call_swappable("initialize_noise", core, denoise_ctx)
 
         # let extensions modify the denoise context before starting
         ext_manager.run_callback(ExtensionCallbackType.PRE_DENOISE_LOOP, denoise_ctx)

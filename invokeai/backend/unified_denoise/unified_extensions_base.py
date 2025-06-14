@@ -75,6 +75,20 @@ def callback(callback_type: ExtensionCallbackType, order: int = 0):
 
     return _decorator
 
+@dataclass
+class SwapMetadata:
+    function_name: str
+
+@dataclass
+class SwapFunctionWithMetadata:
+    metadata: SwapMetadata
+    function: Callable
+
+def swap(function_name: str):
+    def _decorator(function):
+        function._swap_metadata = SwapMetadata(function_name=function_name)
+        return function
+    return _decorator
 
 class UnifiedExtensionBase:
     def __init__(self, ctx: DenoiseContext, kwargs: dict[str, Any]):
@@ -97,6 +111,16 @@ class UnifiedExtensionBase:
 
     def get_callbacks(self):
         return self._callbacks
+    
+    def get_swaps(self) -> Dict[str, SwapFunctionWithMetadata]:
+        """Returns a dictionary of function names to SwapFunctionWithMetadata objects."""
+        swaps = {}
+        for func_name in dir(self):
+            func = getattr(self, func_name)
+            metadata = getattr(func, "_swap_metadata", None)
+            if metadata is not None and isinstance(metadata, SwapMetadata):
+                swaps[metadata.function_name] = SwapFunctionWithMetadata(metadata, func)
+        return swaps
 
     @contextmanager
     def patch_extension(self, ctx: DenoiseContext):

@@ -21,7 +21,21 @@ class UnifiedExtensionsManager:
         # A list of extensions in the order that they were added to the ExtensionsManager.
         self._extensions: List[UnifiedExtensionBase] = []
         self._ordered_callbacks: Dict[ExtensionCallbackType, List[CallbackFunctionWithMetadata]] = {}
-    
+        self._swaps: Dict[str, tuple[Callable, UnifiedExtensionBase]] = {}
+
+    def call_swappable(self, function_name: str, core: object, *args, **kwargs):
+        """
+        Call a swappable core function by name. If a swap is registered, call it.
+        Otherwise, call the method from the provided core object.
+        """
+        swap_fn = self.get_swap(function_name)
+        if swap_fn is not None:
+            return swap_fn(*args, **kwargs)
+        core_fn = getattr(core, function_name, None)
+        if core_fn is None:
+            raise AttributeError(f"Core object has no function '{function_name}'")
+        return core_fn(*args, **kwargs)
+
     def add_extension_from_field(self, extension_field: ExtensionField, ctx: DenoiseContext):
         """Adds an extension to the manager from an ExtensionField."""
         if extension_field.name not in DENOISE_EXTENSIONS:
@@ -33,6 +47,28 @@ class UnifiedExtensionsManager:
     def add_extension(self, extension: UnifiedExtensionBase):
         self._extensions.append(extension)
         self._regenerate_ordered_callbacks()
+        self._register_extension_swaps(extension)
+
+    def _register_extension_swaps(self, extension: UnifiedExtensionBase):
+        swaps = getattr(extension, "get_swaps", None)
+        if swaps is not None:
+            for function_name, swap_fn_with_meta in extension.get_swaps().items():
+                self.register_swap(function_name, swap_fn_with_meta.function, extension)
+
+    def register_swap(self, function_name: str, func: Callable, extension: UnifiedExtensionBase):
+        if function_name in self._swaps:
+            raise RuntimeError(f"Function '{function_name}' is already swapped by another extension.")
+        self._swaps[function_name] = (func, extension)
+
+    def unregister_swap(self, function_name: str, extension: UnifiedExtensionBase):
+        if function_name in self._swaps and self._swaps[function_name][1] == extension:
+            del self._swaps[function_name]
+
+    def get_swap(self, function_name: str) -> Optional[Callable]:
+        entry = self._swaps.get(function_name)
+        if entry:
+            return entry[0]
+        return None
 
     def _regenerate_ordered_callbacks(self):
         """Regenerates self._ordered_callbacks. Intended to be called each time a new extension is added."""
@@ -58,6 +94,7 @@ class UnifiedExtensionsManager:
         callbacks = self._ordered_callbacks.get(callback_type, [])
         for cb in callbacks:
             cb.function(ctx)
+    
 
     @contextmanager
     def patch_extensions(self, ctx: DenoiseContext):
