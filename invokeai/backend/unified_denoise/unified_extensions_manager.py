@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type
 
 import torch
 from diffusers import UNet2DConditionModel
+from invokeai.app.invocations.model import BaseModelType
 
 from invokeai.app.services.session_processor.session_processor_common import CanceledException
 from invokeai.backend.unified_denoise.unified_extensions_base import CallbackFunctionWithMetadata, UnifiedExtensionBase
@@ -22,8 +23,14 @@ class UnifiedExtensionsManager:
         self._extensions: List[UnifiedExtensionBase] = []
         self._ordered_callbacks: Dict[ExtensionCallbackType, List[CallbackFunctionWithMetadata]] = {}
         self._swaps: Dict[str, tuple[Callable, UnifiedExtensionBase]] = {}
+    
+    def assert_compatibility(self, model_type: BaseModelType):
+        """Chheck that each extension is compatible with the provided model."""
+        for ext in self._extensions:
+            if model_type not in ext.get_compatible_model_types():
+                raise ValueError(f"Extension {ext.name} is not compatible with model {model_type}")
 
-    def call_swappable(self, function_name: str, core: object, *args, **kwargs):
+    def call_swappable(self, function_name: str, core: object, *args, **kwargs) -> None:
         """
         Call a swappable core function by name. If a swap is registered, call it.
         Otherwise, call the method from the provided core object.
@@ -42,6 +49,7 @@ class UnifiedExtensionsManager:
             raise ValueError(f"Extension {extension_field.name} is not registered.")
         ext_class: Type[UnifiedExtensionBase] = DENOISE_EXTENSIONS[extension_field.name]
         extension = ext_class(ctx=ctx, kwargs=extension_field.kwargs)
+        extension.name = extension_field.name  # Set the name from the field
         self.add_extension(extension)
 
     def add_extension(self, extension: UnifiedExtensionBase):

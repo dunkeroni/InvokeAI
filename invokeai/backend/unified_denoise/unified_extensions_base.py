@@ -15,10 +15,13 @@ from invokeai.invocation_api import (
     invocation_output,
 )
 
+from invokeai.app.invocations.model import BaseModelType
+
 if TYPE_CHECKING:
-    from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
+    from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext
     from invokeai.backend.unified_denoise.extension_callback_type import ExtensionCallbackType
     from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
+
 
 DENOISE_EXTENSIONS = {}
 
@@ -48,10 +51,6 @@ class GuidanceDataOutput(BaseInvocationOutput):
     guidance_data_output: ExtensionField | None = OutputField(
         title="Guidance Module", description="Information to alter the denoising process"
     )
-
-
-
-
 
 @dataclass
 class CallbackMetadata:
@@ -91,6 +90,7 @@ def swap(function_name: str):
     return _decorator
 
 class UnifiedExtensionBase:
+    name: str = "Undefined" # Used for warning messages and debugging.
     def __init__(self, ctx: DenoiseContext, kwargs: dict[str, Any]):
         self._callbacks: Dict[ExtensionCallbackType, List[CallbackFunctionWithMetadata]] = {}
 
@@ -108,6 +108,10 @@ class UnifiedExtensionBase:
     def _post_init(self, ctx: DenoiseContext, **kwargs: dict[str, Any]):
         """Post-initialization hook for the extension. Handle inputs from the user node here."""
         pass
+
+    def get_compatible_model_types(self) -> List[BaseModelType]:
+        """Returns a list of model types that this extension is compatible with."""
+        return []
 
     def get_callbacks(self):
         return self._callbacks

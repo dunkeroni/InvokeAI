@@ -9,8 +9,8 @@ from diffusers.schedulers.scheduling_utils import SchedulerMixin, SchedulerOutpu
 
 from invokeai.app.invocations.model import TransformerField, UNetField
 from invokeai.app.services.shared.invocation_context import InvocationContext
-from invokeai.backend.unified_denoise.core_base import BaseCore
-from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
+from invokeai.app.invocations.model import BaseModelType
+#from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
 
 if TYPE_CHECKING:
     from invokeai.backend.stable_diffusion.diffusion.conditioning_data import ConditioningMode, TextConditioningData
@@ -45,15 +45,15 @@ class DenoiseInputs:
     # - If we are inpainting, this is the initial latent image before noise has been added.
     # - If we are generating a new image, this should be initialized to zeros.
     # - In some cases, this may be a partially-noised latent image (e.g. when running the SDXL refiner).
-    orig_latents: torch.Tensor
+    orig_latents: torch.Tensor | None
 
     model_field: TransformerField | UNetField
 
     denoising_start: float
 
     # Text conditionging data.
-    positive_conditioning: TextConditioningData
-    negative_conditioning: TextConditioningData
+    positive_conditioning: Any 
+    negative_conditioning: Any
 
     cfg_scale: Union[float, list[float]]
 
@@ -67,6 +67,8 @@ class DenoiseInputs:
     # The seed used to generate the noise for the denoising process.
     seed: int
 
+    model_type: BaseModelType = BaseModelType.Any
+
 
 @dataclass
 class DenoiseContext:
@@ -75,10 +77,10 @@ class DenoiseContext:
     # Initial variables passed to denoise. Supposed to be unchanged.
     inputs: DenoiseInputs
 
-    core: BaseCore
+    # These two are left as Any to avoid circular imports.
+    core: Any
+    extension_manager: Any
 
-    extension_manager: UnifiedExtensionsManager
-    
     # Scheduler which used to apply noise predictions.
     scheduler: Optional[SchedulerMixin] = None
 

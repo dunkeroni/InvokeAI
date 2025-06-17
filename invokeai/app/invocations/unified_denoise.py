@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Type
+from typing import Callable, List, Optional, Type, Any, Union
 
 import torch
 
@@ -11,6 +11,8 @@ from invokeai.app.invocations.fields import (
     LatentsField,
     WithBoard,
     WithMetadata,
+    UIType,
+    ConditioningField,
 )
 from invokeai.app.invocations.model import BaseModelType, TransformerField, UNetField
 from invokeai.app.invocations.primitives import LatentsOutput
@@ -22,6 +24,9 @@ from invokeai.backend.unified_denoise.unified_extensions_base import DENOISE_EXT
 from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
 from invokeai.backend.unified_denoise.extension_callback_type import ExtensionCallbackType
 
+
+CONDITIONING_TYPES = Union[ConditioningField, list[ConditioningField],
+                    CogView4ConditioningField]
 
 @invocation(
     "unified_denoise",
@@ -39,21 +44,21 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
         default=None, description=FieldDescriptions.latents, input=Input.Connection
     )
     # Modifiers for the denoising process.
-    extensions: Optional[ExtensionField | List[ExtensionField]] = InputField(
+    extensions: Optional[Union[ExtensionField, List[ExtensionField]]] = InputField(
         default=[], description=FieldDescriptions.denoise_extensions, input=Input.Connection
     )
     denoising_start: float = InputField(default=0.0, ge=0, le=1, description=FieldDescriptions.denoising_start)
     #denoising_end: float = InputField(default=1.0, ge=0, le=1, description=FieldDescriptions.denoising_end)
-    model: TransformerField | UNetField = InputField(
-        description=FieldDescriptions.cogview4_model, input=Input.Connection, title="Model"
+    model: Union[TransformerField, UNetField] = InputField(
+        description=FieldDescriptions.cogview4_model, input=Input.Connection, title="Model", ui_type=UIType.Any
     )
-    positive_conditioning: CogView4ConditioningField = InputField(
-        description=FieldDescriptions.positive_cond, input=Input.Connection
+    positive_conditioning: CONDITIONING_TYPES = InputField(
+        description=FieldDescriptions.positive_cond, input=Input.Connection, ui_type=UIType.Any
     )
-    negative_conditioning: CogView4ConditioningField = InputField(
-        description=FieldDescriptions.negative_cond, input=Input.Connection
+    negative_conditioning: Optional[CONDITIONING_TYPES] = InputField(
+        description=FieldDescriptions.negative_cond, input=Input.Connection, default=None, ui_type=UIType.Any
     )
-    cfg_scale: float | list[float] = InputField(default=3.5, description=FieldDescriptions.cfg_scale, title="CFG Scale")
+    guidance_scale: float | list[float] = InputField(default=3.5, description=FieldDescriptions.cfg_scale, title="Guidance Scale")
     width: int = InputField(default=1024, multiple_of=32, description="Width of the generated image.")
     height: int = InputField(default=1024, multiple_of=32, description="Height of the generated image.")
     steps: int = InputField(default=25, gt=0, description=FieldDescriptions.steps)
@@ -69,6 +74,8 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
             model_type = self.model.transformer.base
         else:
             raise ValueError(f"Unsupported model type: {type(inputs.model_field)}")
+
+        inputs.model_type = model_type
 
         model_core_string = f"CORE_{model_type}"
         if model_core_string not in DENOISE_CORES:
@@ -88,6 +95,7 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
             latents = context.tensors.load(self.latents.latents_name)
             orig_latents = latents.clone()
 
+        #dataclass for referencing inputs
         denoise_inputs = DenoiseInputs(
             context=context,
             orig_latents=orig_latents,
@@ -95,7 +103,7 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
             denoising_start=self.denoising_start,
             positive_conditioning=self.positive_conditioning,
             negative_conditioning=self.negative_conditioning,
-            cfg_scale=self.cfg_scale,
+            cfg_scale=self.guidance_scale,
             width=self.width,
             height=self.height,
             steps=self.steps,
@@ -105,36 +113,41 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
         core = self.select_core(denoise_inputs)
         ext_manager = UnifiedExtensionsManager(is_canceled=context.util.is_canceled)
 
-        # denoise_ctx holds all the state variables for the denoising process.
-        denoise_ctx = DenoiseContext(
+        # denoise context holds all the state variables for the denoising process.
+        ctx = DenoiseContext(
             inputs=denoise_inputs,
             core=core,
             extension_manager=ext_manager,
         )
 
-        # create list of extensions if they exist
+        # instance the list of extensions if they exist
         if self.extensions:
             if not isinstance(self.extensions, list):
                 self.extensions = [self.extensions]
             for ext in self.extensions:
-                ext_manager.add_extension_from_field(ext, denoise_ctx)
-        
+                ext_manager.add_extension_from_field(ext, ctx)
+
+        # Raise an error if no extensions are provided
+        ext_manager.assert_compatibility(ctx.inputs.model_type)
+
         # RUN DENOISE PROCESS
 
-        # give all components a chance to raise exceptions before starting
-        ext_manager.call_swappable("validate", core, denoise_ctx)
-        ext_manager.run_callback(ExtensionCallbackType.VALIDATE, denoise_ctx)
+        # let the core validate inputs
+        ext_manager.call_swappable("validate", core, ctx)
 
-        # create scheduler object (type depends on the core)
-        denoise_ctx.scheduler = core.get_scheduler(denoise_ctx)
+        # create scheduler, add LoRA extensions, set model-specific default variables, etc.
+        ext_manager.call_swappable("setup", core, ctx)
+
+        # give all extensions a chance to raise exceptions before starting
+        ext_manager.run_callback(ExtensionCallbackType.VALIDATE, ctx)
 
         # create noise if necessary, apply to latents
-        ext_manager.call_swappable("initialize_noise", core, denoise_ctx)
+        ext_manager.call_swappable("initialize_noise", core, ctx)
 
         # let extensions modify the denoise context before starting
-        ext_manager.run_callback(ExtensionCallbackType.PRE_DENOISE_LOOP, denoise_ctx)
+        ext_manager.run_callback(ExtensionCallbackType.PRE_DENOISE_LOOP, ctx)
 
-        
+
 
 
         latents = self._run_diffusion(context)
