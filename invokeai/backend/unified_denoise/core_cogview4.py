@@ -32,26 +32,6 @@ class CogView4Core(BaseCore):
         cogview4_conditioning = cogview4_conditioning.to(dtype=dtype, device=device)
 
         return cogview4_conditioning.glm_embeds
-    
-    def _prepare_cfg_scale(self, num_timesteps: int) -> list[float]:
-        """Prepare the CFG scale list.
-
-        Args:
-            num_timesteps (int): The number of timesteps in the scheduler. Could be different from num_steps depending
-            on the scheduler used (e.g. higher order schedulers).
-
-        Returns:
-            list[float]: _description_
-        """
-        if isinstance(self.cfg_scale, float):
-            cfg_scale = [self.cfg_scale] * num_timesteps
-        elif isinstance(self.cfg_scale, list):
-            assert len(self.cfg_scale) == num_timesteps
-            cfg_scale = self.cfg_scale
-        else:
-            raise ValueError(f"Invalid CFG scale type: {type(self.cfg_scale)}")
-
-        return cfg_scale
 
     def _convert_timesteps_to_sigmas(self, image_seq_len: int, timesteps: torch.Tensor) -> list[float]:
         # The logic to prepare the timestep / sigma schedule is based on:

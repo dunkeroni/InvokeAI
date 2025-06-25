@@ -103,7 +103,7 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
             denoising_start=self.denoising_start,
             positive_conditioning=self.positive_conditioning,
             negative_conditioning=self.negative_conditioning,
-            cfg_scale=self.guidance_scale,
+            guidance_scale=self.guidance_scale,
             width=self.width,
             height=self.height,
             steps=self.steps,
@@ -135,7 +135,7 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
         # let the core validate inputs
         ext_manager.call_swappable("validate", core, ctx)
 
-        # create scheduler, add LoRA extensions, set model-specific default variables, etc.
+        # create scheduler, setup timesteps, set model-specific default variables, etc.
         ext_manager.call_swappable("setup", core, ctx)
 
         # give all extensions a chance to raise exceptions before starting
@@ -146,6 +146,8 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
 
         # let extensions modify the denoise context before starting
         ext_manager.run_callback(ExtensionCallbackType.PRE_DENOISE_LOOP, ctx)
+
+        
 
 
 

@@ -55,7 +55,7 @@ class DenoiseInputs:
     positive_conditioning: Any 
     negative_conditioning: Any
 
-    cfg_scale: Union[float, list[float]]
+    guidance_scale: Union[float, list[float]]
 
     # The width of the latent-space image.
     width: int

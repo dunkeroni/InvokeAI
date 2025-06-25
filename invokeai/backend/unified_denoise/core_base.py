@@ -2,6 +2,9 @@ from typing import Callable, Type
 
 from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
 from invokeai.backend.util.logging import info
+import abc
+
+import torch
 
 DENOISE_CORES = {}
 
@@ -18,11 +21,6 @@ def denoise_core(name: str):
     return decorator
 
 
-import abc
-
-import torch
-
-
 class BaseCore(abc.ABC):
     """
     Base class for denoising cores. Provides the general denoising loop structure,
@@ -33,6 +31,27 @@ class BaseCore(abc.ABC):
 
     def __init__(self, is_canceled: Callable[[], bool] | None = None):
         self._is_canceled = is_canceled
+    
+    def _prepare_cfg_scale(self, ctx: DenoiseContext):
+        """Prepare the CFG scale list.
+
+        Args:
+            num_timesteps (int): The number of timesteps in the scheduler. Could be different from num_steps depending
+            on the scheduler used (e.g. higher order schedulers).
+
+        Returns:
+            list[float]: _description_
+        """
+        guidance_scale = ctx.inputs.guidance_scale
+        if isinstance(guidance_scale, float):
+            guidance = [guidance_scale] * ctx.inputs.steps
+        elif isinstance(guidance_scale, list):
+            assert len(guidance_scale) == ctx.inputs.steps
+            guidance = guidance_scale
+        else:
+            raise ValueError(f"Invalid CFG scale type: {type(guidance_scale)}")
+
+        ctx.inputs.guidance_scale = guidance
 
     def run(self, ctx: DenoiseContext):
         """
