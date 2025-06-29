@@ -25,6 +25,7 @@ import { CanvasSettingsPressureSensitivityCheckbox } from 'features/controlLayer
 import { CanvasSettingsRecalculateRectsButton } from 'features/controlLayers/components/Settings/CanvasSettingsRecalculateRectsButton';
 import { CanvasSettingsShowHUDSwitch } from 'features/controlLayers/components/Settings/CanvasSettingsShowHUDSwitch';
 import { CanvasSettingsShowProgressOnCanvas } from 'features/controlLayers/components/Settings/CanvasSettingsShowProgressOnCanvasSwitch';
+import { CanvasSettingsShowThirdsSwitch } from 'features/controlLayers/components/Settings/CanvasSettingsShowThirdsSwitch';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PiGearSixFill } from 'react-icons/pi';
@@ -55,6 +56,7 @@ export const CanvasSettingsPopover = memo(() => {
             <CanvasSettingsIsolatedStagingPreviewSwitch />
             <CanvasSettingsIsolatedLayerPreviewSwitch />
             <CanvasSettingsDynamicGridSwitch />
+            <CanvasSettingsShowThirdsSwitch />
             <CanvasSettingsBboxOverlaySwitch />
             <CanvasSettingsShowHUDSwitch />
             <DebugSettings />

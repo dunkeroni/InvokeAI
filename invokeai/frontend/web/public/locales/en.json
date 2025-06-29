@@ -1905,6 +1905,7 @@
         "deletePrompt": "Delete Prompt",
         "deleteReferenceImage": "Delete Reference Image",
         "showHUD": "Show HUD",
+        "showThirds": "Show Thirds Grid",
         "rectangle": "Rectangle",
         "maskFill": "Mask Fill",
         "addPositivePrompt": "Add $t(controlLayers.prompt)",

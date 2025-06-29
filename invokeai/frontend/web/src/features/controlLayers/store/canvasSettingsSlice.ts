@@ -64,6 +64,10 @@ type CanvasSettingsState = {
    */
   bboxOverlay: boolean;
   /**
+   * Whether to show the "thirds" overlay on the canvas.
+   */
+  showThirds: boolean;
+  /**
    * Whether to preserve the masked region instead of inpainting it.
    */
   preserveMask: boolean;
@@ -95,6 +99,7 @@ const initialState: CanvasSettingsState = {
   snapToGrid: true,
   showProgressOnCanvas: true,
   bboxOverlay: false,
+  showThirds: false,
   preserveMask: false,
   isolatedStagingPreview: true,
   isolatedLayerPreview: true,
@@ -144,6 +149,9 @@ export const canvasSettingsSlice = createSlice({
     settingsBboxOverlayToggled: (state) => {
       state.bboxOverlay = !state.bboxOverlay;
     },
+    settingsShowThirdsToggled: (state) => {
+      state.showThirds = !state.showThirds;
+    },
     settingsPreserveMaskToggled: (state) => {
       state.preserveMask = !state.preserveMask;
     },
@@ -181,6 +189,7 @@ export const {
   settingsSnapToGridToggled,
   settingsShowProgressOnCanvasToggled,
   settingsBboxOverlayToggled,
+  settingsShowThirdsToggled,
   settingsPreserveMaskToggled,
   settingsIsolatedStagingPreviewToggled,
   settingsIsolatedLayerPreviewToggled,
@@ -209,6 +218,7 @@ export const selectOutputOnlyMaskedRegions = createCanvasSettingsSelector(
 );
 export const selectDynamicGrid = createCanvasSettingsSelector((settings) => settings.dynamicGrid);
 export const selectBboxOverlay = createCanvasSettingsSelector((settings) => settings.bboxOverlay);
+export const selectShowThirds = createCanvasSettingsSelector((settings) => settings.showThirds);
 export const selectShowHUD = createCanvasSettingsSelector((settings) => settings.showHUD);
 export const selectAutoProcess = createCanvasSettingsSelector((settings) => settings.autoProcess);
 export const selectSnapToGrid = createCanvasSettingsSelector((settings) => settings.snapToGrid);

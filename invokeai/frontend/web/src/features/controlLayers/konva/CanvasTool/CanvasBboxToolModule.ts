@@ -3,7 +3,7 @@ import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
 import type { CanvasToolModule } from 'features/controlLayers/konva/CanvasTool/CanvasToolModule';
 import { fitRectToGrid, getKonvaNodeDebugAttrs, getPrefixedId } from 'features/controlLayers/konva/util';
-import { selectBboxOverlay } from 'features/controlLayers/store/canvasSettingsSlice';
+import { selectBboxOverlay, selectShowThirds } from 'features/controlLayers/store/canvasSettingsSlice';
 import { selectModel } from 'features/controlLayers/store/paramsSlice';
 import { selectBbox } from 'features/controlLayers/store/selectors';
 import type { Coordinate, Rect, Tool } from 'features/controlLayers/store/types';
@@ -53,6 +53,7 @@ export class CanvasBboxToolModule extends CanvasModuleBase {
     proxyRect: Konva.Rect;
     overlayRect: Konva.Rect;
     overlayGroup: Konva.Group;
+    thirdsLines: Konva.Line[];
   };
 
   /**
@@ -146,6 +147,7 @@ export class CanvasBboxToolModule extends CanvasModuleBase {
         anchorStyleFunc: this.anchorStyleFunc,
         anchorDragBoundFunc: this.anchorDragBoundFunc,
       }),
+      thirdsLines: [],
     };
 
     this.konva.proxyRect.on('dragmove', this.onDragMove);
@@ -180,6 +182,9 @@ export class CanvasBboxToolModule extends CanvasModuleBase {
 
     // Listen for the bbox overlay setting to update the overlay's visibility
     this.subscriptions.add(this.manager.stateApi.createStoreSubscription(selectBboxOverlay, this.render));
+
+    // Listen for the show thirds setting to update the thirds lines visibility
+    this.subscriptions.add(this.manager.stateApi.createStoreSubscription(selectShowThirds, this.render));
 
     // Listen for the model changing - some model types constraint the bbox to a certain size or aspect ratio.
     this.subscriptions.add(this.manager.stateApi.createStoreSubscription(selectModel, this.render));
@@ -223,6 +228,60 @@ export class CanvasBboxToolModule extends CanvasModuleBase {
     });
 
     this.syncOverlay();
+
+    // Always draw thirds gridlines when bbox is drawn and ShowThirds is enabled, regardless of overlay
+    const showThirds = this.manager.stateApi.runSelector(selectShowThirds);
+
+    // Remove old thirds lines if any
+    if (this.konva.thirdsLines && this.konva.thirdsLines.length > 0) {
+      this.konva.thirdsLines.forEach((line) => line.destroy());
+      this.konva.thirdsLines = [];
+    }
+
+    if (showThirds) {
+      // Vertical lines at 1/3 and 2/3
+      const v1 = new Konva.Line({
+        points: [x + width / 3, y, x + width / 3, y + height],
+        stroke: 'rgba(255,255,255,0.5)',
+        strokeWidth: 1,
+        dash: [4, 4],
+        listening: false,
+        name: `${this.type}:thirds-v1`,
+      });
+      const v2 = new Konva.Line({
+        points: [x + (2 * width) / 3, y, x + (2 * width) / 3, y + height],
+        stroke: 'rgba(255,255,255,0.5)',
+        strokeWidth: 1,
+        dash: [4, 4],
+        listening: false,
+        name: `${this.type}:thirds-v2`,
+      });
+
+      // Horizontal lines at 1/3 and 2/3
+      const h1 = new Konva.Line({
+        points: [x, y + height / 3, x + width, y + height / 3],
+        stroke: 'rgba(255,255,255,0.5)',
+        strokeWidth: 1,
+        dash: [4, 4],
+        listening: false,
+        name: `${this.type}:thirds-h1`,
+      });
+      const h2 = new Konva.Line({
+        points: [x, y + (2 * height) / 3, x + width, y + (2 * height) / 3],
+        stroke: 'rgba(255,255,255,0.5)',
+        strokeWidth: 1,
+        dash: [4, 4],
+        listening: false,
+        name: `${this.type}:thirds-h2`,
+      });
+
+      this.konva.group.add(v1);
+      this.konva.group.add(v2);
+      this.konva.group.add(h1);
+      this.konva.group.add(h2);
+
+      this.konva.thirdsLines = [v1, v2, h1, h2];
+    }
 
     const model = this.manager.stateApi.runSelector(selectModel);
 
