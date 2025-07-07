@@ -14,7 +14,7 @@ from invokeai.app.invocations.fields import (
     UIType,
     ConditioningField,
 )
-from invokeai.app.invocations.model import BaseModelType, TransformerField, UNetField
+from invokeai.app.invocations.model import BaseModelType, TransformerField, UNetField, ModelIdentifierField
 from invokeai.app.invocations.primitives import LatentsOutput
 from invokeai.app.services.shared.invocation_context import InvocationContext
 from invokeai.backend.stable_diffusion.diffusers_pipeline import PipelineIntermediateState
@@ -49,7 +49,7 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
     )
     denoising_start: float = InputField(default=0.0, ge=0, le=1, description=FieldDescriptions.denoising_start)
     #denoising_end: float = InputField(default=1.0, ge=0, le=1, description=FieldDescriptions.denoising_end)
-    model: Union[TransformerField, UNetField] = InputField(
+    model: ModelIdentifierField = InputField(
         description=FieldDescriptions.cogview4_model, input=Input.Connection, title="Model", ui_type=UIType.Any
     )
     positive_conditioning: CONDITIONING_TYPES = InputField(
