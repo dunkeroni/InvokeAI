@@ -1,64 +1,59 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { createSelector, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import type { PersistConfig, RootState } from 'app/store/store';
-import { newSessionRequested } from 'features/controlLayers/store/actions';
-import type { Dimensions } from 'features/controlLayers/store/types';
-import { workflowLoaded } from 'features/nodes/store/nodesSlice';
-import { atom } from 'nanostores';
 
-import type { CanvasRightPanelTabName, TabName, UIState } from './uiTypes';
-
-const initialUIState: UIState = {
-  _version: 3,
-  activeTab: 'canvas',
-  activeTabCanvasRightPanel: 'gallery',
-  shouldShowImageDetails: false,
-  shouldShowProgressInViewer: true,
-  accordions: {},
-  expanders: {},
-  textAreaSizes: {},
-  shouldShowNotificationV2: true,
-};
+import type { UIState } from './uiTypes';
+import { getInitialUIState } from './uiTypes';
 
 export const uiSlice = createSlice({
   name: 'ui',
-  initialState: initialUIState,
+  initialState: getInitialUIState(),
   reducers: {
-    setActiveTab: (state, action: PayloadAction<TabName>) => {
+    setActiveTab: (state, action: PayloadAction<UIState['activeTab']>) => {
       state.activeTab = action.payload;
     },
-    activeTabCanvasRightPanelChanged: (state, action: PayloadAction<CanvasRightPanelTabName>) => {
+    activeTabCanvasRightPanelChanged: (state, action: PayloadAction<UIState['activeTabCanvasRightPanel']>) => {
       state.activeTabCanvasRightPanel = action.payload;
     },
-    setShouldShowImageDetails: (state, action: PayloadAction<boolean>) => {
+    setShouldShowImageDetails: (state, action: PayloadAction<UIState['shouldShowImageDetails']>) => {
       state.shouldShowImageDetails = action.payload;
     },
-    setShouldShowProgressInViewer: (state, action: PayloadAction<boolean>) => {
+    setShouldShowProgressInViewer: (state, action: PayloadAction<UIState['shouldShowProgressInViewer']>) => {
       state.shouldShowProgressInViewer = action.payload;
     },
-    accordionStateChanged: (state, action: PayloadAction<{ id: string; isOpen: boolean }>) => {
+    accordionStateChanged: (
+      state,
+      action: PayloadAction<{
+        id: keyof UIState['accordions'];
+        isOpen: UIState['accordions'][keyof UIState['accordions']];
+      }>
+    ) => {
       const { id, isOpen } = action.payload;
       state.accordions[id] = isOpen;
     },
-    expanderStateChanged: (state, action: PayloadAction<{ id: string; isOpen: boolean }>) => {
+    expanderStateChanged: (
+      state,
+      action: PayloadAction<{
+        id: keyof UIState['expanders'];
+        isOpen: UIState['expanders'][keyof UIState['expanders']];
+      }>
+    ) => {
       const { id, isOpen } = action.payload;
       state.expanders[id] = isOpen;
     },
-    textAreaSizesStateChanged: (state, action: PayloadAction<{ id: string; size: Partial<Dimensions> }>) => {
+    textAreaSizesStateChanged: (
+      state,
+      action: PayloadAction<{
+        id: keyof UIState['textAreaSizes'];
+        size: UIState['textAreaSizes'][keyof UIState['textAreaSizes']];
+      }>
+    ) => {
       const { id, size } = action.payload;
       state.textAreaSizes[id] = size;
     },
-    shouldShowNotificationChanged: (state, action: PayloadAction<boolean>) => {
+    shouldShowNotificationChanged: (state, action: PayloadAction<UIState['shouldShowNotificationV2']>) => {
       state.shouldShowNotificationV2 = action.payload;
     },
-  },
-  extraReducers(builder) {
-    builder.addCase(workflowLoaded, (state) => {
-      state.activeTab = 'workflows';
-    });
-    builder.addMatcher(newSessionRequested, (state) => {
-      state.activeTab = 'canvas';
-    });
   },
 });
 
@@ -93,17 +88,7 @@ const migrateUIState = (state: any): any => {
 
 export const uiPersistConfig: PersistConfig<UIState> = {
   name: uiSlice.name,
-  initialState: initialUIState,
+  initialState: getInitialUIState(),
   migrate: migrateUIState,
   persistDenylist: ['shouldShowImageDetails'],
 };
-
-const TABS_WITH_LEFT_PANEL: TabName[] = ['canvas', 'upscaling', 'workflows'] as const;
-export const LEFT_PANEL_MIN_SIZE_PX = 400;
-export const $isLeftPanelOpen = atom(true);
-export const selectWithLeftPanel = createSelector(selectUiSlice, (ui) => TABS_WITH_LEFT_PANEL.includes(ui.activeTab));
-
-const TABS_WITH_RIGHT_PANEL: TabName[] = ['canvas', 'upscaling', 'workflows'] as const;
-export const RIGHT_PANEL_MIN_SIZE_PX = 390;
-export const $isRightPanelOpen = atom(true);
-export const selectWithRightPanel = createSelector(selectUiSlice, (ui) => TABS_WITH_RIGHT_PANEL.includes(ui.activeTab));

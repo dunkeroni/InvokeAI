@@ -2,7 +2,6 @@ import { Grid, GridItem } from '@invoke-ai/ui-library';
 import { useCanvasIsBusy } from 'features/controlLayers/hooks/useCanvasIsBusy';
 import { newCanvasEntityFromImageDndTarget } from 'features/dnd/dnd';
 import { DndDropTarget } from 'features/dnd/DndDropTarget';
-import { useImageViewer } from 'features/gallery/components/ImageViewer/useImageViewer';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,18 +12,14 @@ const addControlLayerFromImageDndTargetData = newCanvasEntityFromImageDndTarget.
 const addRegionalGuidanceReferenceImageFromImageDndTargetData = newCanvasEntityFromImageDndTarget.getData({
   type: 'regional_guidance_with_reference_image',
 });
-const addGlobalReferenceImageFromImageDndTargetData = newCanvasEntityFromImageDndTarget.getData({
-  type: 'reference_image',
+const addResizedControlLayerFromImageDndTargetData = newCanvasEntityFromImageDndTarget.getData({
+  type: 'control_layer',
+  withResize: true,
 });
 
 export const CanvasDropArea = memo(() => {
   const { t } = useTranslation();
-  const imageViewer = useImageViewer();
   const isBusy = useCanvasIsBusy();
-
-  if (imageViewer.isOpen) {
-    return null;
-  }
 
   return (
     <>
@@ -54,7 +49,6 @@ export const CanvasDropArea = memo(() => {
             isDisabled={isBusy}
           />
         </GridItem>
-
         <GridItem position="relative">
           <DndDropTarget
             dndTarget={newCanvasEntityFromImageDndTarget}
@@ -66,8 +60,8 @@ export const CanvasDropArea = memo(() => {
         <GridItem position="relative">
           <DndDropTarget
             dndTarget={newCanvasEntityFromImageDndTarget}
-            dndTargetData={addGlobalReferenceImageFromImageDndTargetData}
-            label={t('controlLayers.canvasContextMenu.newGlobalReferenceImage')}
+            dndTargetData={addResizedControlLayerFromImageDndTargetData}
+            label={t('controlLayers.canvasContextMenu.newResizedControlLayer')}
             isDisabled={isBusy}
           />
         </GridItem>

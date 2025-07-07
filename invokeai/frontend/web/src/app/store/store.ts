@@ -4,19 +4,19 @@ import { logger } from 'app/logging/logger';
 import { idbKeyValDriver } from 'app/store/enhancers/reduxRemember/driver';
 import { errorHandler } from 'app/store/enhancers/reduxRemember/errors';
 import { deepClone } from 'common/util/deepClone';
+import { keys, mergeWith, omit, pick } from 'es-toolkit/compat';
 import { changeBoardModalSlice } from 'features/changeBoardModal/store/slice';
 import { canvasSettingsPersistConfig, canvasSettingsSlice } from 'features/controlLayers/store/canvasSettingsSlice';
 import { canvasPersistConfig, canvasSlice, canvasUndoableConfig } from 'features/controlLayers/store/canvasSlice';
 import {
+  canvasSessionSlice,
   canvasStagingAreaPersistConfig,
-  canvasStagingAreaSlice,
 } from 'features/controlLayers/store/canvasStagingAreaSlice';
 import { lorasPersistConfig, lorasSlice } from 'features/controlLayers/store/lorasSlice';
 import { paramsPersistConfig, paramsSlice } from 'features/controlLayers/store/paramsSlice';
-import { deleteImageModalSlice } from 'features/deleteImageModal/store/slice';
+import { refImagesPersistConfig, refImagesSlice } from 'features/controlLayers/store/refImagesSlice';
 import { dynamicPromptsPersistConfig, dynamicPromptsSlice } from 'features/dynamicPrompts/store/dynamicPromptsSlice';
 import { galleryPersistConfig, gallerySlice } from 'features/gallery/store/gallerySlice';
-import { hrfPersistConfig, hrfSlice } from 'features/hrf/store/hrfSlice';
 import { modelManagerV2PersistConfig, modelManagerV2Slice } from 'features/modelManagerV2/store/modelManagerV2Slice';
 import { nodesPersistConfig, nodesSlice, nodesUndoableConfig } from 'features/nodes/store/nodesSlice';
 import { workflowLibraryPersistConfig, workflowLibrarySlice } from 'features/nodes/store/workflowLibrarySlice';
@@ -28,7 +28,6 @@ import { configSlice } from 'features/system/store/configSlice';
 import { systemPersistConfig, systemSlice } from 'features/system/store/systemSlice';
 import { uiPersistConfig, uiSlice } from 'features/ui/store/uiSlice';
 import { diff } from 'jsondiffpatch';
-import { keys, mergeWith, omit, pick } from 'lodash-es';
 import dynamicMiddlewares from 'redux-dynamic-middlewares';
 import type { SerializeFunction, UnserializeFunction } from 'redux-remember';
 import { rememberEnhancer, rememberReducer } from 'redux-remember';
@@ -54,20 +53,19 @@ const allReducers = {
   [configSlice.name]: configSlice.reducer,
   [uiSlice.name]: uiSlice.reducer,
   [dynamicPromptsSlice.name]: dynamicPromptsSlice.reducer,
-  [deleteImageModalSlice.name]: deleteImageModalSlice.reducer,
   [changeBoardModalSlice.name]: changeBoardModalSlice.reducer,
   [modelManagerV2Slice.name]: modelManagerV2Slice.reducer,
   [queueSlice.name]: queueSlice.reducer,
-  [hrfSlice.name]: hrfSlice.reducer,
   [canvasSlice.name]: undoable(canvasSlice.reducer, canvasUndoableConfig),
   [workflowSettingsSlice.name]: workflowSettingsSlice.reducer,
   [upscaleSlice.name]: upscaleSlice.reducer,
   [stylePresetSlice.name]: stylePresetSlice.reducer,
   [paramsSlice.name]: paramsSlice.reducer,
   [canvasSettingsSlice.name]: canvasSettingsSlice.reducer,
-  [canvasStagingAreaSlice.name]: canvasStagingAreaSlice.reducer,
+  [canvasSessionSlice.name]: canvasSessionSlice.reducer,
   [lorasSlice.name]: lorasSlice.reducer,
   [workflowLibrarySlice.name]: workflowLibrarySlice.reducer,
+  [refImagesSlice.name]: refImagesSlice.reducer,
 };
 
 const rootReducer = combineReducers(allReducers);
@@ -103,7 +101,6 @@ const persistConfigs: { [key in keyof typeof allReducers]?: PersistConfig } = {
   [uiPersistConfig.name]: uiPersistConfig,
   [dynamicPromptsPersistConfig.name]: dynamicPromptsPersistConfig,
   [modelManagerV2PersistConfig.name]: modelManagerV2PersistConfig,
-  [hrfPersistConfig.name]: hrfPersistConfig,
   [canvasPersistConfig.name]: canvasPersistConfig,
   [workflowSettingsPersistConfig.name]: workflowSettingsPersistConfig,
   [upscalePersistConfig.name]: upscalePersistConfig,
@@ -113,6 +110,7 @@ const persistConfigs: { [key in keyof typeof allReducers]?: PersistConfig } = {
   [canvasStagingAreaPersistConfig.name]: canvasStagingAreaPersistConfig,
   [lorasPersistConfig.name]: lorasPersistConfig,
   [workflowLibraryPersistConfig.name]: workflowLibraryPersistConfig,
+  [refImagesSlice.name]: refImagesPersistConfig,
 };
 
 const unserialize: UnserializeFunction = (data, key) => {
@@ -175,6 +173,7 @@ export const createStore = (uniqueStoreKey?: string, persist = true) =>
         .concat(api.middleware)
         .concat(dynamicMiddlewares)
         .concat(authToastMiddleware)
+        // .concat(getDebugLoggerMiddleware())
         .prepend(listenerMiddleware.middleware),
     enhancers: (getDefaultEnhancers) => {
       const _enhancers = getDefaultEnhancers().concat(autoBatchEnhancer());
@@ -209,3 +208,4 @@ export type RootState = ReturnType<AppStore['getState']>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AppThunkDispatch = ThunkDispatch<RootState, any, UnknownAction>;
 export type AppDispatch = ReturnType<typeof createStore>['dispatch'];
+export type AppGetState = ReturnType<typeof createStore>['getState'];

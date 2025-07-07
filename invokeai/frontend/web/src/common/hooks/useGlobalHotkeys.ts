@@ -1,13 +1,17 @@
-import { useAppDispatch } from 'app/store/storeHooks';
-import { useCancelCurrentQueueItem } from 'features/queue/hooks/useCancelCurrentQueueItem';
+import { useAppStore } from 'app/store/storeHooks';
+import { useDeleteImageModalApi } from 'features/deleteImageModal/store/state';
+import { selectSelection } from 'features/gallery/store/gallerySelectors';
 import { useClearQueue } from 'features/queue/hooks/useClearQueue';
+import { useDeleteCurrentQueueItem } from 'features/queue/hooks/useDeleteCurrentQueueItem';
 import { useInvoke } from 'features/queue/hooks/useInvoke';
 import { useRegisteredHotkeys } from 'features/system/components/HotkeysModal/useHotkeyData';
 import { useFeatureStatus } from 'features/system/hooks/useFeatureStatus';
-import { setActiveTab } from 'features/ui/store/uiSlice';
+import { navigationApi } from 'features/ui/layouts/navigation-api';
+
+import { getFocusedRegion } from './focus';
 
 export const useGlobalHotkeys = () => {
-  const dispatch = useAppDispatch();
+  const { dispatch, getState } = useAppStore();
   const isModelManagerEnabled = useFeatureStatus('modelManager');
   const queue = useInvoke();
 
@@ -35,41 +39,46 @@ export const useGlobalHotkeys = () => {
     dependencies: [queue],
   });
 
-  const {
-    cancelQueueItem,
-    isDisabled: isDisabledCancelQueueItem,
-    isLoading: isLoadingCancelQueueItem,
-  } = useCancelCurrentQueueItem();
+  const deleteCurrentQueueItem = useDeleteCurrentQueueItem();
 
   useRegisteredHotkeys({
     id: 'cancelQueueItem',
     category: 'app',
-    callback: cancelQueueItem,
+    callback: deleteCurrentQueueItem.trigger,
     options: {
-      enabled: !isDisabledCancelQueueItem && !isLoadingCancelQueueItem,
+      enabled: !deleteCurrentQueueItem.isDisabled && !deleteCurrentQueueItem.isLoading,
       preventDefault: true,
     },
-    dependencies: [cancelQueueItem, isDisabledCancelQueueItem, isLoadingCancelQueueItem],
+    dependencies: [deleteCurrentQueueItem],
   });
 
-  const { clearQueue, isDisabled: isDisabledClearQueue, isLoading: isLoadingClearQueue } = useClearQueue();
+  const clearQueue = useClearQueue();
 
   useRegisteredHotkeys({
     id: 'clearQueue',
     category: 'app',
-    callback: clearQueue,
+    callback: clearQueue.trigger,
     options: {
-      enabled: !isDisabledClearQueue && !isLoadingClearQueue,
+      enabled: !clearQueue.isDisabled && !clearQueue.isLoading,
       preventDefault: true,
     },
-    dependencies: [clearQueue, isDisabledClearQueue, isLoadingClearQueue],
+    dependencies: [clearQueue],
+  });
+
+  useRegisteredHotkeys({
+    id: 'selectGenerateTab',
+    category: 'app',
+    callback: () => {
+      navigationApi.switchToTab('generate');
+    },
+    dependencies: [dispatch],
   });
 
   useRegisteredHotkeys({
     id: 'selectCanvasTab',
     category: 'app',
     callback: () => {
-      dispatch(setActiveTab('canvas'));
+      navigationApi.switchToTab('canvas');
     },
     dependencies: [dispatch],
   });
@@ -78,7 +87,7 @@ export const useGlobalHotkeys = () => {
     id: 'selectUpscalingTab',
     category: 'app',
     callback: () => {
-      dispatch(setActiveTab('upscaling'));
+      navigationApi.switchToTab('upscaling');
     },
     dependencies: [dispatch],
   });
@@ -87,7 +96,7 @@ export const useGlobalHotkeys = () => {
     id: 'selectWorkflowsTab',
     category: 'app',
     callback: () => {
-      dispatch(setActiveTab('workflows'));
+      navigationApi.switchToTab('workflows');
     },
     dependencies: [dispatch],
   });
@@ -96,7 +105,7 @@ export const useGlobalHotkeys = () => {
     id: 'selectModelsTab',
     category: 'app',
     callback: () => {
-      dispatch(setActiveTab('models'));
+      navigationApi.switchToTab('models');
     },
     options: {
       enabled: isModelManagerEnabled,
@@ -108,8 +117,26 @@ export const useGlobalHotkeys = () => {
     id: 'selectQueueTab',
     category: 'app',
     callback: () => {
-      dispatch(setActiveTab('queue'));
+      navigationApi.switchToTab('queue');
     },
     dependencies: [dispatch, isModelManagerEnabled],
+  });
+
+  const deleteImageModalApi = useDeleteImageModalApi();
+  useRegisteredHotkeys({
+    id: 'deleteSelection',
+    category: 'gallery',
+    callback: () => {
+      const focusedRegion = getFocusedRegion();
+      if (focusedRegion !== 'gallery' && focusedRegion !== 'viewer') {
+        return;
+      }
+      const selection = selectSelection(getState());
+      if (!selection.length) {
+        return;
+      }
+      deleteImageModalApi.delete(selection);
+    },
+    dependencies: [getState, deleteImageModalApi],
   });
 };

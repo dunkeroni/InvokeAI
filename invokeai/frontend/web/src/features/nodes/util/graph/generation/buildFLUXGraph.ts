@@ -1,10 +1,10 @@
 import { logger } from 'app/logging/logger';
-import type { RootState } from 'app/store/store';
-import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
-import { selectCanvasSettingsSlice } from 'features/controlLayers/store/canvasSettingsSlice';
-import { selectParamsSlice } from 'features/controlLayers/store/paramsSlice';
+import { selectMainModelConfig, selectParamsSlice } from 'features/controlLayers/store/paramsSlice';
+import { selectRefImagesSlice } from 'features/controlLayers/store/refImagesSlice';
 import { selectCanvasMetadata, selectCanvasSlice } from 'features/controlLayers/store/selectors';
+import { isFluxKontextReferenceImageConfig } from 'features/controlLayers/store/types';
+import { getGlobalReferenceImageWarnings } from 'features/controlLayers/store/validators';
 import { addFLUXFill } from 'features/nodes/util/graph/generation/addFLUXFill';
 import { addFLUXLoRAs } from 'features/nodes/util/graph/generation/addFLUXLoRAs';
 import { addFLUXReduxes } from 'features/nodes/util/graph/generation/addFLUXRedux';
@@ -17,18 +17,13 @@ import { addTextToImage } from 'features/nodes/util/graph/generation/addTextToIm
 import { addWatermarker } from 'features/nodes/util/graph/generation/addWatermarker';
 import { Graph } from 'features/nodes/util/graph/generation/Graph';
 import {
-  CANVAS_OUTPUT_PREFIX,
-  getBoardField,
   getSizes,
+  selectCanvasOutputFields,
   selectPresetModifiedPrompts,
 } from 'features/nodes/util/graph/graphBuilderUtils';
-import {
-  type GraphBuilderReturn,
-  type ImageOutputNodes,
-  UnsupportedGenerationModeError,
-} from 'features/nodes/util/graph/types';
+import type { GraphBuilderArg, GraphBuilderReturn, ImageOutputNodes } from 'features/nodes/util/graph/types';
+import { UnsupportedGenerationModeError } from 'features/nodes/util/graph/types';
 import { t } from 'i18next';
-import { selectMainModelConfig } from 'services/api/endpoints/models';
 import type { Invocation } from 'services/api/types';
 import type { Equals } from 'tsafe';
 import { assert } from 'tsafe';
@@ -38,13 +33,13 @@ import { addIPAdapters } from './addIPAdapters';
 
 const log = logger('system');
 
-export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): Promise<GraphBuilderReturn> => {
-  const generationMode = await manager.compositor.getGenerationMode();
-  log.debug({ generationMode }, 'Building FLUX graph');
+export const buildFLUXGraph = async (arg: GraphBuilderArg): Promise<GraphBuilderReturn> => {
+  const { generationMode, state, manager } = arg;
+  log.debug({ generationMode, manager: manager?.id }, 'Building FLUX graph');
 
   const params = selectParamsSlice(state);
-  const canvasSettings = selectCanvasSettingsSlice(state);
   const canvas = selectCanvasSlice(state);
+  const refImages = selectRefImagesSlice(state);
 
   const { bbox } = canvas;
 
@@ -94,6 +89,15 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
     guidance = 30;
   }
 
+  const isFluxKontextDev = model.name?.toLowerCase().includes('kontext');
+  if (isFluxKontextDev) {
+    if (generationMode !== 'txt2img') {
+      throw new UnsupportedGenerationModeError(t('toast.fluxKontextIncompatibleGenerationMode'));
+    }
+
+    guidance = 30;
+  }
+
   const { positivePrompt } = selectPresetModifiedPrompts(state);
 
   const g = new Graph(getPrefixedId('flux_graph'));
@@ -115,6 +119,7 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
     type: 'collect',
     id: getPrefixedId('pos_cond_collect'),
   });
+
   const denoise = g.addNode({
     type: 'flux_denoise',
     id: getPrefixedId('flux_denoise'),
@@ -131,6 +136,31 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
     type: 'flux_vae_decode',
     id: getPrefixedId('flux_vae_decode'),
   });
+
+  if (isFluxKontextDev) {
+    const validFLUXKontextConfigs = selectRefImagesSlice(state)
+      .entities.filter((entity) => entity.isEnabled)
+      .filter((entity) => isFluxKontextReferenceImageConfig(entity.config))
+      .filter((entity) => getGlobalReferenceImageWarnings(entity, model).length === 0);
+
+    // FLUX Kontext supports only a single conditioning image - we'll just take the first one.
+    // In the future, we can explore concatenating multiple conditioning images in image or latent space.
+    const firstValidFLUXKontextConfig = validFLUXKontextConfigs[0];
+
+    if (firstValidFLUXKontextConfig) {
+      const { image } = firstValidFLUXKontextConfig.config;
+
+      assert(image, 'getGlobalReferenceImageWarnings checks if the image is there, this should never raise');
+
+      const kontextConditioning = g.addNode({
+        type: 'flux_kontext',
+        id: getPrefixedId('flux_kontext'),
+        image,
+      });
+      g.addEdge(kontextConditioning, 'kontext_cond', denoise, 'kontext_conditioning');
+      g.upsertMetadata({ ref_images: [firstValidFLUXKontextConfig] }, 'merge');
+    }
+  }
 
   g.addEdge(modelLoader, 'transformer', denoise, 'transformer');
   g.addEdge(modelLoader, 'vae', denoise, 'controlnet_vae');
@@ -170,7 +200,8 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
 
   let canvasOutput: Invocation<ImageOutputNodes> = l2i;
 
-  if (isFLUXFill) {
+  if (isFLUXFill && (generationMode === 'inpaint' || generationMode === 'outpaint')) {
+    assert(manager !== null);
     canvasOutput = await addFLUXFill({
       state,
       g,
@@ -184,6 +215,7 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
     canvasOutput = addTextToImage({ g, l2i, originalSize, scaledSize });
     g.upsertMetadata({ generation_mode: 'flux_txt2img' });
   } else if (generationMode === 'img2img') {
+    assert(manager !== null);
     canvasOutput = await addImageToImage({
       g,
       manager,
@@ -199,6 +231,7 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
     });
     g.upsertMetadata({ generation_mode: 'flux_img2img' });
   } else if (generationMode === 'inpaint') {
+    assert(manager !== null);
     canvasOutput = await addInpaint({
       state,
       g,
@@ -216,6 +249,7 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
     });
     g.upsertMetadata({ generation_mode: 'flux_inpaint' });
   } else if (generationMode === 'outpaint') {
+    assert(manager !== null);
     canvasOutput = await addOutpaint({
       state,
       g,
@@ -236,79 +270,85 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
     assert<Equals<typeof generationMode, never>>(false);
   }
 
-  const controlNetCollector = g.addNode({
-    type: 'collect',
-    id: getPrefixedId('control_net_collector'),
-  });
-  const controlNetResult = await addControlNets({
-    manager,
-    entities: canvas.controlLayers.entities,
-    g,
-    rect: canvas.bbox.rect,
-    collector: controlNetCollector,
-    model,
-  });
-  if (controlNetResult.addedControlNets > 0) {
-    g.addEdge(controlNetCollector, 'collection', denoise, 'control');
-  } else {
-    g.deleteNode(controlNetCollector.id);
-  }
+  if (manager !== null) {
+    const controlNetCollector = g.addNode({
+      type: 'collect',
+      id: getPrefixedId('control_net_collector'),
+    });
+    const controlNetResult = await addControlNets({
+      manager,
+      entities: canvas.controlLayers.entities,
+      g,
+      rect: canvas.bbox.rect,
+      collector: controlNetCollector,
+      model,
+    });
+    if (controlNetResult.addedControlNets > 0) {
+      g.addEdge(controlNetCollector, 'collection', denoise, 'control');
+    } else {
+      g.deleteNode(controlNetCollector.id);
+    }
 
-  await addControlLoRA({
-    manager,
-    entities: canvas.controlLayers.entities,
-    g,
-    rect: canvas.bbox.rect,
-    denoise,
-    model,
-  });
+    await addControlLoRA({
+      manager,
+      entities: canvas.controlLayers.entities,
+      g,
+      rect: canvas.bbox.rect,
+      denoise,
+      model,
+    });
+  }
 
   const ipAdapterCollect = g.addNode({
     type: 'collect',
     id: getPrefixedId('ip_adapter_collector'),
   });
   const ipAdapterResult = addIPAdapters({
-    entities: canvas.referenceImages.entities,
+    entities: refImages.entities,
     g,
     collector: ipAdapterCollect,
     model,
   });
+
+  let totalIPAdaptersAdded = ipAdapterResult.addedIPAdapters;
 
   const fluxReduxCollect = g.addNode({
     type: 'collect',
     id: getPrefixedId('ip_adapter_collector'),
   });
   const fluxReduxResult = addFLUXReduxes({
-    entities: canvas.referenceImages.entities,
+    entities: refImages.entities,
     g,
     collector: fluxReduxCollect,
     model,
   });
+  let totalReduxesAdded = fluxReduxResult.addedFLUXReduxes;
 
-  const regionsResult = await addRegions({
-    manager,
-    regions: canvas.regionalGuidance.entities,
-    g,
-    bbox: canvas.bbox.rect,
-    model,
-    posCond,
-    negCond: null,
-    posCondCollect,
-    negCondCollect: null,
-    ipAdapterCollect,
-    fluxReduxCollect,
-  });
+  if (manager !== null) {
+    const regionsResult = await addRegions({
+      manager,
+      regions: canvas.regionalGuidance.entities,
+      g,
+      bbox: canvas.bbox.rect,
+      model,
+      posCond,
+      negCond: null,
+      posCondCollect,
+      negCondCollect: null,
+      ipAdapterCollect,
+      fluxReduxCollect,
+    });
 
-  const totalIPAdaptersAdded =
-    ipAdapterResult.addedIPAdapters + regionsResult.reduce((acc, r) => acc + r.addedIPAdapters, 0);
+    totalIPAdaptersAdded += regionsResult.reduce((acc, r) => acc + r.addedIPAdapters, 0);
+    totalReduxesAdded += regionsResult.reduce((acc, r) => acc + r.addedFLUXReduxes, 0);
+  }
+
   if (totalIPAdaptersAdded > 0) {
     g.addEdge(ipAdapterCollect, 'collection', denoise, 'ip_adapter');
   } else {
     g.deleteNode(ipAdapterCollect.id);
   }
 
-  const totalReduxesAdded =
-    fluxReduxResult.addedFLUXReduxes + regionsResult.reduce((acc, r) => acc + r.addedFLUXReduxes, 0);
   if (totalReduxesAdded > 0) {
     g.addEdge(fluxReduxCollect, 'collection', denoise, 'redux_conditioning');
   } else {
@@ -325,20 +365,9 @@ export const buildFLUXGraph = async (state: RootState, manager: CanvasManager): 
     canvasOutput = addWatermarker(g, canvasOutput);
   }
 
-  // This image will be staged, should not be saved to the gallery or added to a board.
-  const is_intermediate = canvasSettings.sendToCanvas;
-  const board = canvasSettings.sendToCanvas ? undefined : getBoardField(state);
+  g.upsertMetadata(selectCanvasMetadata(state));
 
-  if (!canvasSettings.sendToCanvas) {
-    g.upsertMetadata(selectCanvasMetadata(state));
-  }
-
-  g.updateNode(canvasOutput, {
-    id: getPrefixedId(CANVAS_OUTPUT_PREFIX),
-    is_intermediate,
-    use_cache: false,
-    board,
-  });
+  g.updateNode(canvasOutput, selectCanvasOutputFields(state));
 
   g.setMetadataReceivingNode(canvasOutput);
   return {

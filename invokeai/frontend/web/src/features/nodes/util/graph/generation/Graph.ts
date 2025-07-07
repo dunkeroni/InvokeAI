@@ -1,6 +1,8 @@
+import { objectEquals } from '@observ33r/object-equals';
+import { mergeWith } from 'es-toolkit';
+import { forEach, groupBy, unset, values } from 'es-toolkit/compat';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
 import { type ModelIdentifierField, zModelIdentifierField } from 'features/nodes/types/common';
-import { forEach, groupBy, isEqual, unset, values } from 'lodash-es';
 import type {
   AnyInvocation,
   AnyInvocationIncMetadata,
@@ -128,6 +130,14 @@ export class Graph {
   }
 
   /**
+   * Gets all nodes in the graph.
+   * @returns An array of all nodes in the graph.
+   */
+  getNodes(): AnyInvocation[] {
+    return Object.values(this._graph.nodes);
+  }
+
+  /**
    * Get the immediate incomers of a node.
    * @param node The node to get the incomers of.
    * @returns The incoming nodes.
@@ -169,7 +179,7 @@ export class Graph {
       source: { node_id: fromNode.id, field: fromField },
       destination: { node_id: toNode.id, field: toField },
     };
-    const edgeAlreadyExists = this._graph.edges.some((e) => isEqual(e, edge));
+    const edgeAlreadyExists = this._graph.edges.some((e) => objectEquals(e, edge));
     assert(!edgeAlreadyExists, `Edge ${Graph.edgeToString(edge)} already exists`);
     this._graph.edges.push(edge);
     return edge;
@@ -182,7 +192,7 @@ export class Graph {
    * @raises `AssertionError` if an edge with the same source and destination already exists.
    */
   addEdgeFromObj(edge: Edge): Edge {
-    const edgeAlreadyExists = this._graph.edges.some((e) => isEqual(e, edge));
+    const edgeAlreadyExists = this._graph.edges.some((e) => objectEquals(e, edge));
     assert(!edgeAlreadyExists, `Edge ${Graph.edgeToString(edge)} already exists`);
     this._graph.edges.push(edge);
     return edge;
@@ -275,11 +285,11 @@ export class Graph {
   }
 
   /**
-   * INTERNAL: Delete _all_ matching edges from the graph. Uses _.isEqual for comparison.
+   * INTERNAL: Delete _all_ matching edges from the graph. Uses _.objectEquals for comparison.
    * @param edge The edge to delete
    */
   private _deleteEdge(edge: Edge): void {
-    this._graph.edges = this._graph.edges.filter((e) => !isEqual(e, edge));
+    this._graph.edges = this._graph.edges.filter((e) => !objectEquals(e, edge));
   }
 
   /**
@@ -317,7 +327,7 @@ export class Graph {
       this.getNode(edge.source.node_id);
       this.getNode(edge.destination.node_id);
       assert(
-        !this._graph.edges.filter((e) => e !== edge).find((e) => isEqual(e, edge)),
+        !this._graph.edges.filter((e) => e !== edge).find((e) => objectEquals(e, edge)),
         `Duplicate edge: ${Graph.edgeToString(edge)}`
       );
     }
@@ -378,11 +388,25 @@ export class Graph {
    * Add metadata to the graph. If the metadata node does not exist, it is created. If the specific metadata key exists,
    * it is overwritten.
    * @param metadata The metadata to add.
+   * @param strategy The strategy to use when adding metadata. If 'replace', any existing key is replaced. If 'add',
+   *    the metadata is deeply merged with the existing metadata. Arrays will be concatenated.
    * @returns The metadata node.
    */
-  upsertMetadata(metadata: Partial<S['CoreMetadataInvocation']>): S['CoreMetadataInvocation'] {
+  upsertMetadata(
+    metadata: Partial<S['CoreMetadataInvocation']>,
+    strategy: 'replace' | 'merge' = 'replace'
+  ): S['CoreMetadataInvocation'] {
     const node = this.getMetadataNode();
-    Object.assign(node, metadata);
+    if (strategy === 'replace') {
+      Object.assign(node, metadata);
+    } else {
+      // strategy === 'merge'
+      mergeWith(node, metadata, (objValue, srcValue) => {
+        if (Array.isArray(objValue)) {
+          return objValue.concat(srcValue);
+        }
+      });
+    }
     return node;
   }
 

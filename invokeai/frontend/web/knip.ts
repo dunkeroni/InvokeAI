@@ -12,10 +12,6 @@ const config: KnipConfig = {
     'src/features/parameters/types/parameterSchemas.ts',
     // TODO(psyche): maybe we can clean up these utils after canvas v2 release
     'src/features/controlLayers/konva/util.ts',
-    // TODO(psyche): restore HRF functionality?
-    'src/features/hrf/**',
-    // This feature is (temprarily?) disabled
-    'src/features/controlLayers/components/InpaintMask/InpaintMaskAddButtons.tsx',
   ],
   ignoreBinaries: ['only-allow'],
   paths: {

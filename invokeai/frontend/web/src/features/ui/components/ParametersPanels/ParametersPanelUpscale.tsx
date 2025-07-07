@@ -2,8 +2,8 @@ import { Box, Flex } from '@invoke-ai/ui-library';
 import { useStore } from '@nanostores/react';
 import { overlayScrollbarsParams } from 'common/components/OverlayScrollbars/constants';
 import { Prompts } from 'features/parameters/components/Prompts/Prompts';
-import { AdvancedSettingsAccordion } from 'features/settingsAccordions/components/AdvancedSettingsAccordion/AdvancedSettingsAccordion';
-import { GenerationSettingsAccordion } from 'features/settingsAccordions/components/GenerationSettingsAccordion/GenerationSettingsAccordion';
+import { UpscaleTabAdvancedSettingsAccordion } from 'features/settingsAccordions/components/AdvancedSettingsAccordion/UpscaleTabAdvancedSettingsAccordion';
+import { UpscaleTabGenerationSettingsAccordion } from 'features/settingsAccordions/components/GenerationSettingsAccordion/UpscaleTabGenerationSettingsAccordion';
 import { UpscaleSettingsAccordion } from 'features/settingsAccordions/components/UpscaleSettingsAccordion/UpscaleSettingsAccordion';
 import { StylePresetMenu } from 'features/stylePresets/components/StylePresetMenu';
 import { StylePresetMenuTrigger } from 'features/stylePresets/components/StylePresetMenuTrigger';
@@ -17,7 +17,7 @@ const overlayScrollbarsStyles: CSSProperties = {
   width: '100%',
 };
 
-const ParametersPanelUpscale = () => {
+export const ParametersPanelUpscale = memo(() => {
   const isStylePresetsMenuOpen = useStore($isStylePresetsMenuOpen);
 
   return (
@@ -36,14 +36,14 @@ const ParametersPanelUpscale = () => {
             <Flex gap={2} flexDirection="column" h="full" w="full">
               <Prompts />
               <UpscaleSettingsAccordion />
-              <GenerationSettingsAccordion />
-              <AdvancedSettingsAccordion />
+              <UpscaleTabGenerationSettingsAccordion />
+              <UpscaleTabAdvancedSettingsAccordion />
             </Flex>
           </OverlayScrollbarsComponent>
         </Box>
       </Flex>
     </Flex>
   );
-};
+});
 
-export default memo(ParametersPanelUpscale);
+ParametersPanelUpscale.displayName = 'ParametersPanelUpscale';

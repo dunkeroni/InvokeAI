@@ -225,7 +225,16 @@
     "prompt": {
         "addPromptTrigger": "Add Prompt Trigger",
         "compatibleEmbeddings": "Compatible Embeddings",
-        "noMatchingTriggers": "No matching triggers"
+        "noMatchingTriggers": "No matching triggers",
+        "generateFromImage": "Generate prompt from image",
+        "expandCurrentPrompt": "Expand Current Prompt",
+        "uploadImageForPromptGeneration": "Upload Image for Prompt Generation",
+        "expandingPrompt": "Expanding prompt...",
+        "resultTitle": "Prompt Expansion Complete",
+        "resultSubtitle": "Choose how to handle the expanded prompt:",
+        "replace": "Replace",
+        "insert": "Insert",
+        "discard": "Discard"
     },
     "queue": {
         "queue": "Queue",
@@ -335,14 +344,14 @@
         "images": "Images",
         "assets": "Assets",
         "alwaysShowImageSizeBadge": "Always Show Image Size Badge",
-        "assetsTab": "Files you’ve uploaded for use in your projects.",
+        "assetsTab": "Files you've uploaded for use in your projects.",
         "autoAssignBoardOnClick": "Auto-Assign Board on Click",
         "autoSwitchNewImages": "Auto-Switch to New Images",
         "boardsSettings": "Boards Settings",
         "copy": "Copy",
         "currentlyInUse": "This image is currently in use in the following features:",
         "drop": "Drop",
-        "dropOrUpload": "$t(gallery.drop) or Upload",
+        "dropOrUpload": "Drop or Upload",
         "dropToUpload": "$t(gallery.drop) to Upload",
         "deleteImage_one": "Delete Image",
         "deleteImage_other": "Delete {{count}} Images",
@@ -357,7 +366,7 @@
         "gallerySettings": "Gallery Settings",
         "go": "Go",
         "image": "image",
-        "imagesTab": "Images you’ve created and saved within Invoke.",
+        "imagesTab": "Images you've created and saved within Invoke.",
         "imagesSettings": "Gallery Images Settings",
         "jump": "Jump",
         "loading": "Loading",
@@ -396,7 +405,8 @@
         "compareHelp4": "Press <Kbd>Z</Kbd> or <Kbd>Esc</Kbd> to exit.",
         "openViewer": "Open Viewer",
         "closeViewer": "Close Viewer",
-        "move": "Move"
+        "move": "Move",
+        "useForPromptGeneration": "Use for Prompt Generation"
     },
     "hotkeys": {
         "hotkeys": "Hotkeys",
@@ -579,6 +589,16 @@
             "cancelTransform": {
                 "title": "Cancel Transform",
                 "desc": "Cancel the pending transform."
+            },
+            "settings": {
+                "behavior": "Behavior",
+                "display": "Display",
+                "grid": "Grid",
+                "debug": "Debug"
+            },
+            "toggleNonRasterLayers": {
+                "title": "Toggle Non-Raster Layers",
+                "desc": "Show or hide all non-raster layer categories (Control Layers, Inpaint Masks, Regional Guidance)."
             }
         },
         "workflows": {
@@ -742,7 +762,7 @@
         "vae": "VAE",
         "width": "Width",
         "workflow": "Workflow",
-        "canvasV2Metadata": "Canvas"
+        "canvasV2Metadata": "Canvas Layers"
     },
     "modelManager": {
         "active": "active",
@@ -763,7 +783,7 @@
         "convertToDiffusers": "Convert To Diffusers",
         "convertToDiffusersHelpText1": "This model will be converted to the 🧨 Diffusers format.",
         "convertToDiffusersHelpText2": "This process will replace your Model Manager entry with the Diffusers version of the same model.",
-        "convertToDiffusersHelpText3": "Your checkpoint file on disk WILL be deleted if it is in InvokeAI root folder. If it is in a custom location, then it WILL NOT be deleted.",
+        "convertToDiffusersHelpText3": "Your checkpoint file on disk WILL be deleted if it is in the InvokeAI root folder. If it is in a custom location, then it WILL NOT be deleted.",
         "convertToDiffusersHelpText4": "This is a one time process only. It might take around 30s-60s depending on the specifications of your computer.",
         "convertToDiffusersHelpText5": "Please make sure you have enough disk space. Models generally vary between 2GB-7GB in size.",
         "convertToDiffusersHelpText6": "Do you wish to convert this model?",
@@ -806,7 +826,11 @@
         "urlUnauthorizedErrorMessage": "You may need to configure an API token to access this model.",
         "urlUnauthorizedErrorMessage2": "Learn how here.",
         "imageEncoderModelId": "Image Encoder Model ID",
-        "includesNModels": "Includes {{n}} models and their dependencies",
+        "installedModelsCount": "{{installed}} of {{total}} models installed.",
+        "includesNModels": "Includes {{n}} models and their dependencies.",
+        "allNModelsInstalled": "All {{count}} models installed",
+        "nToInstall": "{{count}} to install",
+        "nAlreadyInstalled": "{{count}} already installed",
         "installQueue": "Install Queue",
         "inplaceInstall": "In-place install",
         "inplaceInstallDesc": "Install models without copying the files. When using the model, it will be loaded from its this location. If disabled, the model file(s) will be copied into the Invoke-managed models directory during installation.",
@@ -869,6 +893,25 @@
         "starterBundleHelpText": "Easily install all models needed to get started with a base model, including a main model, controlnets, IP adapters, and more. Selecting a bundle will skip any models that you already have installed.",
         "starterModels": "Starter Models",
         "starterModelsInModelManager": "Starter Models can be found in Model Manager",
+        "bundleAlreadyInstalled": "Bundle already installed",
+        "bundleAlreadyInstalledDesc": "All models in the {{bundleName}} bundle are already installed.",
+        "launchpadTab": "Launchpad",
+        "launchpad": {
+            "welcome": "Welcome to Model Management",
+            "description": "Invoke requires models to be installed to utilize most features of the platform. Choose from manual installation options or explore curated starter models.",
+            "manualInstall": "Manual Installation",
+            "urlDescription": "Install models from a URL or local file path. Perfect for specific models you want to add.",
+            "huggingFaceDescription": "Browse and install models directly from HuggingFace repositories.",
+            "scanFolderDescription": "Scan a local folder to automatically detect and install models.",
+            "recommendedModels": "Recommended Models",
+            "exploreStarter": "Or browse all available starter models",
+            "quickStart": "Quick Start Bundles",
+            "bundleDescription": "Each bundle includes essential models for each model family and curated base models to get started.",
+            "browseAll": "Or browse all available models:",
+            "stableDiffusion15": "Stable Diffusion 1.5",
+            "sdxl": "SDXL",
+            "fluxDev": "FLUX.1 dev"
+        },
         "controlLora": "Control LoRA",
         "llavaOnevision": "LLaVA OneVision",
         "syncModels": "Sync Models",
@@ -905,7 +948,8 @@
         "selectModel": "Select a Model",
         "noLoRAsInstalled": "No LoRAs installed",
         "noRefinerModelsInstalled": "No SDXL Refiner models installed",
-        "defaultVAE": "Default VAE"
+        "defaultVAE": "Default VAE",
+        "noCompatibleLoRAs": "No Compatible LoRAs"
     },
     "nodes": {
         "arithmeticSequence": "Arithmetic Sequence",
@@ -1147,6 +1191,7 @@
             "modelIncompatibleScaledBboxWidth": "Scaled bbox width is {{width}} but {{model}} requires multiple of {{multiple}}",
             "modelIncompatibleScaledBboxHeight": "Scaled bbox height is {{height}} but {{model}} requires multiple of {{multiple}}",
             "fluxModelMultipleControlLoRAs": "Can only use 1 Control LoRA at a time",
+            "fluxKontextMultipleReferenceImages": "Can only use 1 Reference Image at a time with Flux Kontext",
             "canvasIsFiltering": "Canvas is busy (filtering)",
             "canvasIsTransforming": "Canvas is busy (transforming)",
             "canvasIsRasterizing": "Canvas is busy (rasterizing)",
@@ -1154,7 +1199,9 @@
             "canvasIsSelectingObject": "Canvas is busy (selecting object)",
             "noPrompts": "No prompts generated",
             "noNodesInGraph": "No nodes in graph",
-            "systemDisconnected": "System disconnected"
+            "systemDisconnected": "System disconnected",
+            "promptExpansionPending": "Prompt expansion in progress",
+            "promptExpansionResultPending": "Please accept or discard your prompt expansion result"
         },
         "maskBlur": "Mask Blur",
         "negativePromptPlaceholder": "Negative Prompt",
@@ -1312,6 +1359,21 @@
         "problemCopyingLayer": "Unable to Copy Layer",
         "problemSavingLayer": "Unable to Save Layer",
         "problemDownloadingImage": "Unable to Download Image",
+        "noRasterLayers": "No Raster Layers Found",
+        "noRasterLayersDesc": "Create at least one raster layer to export to PSD",
+        "noActiveRasterLayers": "No Active Raster Layers",
+        "noActiveRasterLayersDesc": "Enable at least one raster layer to export to PSD",
+        "noVisibleRasterLayers": "No Visible Raster Layers",
+        "noVisibleRasterLayersDesc": "Enable at least one raster layer to export to PSD",
+        "invalidCanvasDimensions": "Invalid Canvas Dimensions",
+        "canvasTooLarge": "Canvas Too Large",
+        "canvasTooLargeDesc": "Canvas dimensions exceed the maximum allowed size for PSD export. Reduce the total width and height of the canvas of the canvas and try again.",
+        "failedToProcessLayers": "Failed to Process Layers",
+        "psdExportSuccess": "PSD Export Complete",
+        "psdExportSuccessDesc": "Successfully exported {{count}} layers to PSD file",
+        "problemExportingPSD": "Problem Exporting PSD",
+        "canvasManagerNotAvailable": "Canvas Manager Not Available",
+        "noValidLayerAdapters": "No Valid Layer Adapters Found",
         "pasteSuccess": "Pasted to {{destination}}",
         "pasteFailed": "Paste Failed",
         "prunedQueue": "Pruned Queue",
@@ -1337,9 +1399,15 @@
         "fluxFillIncompatibleWithT2IAndI2I": "FLUX Fill is not compatible with Text to Image or Image to Image. Use other FLUX models for these tasks.",
         "imagenIncompatibleGenerationMode": "Google {{model}} supports Text to Image only. Use other models for Image to Image, Inpainting and Outpainting tasks.",
         "chatGPT4oIncompatibleGenerationMode": "ChatGPT 4o supports Text to Image and Image to Image only. Use other models Inpainting and Outpainting tasks.",
+        "fluxKontextIncompatibleGenerationMode": "FLUX Kontext supports Text to Image only. Use other models for Image to Image, Inpainting and Outpainting tasks.",
         "problemUnpublishingWorkflow": "Problem Unpublishing Workflow",
         "problemUnpublishingWorkflowDescription": "There was a problem unpublishing the workflow. Please try again.",
-        "workflowUnpublished": "Workflow Unpublished"
+        "workflowUnpublished": "Workflow Unpublished",
+        "sentToCanvas": "Sent to Canvas",
+        "sentToUpscale": "Sent to Upscale",
+        "promptGenerationStarted": "Prompt generation started",
+        "uploadAndPromptGenerationFailed": "Failed to upload image and generate prompt",
+        "promptExpansionFailed": "Prompt expansion failed"
     },
     "popovers": {
         "clipSkip": {
@@ -1862,6 +1930,7 @@
         "saveCanvasToGallery": "Save Canvas to Gallery",
         "saveBboxToGallery": "Save Bbox to Gallery",
         "saveLayerToAssets": "Save Layer to Assets",
+        "exportCanvasToPSD": "Export Canvas to PSD",
         "cropLayerToBbox": "Crop Layer to Bbox",
         "savedToGalleryOk": "Saved to Gallery",
         "savedToGalleryError": "Error saving to gallery",
@@ -1887,6 +1956,7 @@
         "mergingLayers": "Merging layers",
         "clearHistory": "Clear History",
         "bboxOverlay": "Show Bbox Overlay",
+        "ruleOfThirds": "Show Rule of Thirds",
         "newSession": "New Session",
         "clearCaches": "Clear Caches",
         "recalculateRects": "Recalculate Rects",
@@ -1992,6 +2062,8 @@
         "disableTransparencyEffect": "Disable Transparency Effect",
         "hidingType": "Hiding {{type}}",
         "showingType": "Showing {{type}}",
+        "showNonRasterLayers": "Show Non-Raster Layers (Shift+H)",
+        "hideNonRasterLayers": "Hide Non-Raster Layers (Shift+H)",
         "dynamicGrid": "Dynamic Grid",
         "logDebugInfo": "Log Debug Info",
         "locked": "Locked",
@@ -2015,7 +2087,9 @@
         "resetGenerationSettings": "Reset Generation Settings",
         "replaceCurrent": "Replace Current",
         "controlLayerEmptyState": "<UploadButton>Upload an image</UploadButton>, drag an image from the <GalleryButton>gallery</GalleryButton> onto this layer, <PullBboxButton>pull the bounding box into this layer</PullBboxButton>, or draw on the canvas to get started.",
-        "referenceImageEmptyState": "<UploadButton>Upload an image</UploadButton>, drag an image from the <GalleryButton>gallery</GalleryButton> onto this layer, or <PullBboxButton>pull the bounding box into this layer</PullBboxButton> to get started.",
+        "referenceImageEmptyStateWithCanvasOptions": "<UploadButton>Upload an image</UploadButton>, drag an image from the <GalleryButton>gallery</GalleryButton> onto this Reference Image or <PullBboxButton>pull the bounding box into this Reference Image</PullBboxButton> to get started.",
+        "referenceImageEmptyState": "<UploadButton>Upload an image</UploadButton> or drag an image from the <GalleryButton>gallery</GalleryButton> onto this Reference Image to get started.",
+        "uploadOrDragAnImage": "Drag an image from the gallery or <UploadButton>upload an image</UploadButton>.",
         "imageNoise": "Image Noise",
         "denoiseLimit": "Denoise Limit",
         "warnings": {
@@ -2284,6 +2358,7 @@
             "newGlobalReferenceImage": "New Global Reference Image",
             "newRegionalReferenceImage": "New Regional Reference Image",
             "newControlLayer": "New Control Layer",
+            "newResizedControlLayer": "New Resized Control Layer",
             "newRasterLayer": "New Raster Layer",
             "newInpaintMask": "New Inpaint Mask",
             "newRegionalGuidance": "New Regional Guidance",
@@ -2367,7 +2442,8 @@
         "uploadImage": "Upload Image",
         "useForTemplate": "Use For Prompt Template",
         "viewList": "View Template List",
-        "viewModeTooltip": "This is how your prompt will look with your currently selected template. To edit your prompt, click anywhere in the text box."
+        "viewModeTooltip": "This is how your prompt will look with your currently selected template. To edit your prompt, click anywhere in the text box.",
+        "togglePromptPreviews": "Toggle Prompt Previews"
     },
     "upsell": {
         "inviteTeammates": "Invite Teammates",
@@ -2387,6 +2463,55 @@
             "upscaling": "Upscaling",
             "upscalingTab": "$t(ui.tabs.upscaling) $t(common.tab)",
             "gallery": "Gallery"
+        },
+        "launchpad": {
+            "workflowsTitle": "Go deep with Workflows.",
+            "upscalingTitle": "Upscale and add detail.",
+            "canvasTitle": "Edit and refine on Canvas.",
+            "generateTitle": "Generate images from text prompts.",
+            "modelGuideText": "Want to learn what prompts work best for each model?",
+            "modelGuideLink": "Check out our Model Guide.",
+            "workflows": {
+                "description": "Workflows are reusable templates that automate image generation tasks, allowing you to quickly perform complex operations and get consistent results.",
+                "learnMoreLink": "Learn more about creating workflows",
+                "browseTemplates": {
+                    "title": "Browse Workflow Templates",
+                    "description": "Choose from pre-built workflows for common tasks"
+                },
+                "createNew": {
+                    "title": "Create a new Workflow",
+                    "description": "Start a new workflow from scratch"
+                },
+                "loadFromFile": {
+                    "title": "Load workflow from file",
+                    "description": "Upload a workflow to start with an existing setup"
+                }
+            },
+            "upscaling": {
+                "uploadImage": {
+                    "title": "Upload Image to Upscale",
+                    "description": "Click or drag an image to upscale (JPG, PNG, WebP up to 100MB)"
+                },
+                "replaceImage": {
+                    "title": "Replace Current Image",
+                    "description": "Click or drag a new image to replace the current one"
+                },
+                "imageReady": {
+                    "title": "Image Ready",
+                    "description": "Press Invoke to begin upscaling"
+                },
+                "readyToUpscale": {
+                    "title": "Ready to upscale!",
+                    "description": "Configure your settings below, then click the Invoke button to begin upscaling your image."
+                },
+                "upscaleModel": "Upscale Model",
+                "model": "Model",
+                "scale": "Scale",
+                "helpText": {
+                    "promptAdvice": "When upscaling, use a prompt that describes the medium and style. Avoid describing specific content details in the image.",
+                    "styleAdvice": "Upscaling works best with the general style of your image."
+                }
+            }
         }
     },
     "system": {

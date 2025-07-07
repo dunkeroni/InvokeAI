@@ -7,10 +7,9 @@ export type S = components['schemas'];
 export type ListImagesArgs = NonNullable<paths['/api/v1/images/']['get']['parameters']['query']>;
 export type ListImagesResponse = paths['/api/v1/images/']['get']['responses']['200']['content']['application/json'];
 
-export type ListBoardsArgs = NonNullable<paths['/api/v1/boards/']['get']['parameters']['query']>;
+export type ImageNamesResult = S['ImageNamesResult'];
 
-export type DeleteBoardResult =
-  paths['/api/v1/boards/{board_id}']['delete']['responses']['200']['content']['application/json'];
+export type ListBoardsArgs = NonNullable<paths['/api/v1/boards/']['get']['parameters']['query']>;
 
 export type CreateBoardArg = paths['/api/v1/boards/']['post']['parameters']['query'];
 
@@ -31,7 +30,6 @@ export type InvocationJSONSchemaExtra = S['UIConfigBase'];
 // App Info
 export type AppVersion = S['AppVersion'];
 export type AppConfig = S['AppConfig'];
-export type AppDependencyVersions = S['AppDependencyVersions'];
 
 // Images
 export type ImageDTO = S['ImageDTO'];
@@ -47,7 +45,7 @@ export type BaseModelType = S['BaseModelType'];
 
 export type ControlLoRAModelConfig = S['ControlLoRALyCORISConfig'] | S['ControlLoRADiffusersConfig'];
 // TODO(MM2): Can we make key required in the pydantic model?
-export type LoRAModelConfig = S['LoRADiffusersConfig'] | S['LoRALyCORISConfig'];
+export type LoRAModelConfig = S['LoRADiffusersConfig'] | S['LoRALyCORISConfig'] | S['LoRAOmiConfig'];
 // TODO(MM2): Can we rename this from Vae -> VAE
 export type VAEModelConfig = S['VAECheckpointConfig'] | S['VAEDiffusersConfig'];
 export type ControlNetModelConfig = S['ControlNetDiffusersConfig'] | S['ControlNetCheckpointConfig'];
@@ -68,6 +66,8 @@ export type SigLipModelConfig = S['SigLIPConfig'];
 export type FLUXReduxModelConfig = S['FluxReduxConfig'];
 export type ApiModelConfig = S['ApiModelConfig'];
 export type MainModelConfig = DiffusersModelConfig | CheckpointModelConfig | ApiModelConfig;
+export type FLUXKontextModelConfig = MainModelConfig;
+export type ChatGPT4oModelConfig = ApiModelConfig;
 export type AnyModelConfig =
   | ControlLoRAModelConfig
   | LoRAModelConfig
@@ -229,7 +229,7 @@ export const isFluxReduxModelConfig = (config: AnyModelConfig): config is FLUXRe
   return config.type === 'flux_redux';
 };
 
-export const isChatGPT4oModelConfig = (config: AnyModelConfig): config is ApiModelConfig => {
+export const isChatGPT4oModelConfig = (config: AnyModelConfig): config is ChatGPT4oModelConfig => {
   return config.type === 'main' && config.base === 'chatgpt-4o';
 };
 
@@ -239,6 +239,14 @@ export const isImagen3ModelConfig = (config: AnyModelConfig): config is ApiModel
 
 export const isImagen4ModelConfig = (config: AnyModelConfig): config is ApiModelConfig => {
   return config.type === 'main' && config.base === 'imagen4';
+};
+
+export const isFluxKontextApiModelConfig = (config: AnyModelConfig): config is ApiModelConfig => {
+  return config.type === 'main' && config.base === 'flux-kontext';
+};
+
+export const isFluxKontextModelConfig = (config: AnyModelConfig): config is FLUXKontextModelConfig => {
+  return config.type === 'main' && config.base === 'flux' && config.name?.toLowerCase().includes('kontext');
 };
 
 export const isNonRefinerMainModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
@@ -288,7 +296,6 @@ export type ModelInstallStatus = S['InstallStatus'];
 export type Graph = S['Graph'];
 export type NonNullableGraph = SetRequired<Graph, 'nodes' | 'edges'>;
 export type Batch = S['Batch'];
-export type SessionQueueItemDTO = S['SessionQueueItemDTO'];
 export type WorkflowRecordOrderBy = S['WorkflowRecordOrderBy'];
 export type SQLiteDirection = S['SQLiteDirection'];
 export type WorkflowRecordListItemWithThumbnailDTO = S['WorkflowRecordListItemWithThumbnailDTO'];

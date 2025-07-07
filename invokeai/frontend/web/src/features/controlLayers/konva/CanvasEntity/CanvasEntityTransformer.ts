@@ -1,10 +1,12 @@
 import { Mutex } from 'async-mutex';
 import { withResult, withResultAsync } from 'common/util/result';
 import { roundToMultiple } from 'common/util/roundDownToMultiple';
+import { clamp, debounce, get } from 'es-toolkit/compat';
 import type { CanvasEntityAdapter } from 'features/controlLayers/konva/CanvasEntity/types';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
 import {
+  areStageAttrsGonnaExplode,
   canvasToImageData,
   getEmptyRect,
   getKonvaNodeDebugAttrs,
@@ -17,7 +19,6 @@ import type { Coordinate, LifecycleCallback, Rect, RectWithRotation } from 'feat
 import { toast } from 'features/toast/toast';
 import Konva from 'konva';
 import type { GroupConfig } from 'konva/lib/Group';
-import { clamp, debounce, get } from 'lodash-es';
 import { atom } from 'nanostores';
 import type { Logger } from 'roarr';
 import { serializeError } from 'serialize-error';
@@ -266,6 +267,9 @@ export class CanvasEntityTransformer extends CanvasModuleBase {
     // the bbox outline should always be 1 screen pixel wide, so we need to update its stroke width.
     this.subscriptions.add(
       this.manager.stage.$stageAttrs.listen((newVal, oldVal) => {
+        if (areStageAttrsGonnaExplode(newVal)) {
+          return;
+        }
         if (newVal.scale !== oldVal.scale) {
           this.syncScale();
         }

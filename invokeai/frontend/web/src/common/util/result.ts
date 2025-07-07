@@ -89,7 +89,7 @@ export function withResult<T>(fn: () => T): Result<T> {
   try {
     return new Ok(fn());
   } catch (error) {
-    return new Err(error instanceof Error ? error : new Error(String(error)));
+    return new Err(error instanceof Error ? error : new WrappedError(error));
   }
 }
 
@@ -104,6 +104,23 @@ export async function withResultAsync<T>(fn: () => Promise<T>): Promise<Result<T
     const result = await fn();
     return new Ok(result);
   } catch (error) {
-    return new Err(error instanceof Error ? error : new Error(String(error)));
+    return new Err(error instanceof Error ? error : new WrappedError(error));
+  }
+}
+
+export class WrappedError extends Error {
+  error: unknown;
+
+  constructor(error: unknown) {
+    super('Wrapped Error');
+    this.name = this.constructor.name;
+    this.error = error;
+  }
+
+  static wrap(error: unknown): Error | WrappedError {
+    if (error instanceof Error) {
+      return error;
+    }
+    return new WrappedError(error);
   }
 }

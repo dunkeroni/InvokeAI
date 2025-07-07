@@ -1,14 +1,14 @@
 import type { ButtonProps } from '@invoke-ai/ui-library';
 import { Alert, AlertDescription, AlertIcon, Button, Divider, Flex, Link, Spinner, Text } from '@invoke-ai/ui-library';
-import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { useAppSelector } from 'app/store/storeHooks';
 import { IAINoContentFallback } from 'common/components/IAIImageFallback';
 import { InvokeLogoIcon } from 'common/components/InvokeLogoIcon';
 import { LOADING_SYMBOL, useHasImages } from 'features/gallery/hooks/useHasImages';
-import { $installModelsTab } from 'features/modelManagerV2/subpanels/InstallModels';
+import { setInstallModelsTabByName } from 'features/modelManagerV2/store/installModelsStore';
 import { useFeatureStatus } from 'features/system/hooks/useFeatureStatus';
 import { selectIsLocal } from 'features/system/store/configSlice';
+import { navigationApi } from 'features/ui/layouts/navigation-api';
 import { selectActiveTab } from 'features/ui/store/uiSelectors';
-import { setActiveTab } from 'features/ui/store/uiSlice';
 import type { PropsWithChildren } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -129,17 +129,15 @@ const GettingStartedVideosCallout = () => {
 };
 
 const StarterBundlesCallout = () => {
-  const dispatch = useAppDispatch();
-
   const handleClickDownloadStarterModels = useCallback(() => {
-    dispatch(setActiveTab('models'));
-    $installModelsTab.set(3);
-  }, [dispatch]);
+    navigationApi.switchToTab('models');
+    setInstallModelsTabByName('starterModels');
+  }, []);
 
   const handleClickImportModels = useCallback(() => {
-    dispatch(setActiveTab('models'));
-    $installModelsTab.set(0);
-  }, [dispatch]);
+    navigationApi.switchToTab('models');
+    setInstallModelsTabByName('urlOrLocal');
+  }, []);
 
   return (
     <Text fontSize="md" color="base.200">

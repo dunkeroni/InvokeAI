@@ -10,11 +10,11 @@ import { fixTooltipCloseOnScrollStyles } from 'common/util/fixTooltipCloseOnScro
 import { CanvasEntityAddOfTypeButton } from 'features/controlLayers/components/common/CanvasEntityAddOfTypeButton';
 import { CanvasEntityMergeVisibleButton } from 'features/controlLayers/components/common/CanvasEntityMergeVisibleButton';
 import { CanvasEntityTypeIsHiddenToggle } from 'features/controlLayers/components/common/CanvasEntityTypeIsHiddenToggle';
+import { RasterLayerExportPSDButton } from 'features/controlLayers/components/RasterLayer/RasterLayerExportPSDButton';
 import { useEntityTypeInformationalPopover } from 'features/controlLayers/hooks/useEntityTypeInformationalPopover';
 import { useEntityTypeTitle } from 'features/controlLayers/hooks/useEntityTypeTitle';
 import { entitiesReordered } from 'features/controlLayers/store/canvasSlice';
 import type { CanvasEntityIdentifier } from 'features/controlLayers/store/types';
-import { isRenderableEntityType } from 'features/controlLayers/store/types';
 import { singleCanvasEntityDndSource } from 'features/dnd/dnd';
 import { triggerPostMoveFlash } from 'features/dnd/util';
 import type { PropsWithChildren } from 'react';
@@ -119,7 +119,7 @@ export const CanvasEntityGroupList = memo(({ isSelected, type, children, entityI
 
   return (
     <Flex flexDir="column" w="full">
-      <Flex w="full">
+      <Flex w="full" ps={2}>
         <Flex
           flexGrow={1}
           as={Button}
@@ -165,8 +165,9 @@ export const CanvasEntityGroupList = memo(({ isSelected, type, children, entityI
 
           <Spacer />
         </Flex>
-        {isRenderableEntityType(type) && <CanvasEntityMergeVisibleButton type={type} />}
-        {isRenderableEntityType(type) && <CanvasEntityTypeIsHiddenToggle type={type} />}
+        <CanvasEntityMergeVisibleButton type={type} />
+        <CanvasEntityTypeIsHiddenToggle type={type} />
+        {type === 'raster_layer' && <RasterLayerExportPSDButton />}
         <CanvasEntityAddOfTypeButton type={type} />
       </Flex>
       <Collapse in={collapse.isTrue} style={fixTooltipCloseOnScrollStyles}>

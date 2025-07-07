@@ -2,7 +2,7 @@ import type { PayloadAction, Selector } from '@reduxjs/toolkit';
 import { createSelector, createSlice } from '@reduxjs/toolkit';
 import type { RootState } from 'app/store/store';
 import type { AppConfig, NumericalParameterConfig, PartialAppConfig } from 'app/types/invokeai';
-import { merge } from 'lodash-es';
+import { merge } from 'es-toolkit/compat';
 
 const baseDimensionConfig: NumericalParameterConfig = {
   initial: 512, // determined by model selection, unused in practice
@@ -14,7 +14,8 @@ const baseDimensionConfig: NumericalParameterConfig = {
   coarseStep: 64,
 };
 
-const initialConfigState: AppConfig = {
+const initialConfigState: AppConfig & { didLoad: boolean } = {
+  didLoad: false,
   isLocal: true,
   shouldUpdateImagesOnConnect: false,
   shouldFetchMetadataFromApi: false,
@@ -22,6 +23,7 @@ const initialConfigState: AppConfig = {
   allowPrivateStylePresets: false,
   allowClientSideUpload: false,
   allowPublishWorkflows: false,
+  allowPromptExpansion: false,
   shouldShowCredits: false,
   disabledTabs: [],
   disabledFeatures: ['lightbox', 'faceRestore', 'batches'],
@@ -189,6 +191,7 @@ export const configSlice = createSlice({
   reducers: {
     configChanged: (state, action: PayloadAction<PartialAppConfig>) => {
       merge(state, action.payload);
+      state.didLoad = true;
     },
   },
 });
@@ -196,7 +199,8 @@ export const configSlice = createSlice({
 export const { configChanged } = configSlice.actions;
 
 export const selectConfigSlice = (state: RootState) => state.config;
-const createConfigSelector = <T>(selector: Selector<AppConfig, T>) => createSelector(selectConfigSlice, selector);
+const createConfigSelector = <T>(selector: Selector<typeof initialConfigState, T>) =>
+  createSelector(selectConfigSlice, selector);
 
 export const selectWidthConfig = createConfigSelector((config) => config.sd.width);
 export const selectHeightConfig = createConfigSelector((config) => config.sd.height);
@@ -223,5 +227,26 @@ export const selectMetadataFetchDebounce = createConfigSelector((config) => conf
 export const selectIsModelsTabDisabled = createConfigSelector((config) => config.disabledTabs.includes('models'));
 export const selectIsClientSideUploadEnabled = createConfigSelector((config) => config.allowClientSideUpload);
 export const selectAllowPublishWorkflows = createConfigSelector((config) => config.allowPublishWorkflows);
+export const selectAllowPromptExpansion = createConfigSelector((config) => config.allowPromptExpansion);
 export const selectIsLocal = createSelector(selectConfigSlice, (config) => config.isLocal);
 export const selectShouldShowCredits = createConfigSelector((config) => config.shouldShowCredits);
+const selectDisabledTabs = createConfigSelector((config) => config.disabledTabs);
+const selectDidLoad = createConfigSelector((config) => config.didLoad);
+export const selectWithGenerateTab = createSelector(selectDidLoad, selectDisabledTabs, (didLoad, disabledTabs) =>
+  didLoad ? !disabledTabs.includes('generate') : false
+);
+export const selectWithCanvasTab = createSelector(selectDidLoad, selectDisabledTabs, (didLoad, disabledTabs) =>
+  didLoad ? !disabledTabs.includes('canvas') : false
+);
+export const selectWithUpscalingTab = createSelector(selectDidLoad, selectDisabledTabs, (didLoad, disabledTabs) =>
+  didLoad ? !disabledTabs.includes('upscaling') : false
+);
+export const selectWithWorkflowsTab = createSelector(selectDidLoad, selectDisabledTabs, (didLoad, disabledTabs) =>
+  didLoad ? !disabledTabs.includes('workflows') : false
+);
+export const selectWithModelsTab = createSelector(selectDidLoad, selectDisabledTabs, (didLoad, disabledTabs) =>
+  didLoad ? !disabledTabs.includes('models') : false
+);
+export const selectWithQueueTab = createSelector(selectDidLoad, selectDisabledTabs, (didLoad, disabledTabs) =>
+  didLoad ? !disabledTabs.includes('queue') : false
+);

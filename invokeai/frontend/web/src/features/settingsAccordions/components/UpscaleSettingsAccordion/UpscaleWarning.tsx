@@ -1,7 +1,7 @@
 import { Button, Flex, ListItem, Text, UnorderedList } from '@invoke-ai/ui-library';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import { selectModel } from 'features/controlLayers/store/paramsSlice';
-import { $installModelsTab } from 'features/modelManagerV2/subpanels/InstallModels';
+import { setInstallModelsTabByName } from 'features/modelManagerV2/store/installModelsStore';
 import { useIsTooLargeToUpscale } from 'features/parameters/hooks/useIsTooLargeToUpscale';
 import {
   selectTileControlNetModel,
@@ -10,7 +10,7 @@ import {
   tileControlnetModelChanged,
 } from 'features/parameters/store/upscaleSlice';
 import { selectIsModelsTabDisabled, selectMaxUpscaleDimension } from 'features/system/store/configSlice';
-import { setActiveTab } from 'features/ui/store/uiSlice';
+import { navigationApi } from 'features/ui/layouts/navigation-api';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useControlNetModels } from 'services/api/hooks/modelsByType';
@@ -68,9 +68,9 @@ export const UpscaleWarning = () => {
   const allWarnings = useMemo(() => [...modelWarnings, ...otherWarnings], [modelWarnings, otherWarnings]);
 
   const handleGoToModelManager = useCallback(() => {
-    dispatch(setActiveTab('models'));
-    $installModelsTab.set(3);
-  }, [dispatch]);
+    navigationApi.switchToTab('models');
+    setInstallModelsTabByName('launchpad');
+  }, []);
 
   if (isBaseModelCompatible && modelWarnings.length > 0 && isModelsTabDisabled) {
     return null;

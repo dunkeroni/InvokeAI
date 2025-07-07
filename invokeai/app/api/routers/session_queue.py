@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import Body, Path, Query
+from fastapi import Body, HTTPException, Path, Query
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field
 
@@ -14,13 +14,15 @@ from invokeai.app.services.session_queue.session_queue_common import (
     CancelByBatchIDsResult,
     CancelByDestinationResult,
     ClearResult,
+    DeleteAllExceptCurrentResult,
+    DeleteByDestinationResult,
     EnqueueBatchResult,
     FieldIdentifier,
     PruneResult,
     RetryItemsResult,
     SessionQueueCountsByDestination,
     SessionQueueItem,
-    SessionQueueItemDTO,
+    SessionQueueItemNotFoundError,
     SessionQueueStatus,
 )
 from invokeai.app.services.shared.pagination import CursorPaginatedResults
@@ -58,17 +60,19 @@ async def enqueue_batch(
     ),
 ) -> EnqueueBatchResult:
     """Processes a batch and enqueues the output graphs for execution."""
-
-    return await ApiDependencies.invoker.services.session_queue.enqueue_batch(
-        queue_id=queue_id, batch=batch, prepend=prepend
-    )
+    try:
+        return await ApiDependencies.invoker.services.session_queue.enqueue_batch(
+            queue_id=queue_id, batch=batch, prepend=prepend
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while enqueuing batch: {e}")
 
 
 @session_queue_router.get(
     "/{queue_id}/list",
     operation_id="list_queue_items",
     responses={
-        200: {"model": CursorPaginatedResults[SessionQueueItemDTO]},
+        200: {"model": CursorPaginatedResults[SessionQueueItem]},
     },
 )
 async def list_queue_items(
@@ -77,12 +81,42 @@ async def list_queue_items(
     status: Optional[QUEUE_ITEM_STATUS] = Query(default=None, description="The status of items to fetch"),
     cursor: Optional[int] = Query(default=None, description="The pagination cursor"),
     priority: int = Query(default=0, description="The pagination cursor priority"),
-) -> CursorPaginatedResults[SessionQueueItemDTO]:
-    """Gets all queue items (without graphs)"""
+    destination: Optional[str] = Query(default=None, description="The destination of queue items to fetch"),
+) -> CursorPaginatedResults[SessionQueueItem]:
+    """Gets cursor-paginated queue items"""
 
-    return ApiDependencies.invoker.services.session_queue.list_queue_items(
-        queue_id=queue_id, limit=limit, status=status, cursor=cursor, priority=priority
-    )
+    try:
+        return ApiDependencies.invoker.services.session_queue.list_queue_items(
+            queue_id=queue_id,
+            limit=limit,
+            status=status,
+            cursor=cursor,
+            priority=priority,
+            destination=destination,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while listing all items: {e}")
+
+
+@session_queue_router.get(
+    "/{queue_id}/list_all",
+    operation_id="list_all_queue_items",
+    responses={
+        200: {"model": list[SessionQueueItem]},
+    },
+)
+async def list_all_queue_items(
+    queue_id: str = Path(description="The queue id to perform this operation on"),
+    destination: Optional[str] = Query(default=None, description="The destination of queue items to fetch"),
+) -> list[SessionQueueItem]:
+    """Gets all queue items"""
+    try:
+        return ApiDependencies.invoker.services.session_queue.list_all_queue_items(
+            queue_id=queue_id,
+            destination=destination,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while listing all queue items: {e}")
 
 
 @session_queue_router.put(
@@ -94,7 +128,10 @@ async def resume(
     queue_id: str = Path(description="The queue id to perform this operation on"),
 ) -> SessionProcessorStatus:
     """Resumes session processor"""
-    return ApiDependencies.invoker.services.session_processor.resume()
+    try:
+        return ApiDependencies.invoker.services.session_processor.resume()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while resuming queue: {e}")
 
 
 @session_queue_router.put(
@@ -106,7 +143,10 @@ async def Pause(
     queue_id: str = Path(description="The queue id to perform this operation on"),
 ) -> SessionProcessorStatus:
     """Pauses session processor"""
-    return ApiDependencies.invoker.services.session_processor.pause()
+    try:
+        return ApiDependencies.invoker.services.session_processor.pause()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while pausing queue: {e}")
 
 
 @session_queue_router.put(
@@ -118,7 +158,25 @@ async def cancel_all_except_current(
     queue_id: str = Path(description="The queue id to perform this operation on"),
 ) -> CancelAllExceptCurrentResult:
     """Immediately cancels all queue items except in-processing items"""
-    return ApiDependencies.invoker.services.session_queue.cancel_all_except_current(queue_id=queue_id)
+    try:
+        return ApiDependencies.invoker.services.session_queue.cancel_all_except_current(queue_id=queue_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while canceling all except current: {e}")
+
+
+@session_queue_router.put(
+    "/{queue_id}/delete_all_except_current",
+    operation_id="delete_all_except_current",
+    responses={200: {"model": DeleteAllExceptCurrentResult}},
+)
+async def delete_all_except_current(
+    queue_id: str = Path(description="The queue id to perform this operation on"),
+) -> DeleteAllExceptCurrentResult:
+    """Immediately deletes all queue items except in-processing items"""
+    try:
+        return ApiDependencies.invoker.services.session_queue.delete_all_except_current(queue_id=queue_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while deleting all except current: {e}")
 
 
 @session_queue_router.put(
@@ -131,7 +189,12 @@ async def cancel_by_batch_ids(
     batch_ids: list[str] = Body(description="The list of batch_ids to cancel all queue items for", embed=True),
 ) -> CancelByBatchIDsResult:
     """Immediately cancels all queue items from the given batch ids"""
-    return ApiDependencies.invoker.services.session_queue.cancel_by_batch_ids(queue_id=queue_id, batch_ids=batch_ids)
+    try:
+        return ApiDependencies.invoker.services.session_queue.cancel_by_batch_ids(
+            queue_id=queue_id, batch_ids=batch_ids
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while canceling by batch id: {e}")
 
 
 @session_queue_router.put(
@@ -144,9 +207,12 @@ async def cancel_by_destination(
     destination: str = Query(description="The destination to cancel all queue items for"),
 ) -> CancelByDestinationResult:
     """Immediately cancels all queue items with the given origin"""
-    return ApiDependencies.invoker.services.session_queue.cancel_by_destination(
-        queue_id=queue_id, destination=destination
-    )
+    try:
+        return ApiDependencies.invoker.services.session_queue.cancel_by_destination(
+            queue_id=queue_id, destination=destination
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while canceling by destination: {e}")
 
 
 @session_queue_router.put(
@@ -159,7 +225,10 @@ async def retry_items_by_id(
     item_ids: list[int] = Body(description="The queue item ids to retry"),
 ) -> RetryItemsResult:
     """Immediately cancels all queue items with the given origin"""
-    return ApiDependencies.invoker.services.session_queue.retry_items_by_id(queue_id=queue_id, item_ids=item_ids)
+    try:
+        return ApiDependencies.invoker.services.session_queue.retry_items_by_id(queue_id=queue_id, item_ids=item_ids)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while retrying queue items: {e}")
 
 
 @session_queue_router.put(
@@ -173,11 +242,14 @@ async def clear(
     queue_id: str = Path(description="The queue id to perform this operation on"),
 ) -> ClearResult:
     """Clears the queue entirely, immediately canceling the currently-executing session"""
-    queue_item = ApiDependencies.invoker.services.session_queue.get_current(queue_id)
-    if queue_item is not None:
-        ApiDependencies.invoker.services.session_queue.cancel_queue_item(queue_item.item_id)
-    clear_result = ApiDependencies.invoker.services.session_queue.clear(queue_id)
-    return clear_result
+    try:
+        queue_item = ApiDependencies.invoker.services.session_queue.get_current(queue_id)
+        if queue_item is not None:
+            ApiDependencies.invoker.services.session_queue.cancel_queue_item(queue_item.item_id)
+        clear_result = ApiDependencies.invoker.services.session_queue.clear(queue_id)
+        return clear_result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while clearing queue: {e}")
 
 
 @session_queue_router.put(
@@ -191,7 +263,10 @@ async def prune(
     queue_id: str = Path(description="The queue id to perform this operation on"),
 ) -> PruneResult:
     """Prunes all completed or errored queue items"""
-    return ApiDependencies.invoker.services.session_queue.prune(queue_id)
+    try:
+        return ApiDependencies.invoker.services.session_queue.prune(queue_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while pruning queue: {e}")
 
 
 @session_queue_router.get(
@@ -205,7 +280,10 @@ async def get_current_queue_item(
     queue_id: str = Path(description="The queue id to perform this operation on"),
 ) -> Optional[SessionQueueItem]:
     """Gets the currently execution queue item"""
-    return ApiDependencies.invoker.services.session_queue.get_current(queue_id)
+    try:
+        return ApiDependencies.invoker.services.session_queue.get_current(queue_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while getting current queue item: {e}")
 
 
 @session_queue_router.get(
@@ -219,7 +297,10 @@ async def get_next_queue_item(
     queue_id: str = Path(description="The queue id to perform this operation on"),
 ) -> Optional[SessionQueueItem]:
     """Gets the next queue item, without executing it"""
-    return ApiDependencies.invoker.services.session_queue.get_next(queue_id)
+    try:
+        return ApiDependencies.invoker.services.session_queue.get_next(queue_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while getting next queue item: {e}")
 
 
 @session_queue_router.get(
@@ -233,9 +314,12 @@ async def get_queue_status(
     queue_id: str = Path(description="The queue id to perform this operation on"),
 ) -> SessionQueueAndProcessorStatus:
     """Gets the status of the session queue"""
-    queue = ApiDependencies.invoker.services.session_queue.get_queue_status(queue_id)
-    processor = ApiDependencies.invoker.services.session_processor.get_status()
-    return SessionQueueAndProcessorStatus(queue=queue, processor=processor)
+    try:
+        queue = ApiDependencies.invoker.services.session_queue.get_queue_status(queue_id)
+        processor = ApiDependencies.invoker.services.session_processor.get_status()
+        return SessionQueueAndProcessorStatus(queue=queue, processor=processor)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while getting queue status: {e}")
 
 
 @session_queue_router.get(
@@ -250,7 +334,10 @@ async def get_batch_status(
     batch_id: str = Path(description="The batch to get the status of"),
 ) -> BatchStatus:
     """Gets the status of the session queue"""
-    return ApiDependencies.invoker.services.session_queue.get_batch_status(queue_id=queue_id, batch_id=batch_id)
+    try:
+        return ApiDependencies.invoker.services.session_queue.get_batch_status(queue_id=queue_id, batch_id=batch_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while getting batch status: {e}")
 
 
 @session_queue_router.get(
@@ -266,7 +353,27 @@ async def get_queue_item(
     item_id: int = Path(description="The queue item to get"),
 ) -> SessionQueueItem:
     """Gets a queue item"""
-    return ApiDependencies.invoker.services.session_queue.get_queue_item(item_id)
+    try:
+        return ApiDependencies.invoker.services.session_queue.get_queue_item(item_id)
+    except SessionQueueItemNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Queue item with id {item_id} not found in queue {queue_id}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while fetching queue item: {e}")
+
+
+@session_queue_router.delete(
+    "/{queue_id}/i/{item_id}",
+    operation_id="delete_queue_item",
+)
+async def delete_queue_item(
+    queue_id: str = Path(description="The queue id to perform this operation on"),
+    item_id: int = Path(description="The queue item to delete"),
+) -> None:
+    """Deletes a queue item"""
+    try:
+        ApiDependencies.invoker.services.session_queue.delete_queue_item(item_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while deleting queue item: {e}")
 
 
 @session_queue_router.put(
@@ -281,8 +388,12 @@ async def cancel_queue_item(
     item_id: int = Path(description="The queue item to cancel"),
 ) -> SessionQueueItem:
     """Deletes a queue item"""
-
-    return ApiDependencies.invoker.services.session_queue.cancel_queue_item(item_id)
+    try:
+        return ApiDependencies.invoker.services.session_queue.cancel_queue_item(item_id)
+    except SessionQueueItemNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Queue item with id {item_id} not found in queue {queue_id}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while canceling queue item: {e}")
 
 
 @session_queue_router.get(
@@ -295,6 +406,27 @@ async def counts_by_destination(
     destination: str = Query(description="The destination to query"),
 ) -> SessionQueueCountsByDestination:
     """Gets the counts of queue items by destination"""
-    return ApiDependencies.invoker.services.session_queue.get_counts_by_destination(
-        queue_id=queue_id, destination=destination
-    )
+    try:
+        return ApiDependencies.invoker.services.session_queue.get_counts_by_destination(
+            queue_id=queue_id, destination=destination
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while fetching counts by destination: {e}")
+
+
+@session_queue_router.delete(
+    "/{queue_id}/d/{destination}",
+    operation_id="delete_by_destination",
+    responses={200: {"model": DeleteByDestinationResult}},
+)
+async def delete_by_destination(
+    queue_id: str = Path(description="The queue id to query"),
+    destination: str = Path(description="The destination to query"),
+) -> DeleteByDestinationResult:
+    """Deletes all items with the given destination"""
+    try:
+        return ApiDependencies.invoker.services.session_queue.delete_by_destination(
+            queue_id=queue_id, destination=destination
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while deleting by destination: {e}")

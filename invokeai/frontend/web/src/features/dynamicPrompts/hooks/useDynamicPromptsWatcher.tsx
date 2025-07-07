@@ -1,5 +1,5 @@
-import { useAppStore } from 'app/store/nanostores/store';
-import { useAppSelector } from 'app/store/storeHooks';
+import { useAppSelector, useAppStore } from 'app/store/storeHooks';
+import { debounce } from 'es-toolkit/compat';
 import {
   isErrorChanged,
   isLoadingChanged,
@@ -10,7 +10,6 @@ import {
 import { getShouldProcessPrompt } from 'features/dynamicPrompts/util/getShouldProcessPrompt';
 import { selectPresetModifiedPrompts } from 'features/nodes/util/graph/graphBuilderUtils';
 import { useFeatureStatus } from 'features/system/hooks/useFeatureStatus';
-import { debounce } from 'lodash-es';
 import { useEffect, useMemo } from 'react';
 import { utilitiesApi } from 'services/api/endpoints/utilities';
 

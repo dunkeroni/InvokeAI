@@ -64,6 +64,7 @@ class UIType(str, Enum, metaclass=MetaEnum):
     Imagen3Model = "Imagen3ModelField"
     Imagen4Model = "Imagen4ModelField"
     ChatGPT4oModel = "ChatGPT4oModelField"
+    FluxKontextModel = "FluxKontextModelField"
     # endregion
 
     # region Misc Field Types
@@ -215,6 +216,7 @@ class FieldDescriptions:
     vllm_model = "The VLLM model to use"
     flux_fill_conditioning = "FLUX Fill conditioning tensor"
     denoise_extensions = "Optional extensions to apply during denoising. These are used to alter the denoising process in some way, such as inpaint masking or LoRAs."
+    flux_kontext_conditioning = "FLUX Kontext conditioning (reference image)"
 
 
 class ImageField(BaseModel):
@@ -289,6 +291,12 @@ class FluxFillConditioningField(BaseModel):
 
     image: ImageField = Field(description="The FLUX Fill reference image.")
     mask: TensorField = Field(description="The FLUX Fill inpaint mask.")
+
+
+class FluxKontextConditioningField(BaseModel):
+    """A conditioning field for FLUX Kontext (reference image)."""
+
+    image: ImageField = Field(description="The Kontext reference image.")
 
 
 class SD3ConditioningField(BaseModel):
@@ -438,7 +446,7 @@ class WithWorkflow:
     workflow = None
 
     def __init_subclass__(cls) -> None:
-        logger.warn(
+        logger.warning(
             f"{cls.__module__.split('.')[0]}.{cls.__name__}: WithWorkflow is deprecated. Use `context.workflow` to access the workflow."
         )
         super().__init_subclass__()
@@ -579,7 +587,7 @@ def InputField(
 
     if default_factory is not _Unset and default_factory is not None:
         default = default_factory()
-        logger.warn('"default_factory" is not supported, calling it now to set "default"')
+        logger.warning('"default_factory" is not supported, calling it now to set "default"')
 
     # These are the args we may wish pass to the pydantic `Field()` function
     field_args = {

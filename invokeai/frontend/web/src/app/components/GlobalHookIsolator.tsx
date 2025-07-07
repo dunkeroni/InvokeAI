@@ -1,4 +1,5 @@
 import { useGlobalModifiersInit } from '@invoke-ai/ui-library';
+import { setupListeners } from '@reduxjs/toolkit/query';
 import type { StudioInitAction } from 'app/hooks/useStudioInitAction';
 import { useStudioInitAction } from 'app/hooks/useStudioInitAction';
 import { useSyncQueueStatus } from 'app/hooks/useSyncQueueStatus';
@@ -8,18 +9,23 @@ import { appStarted } from 'app/store/middleware/listenerMiddleware/listeners/ap
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import type { PartialAppConfig } from 'app/types/invokeai';
 import { useFocusRegionWatcher } from 'common/hooks/focus';
+import { useCloseChakraTooltipsOnDragFix } from 'common/hooks/useCloseChakraTooltipsOnDragFix';
 import { useGlobalHotkeys } from 'common/hooks/useGlobalHotkeys';
+import { useDndMonitor } from 'features/dnd/useDndMonitor';
 import { useDynamicPromptsWatcher } from 'features/dynamicPrompts/hooks/useDynamicPromptsWatcher';
 import { useStarterModelsToast } from 'features/modelManagerV2/hooks/useStarterModelsToast';
 import { useWorkflowBuilderWatcher } from 'features/nodes/components/sidePanel/workflow/IsolatedWorkflowBuilderWatcher';
 import { useReadinessWatcher } from 'features/queue/store/readiness';
 import { configChanged } from 'features/system/store/configSlice';
 import { selectLanguage } from 'features/system/store/systemSelectors';
+import { useNavigationApi } from 'features/ui/layouts/use-navigation-api';
 import i18n from 'i18n';
-import { size } from 'lodash-es';
 import { memo, useEffect } from 'react';
 import { useGetOpenAPISchemaQuery } from 'services/api/endpoints/appInfo';
+import { useGetQueueCountsByDestinationQuery } from 'services/api/endpoints/queue';
 import { useSocketIO } from 'services/events/useSocketIO';
+
+const queueCountArg = { destination: 'canvas' };
 
 /**
  * GlobalHookIsolator is a logical component that runs global hooks in an isolated component, so that they do not
@@ -38,20 +44,29 @@ export const GlobalHookIsolator = memo(
     useGlobalHotkeys();
     useGetOpenAPISchemaQuery();
     useSyncLoggingConfig();
+    useCloseChakraTooltipsOnDragFix();
+    useNavigationApi();
+    useDndMonitor();
+
+    // Persistent subscription to the queue counts query - canvas relies on this to know if there are pending
+    // and/or in progress canvas sessions.
+    useGetQueueCountsByDestinationQuery(queueCountArg);
 
     useEffect(() => {
       i18n.changeLanguage(language);
     }, [language]);
 
     useEffect(() => {
-      if (size(config)) {
-        logger.info({ config }, 'Received config');
-        dispatch(configChanged(config));
-      }
+      logger.info({ config }, 'Received config');
+      dispatch(configChanged(config));
     }, [dispatch, config, logger]);
 
     useEffect(() => {
       dispatch(appStarted());
+    }, [dispatch]);
+
+    useEffect(() => {
+      return setupListeners(dispatch);
     }, [dispatch]);
 
     useStudioInitAction(studioInitAction);

@@ -1,7 +1,4 @@
-import { z } from 'zod';
-
-import type { ModelIdentifier as ModelIdentifierV2 } from './v2/common';
-import { zModelIdentifier as zModelIdentifierV2 } from './v2/common';
+import { z } from 'zod/v4';
 
 // #region Field data schemas
 export const zImageField = z.object({
@@ -78,6 +75,7 @@ const zBaseModel = z.enum([
   'imagen3',
   'imagen4',
   'chatgpt-4o',
+  'flux-kontext',
 ]);
 export type BaseModelType = z.infer<typeof zBaseModel>;
 export const zMainModelBase = z.enum([
@@ -90,8 +88,9 @@ export const zMainModelBase = z.enum([
   'imagen3',
   'imagen4',
   'chatgpt-4o',
+  'flux-kontext',
 ]);
-export type MainModelBase = z.infer<typeof zMainModelBase>;
+type MainModelBase = z.infer<typeof zMainModelBase>;
 export const isMainModelBase = (base: unknown): base is MainModelBase => zMainModelBase.safeParse(base).success;
 const zModelType = z.enum([
   'main',
@@ -135,15 +134,11 @@ export const zModelIdentifierField = z.object({
   type: zModelType,
   submodel_type: zSubModelType.nullish(),
 });
-export const isModelIdentifier = (field: unknown): field is ModelIdentifierField =>
-  zModelIdentifierField.safeParse(field).success;
-export const isModelIdentifierV2 = (field: unknown): field is ModelIdentifierV2 =>
-  zModelIdentifierV2.safeParse(field).success;
 export type ModelIdentifierField = z.infer<typeof zModelIdentifierField>;
 // #endregion
 
 // #region Control Adapters
-export const zControlField = z.object({
+const zControlField = z.object({
   image: zImageField,
   control_model: zModelIdentifierField,
   control_weight: z.union([z.number(), z.array(z.number())]).optional(),
@@ -154,7 +149,7 @@ export const zControlField = z.object({
 });
 export type ControlField = z.infer<typeof zControlField>;
 
-export const zIPAdapterField = z.object({
+const zIPAdapterField = z.object({
   image: zImageField,
   ip_adapter_model: zModelIdentifierField,
   weight: z.number(),
@@ -164,7 +159,7 @@ export const zIPAdapterField = z.object({
 });
 export type IPAdapterField = z.infer<typeof zIPAdapterField>;
 
-export const zT2IAdapterField = z.object({
+const zT2IAdapterField = z.object({
   image: zImageField,
   t2i_adapter_model: zModelIdentifierField,
   weight: z.union([z.number(), z.array(z.number())]).optional(),
@@ -185,7 +180,7 @@ export type ProgressImage = z.infer<typeof zProgressImage>;
 // #endregion
 
 // #region ImageOutput
-const zImageOutput = z.object({
+export const zImageOutput = z.object({
   image: zImageField,
   width: z.number().int().gt(0),
   height: z.number().int().gt(0),

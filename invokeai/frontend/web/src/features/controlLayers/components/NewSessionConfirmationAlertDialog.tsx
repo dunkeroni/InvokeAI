@@ -2,8 +2,7 @@ import { Checkbox, ConfirmationAlertDialog, Flex, FormControl, FormLabel, Text }
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import { useAssertSingleton } from 'common/hooks/useAssertSingleton';
 import { buildUseBoolean } from 'common/hooks/useBoolean';
-import { newCanvasSessionRequested, newGallerySessionRequested } from 'features/controlLayers/store/actions';
-import { useImageViewer } from 'features/gallery/components/ImageViewer/useImageViewer';
+import { canvasSessionReset, generateSessionReset } from 'features/controlLayers/store/canvasStagingAreaSlice';
 import {
   selectSystemShouldConfirmOnNewSession,
   shouldConfirmOnNewSessionToggled,
@@ -15,17 +14,15 @@ import { useTranslation } from 'react-i18next';
 const [useNewGallerySessionDialog] = buildUseBoolean(false);
 const [useNewCanvasSessionDialog] = buildUseBoolean(false);
 
-export const useNewGallerySession = () => {
+const useNewGallerySession = () => {
   const dispatch = useAppDispatch();
-  const imageViewer = useImageViewer();
   const shouldConfirmOnNewSession = useAppSelector(selectSystemShouldConfirmOnNewSession);
   const newSessionDialog = useNewGallerySessionDialog();
 
   const newGallerySessionImmediate = useCallback(() => {
-    dispatch(newGallerySessionRequested());
-    imageViewer.open();
+    dispatch(generateSessionReset());
     dispatch(activeTabCanvasRightPanelChanged('gallery'));
-  }, [dispatch, imageViewer]);
+  }, [dispatch]);
 
   const newGallerySessionWithDialog = useCallback(() => {
     if (shouldConfirmOnNewSession) {
@@ -38,17 +35,15 @@ export const useNewGallerySession = () => {
   return { newGallerySessionImmediate, newGallerySessionWithDialog };
 };
 
-export const useNewCanvasSession = () => {
+const useNewCanvasSession = () => {
   const dispatch = useAppDispatch();
-  const imageViewer = useImageViewer();
   const shouldConfirmOnNewSession = useAppSelector(selectSystemShouldConfirmOnNewSession);
   const newSessionDialog = useNewCanvasSessionDialog();
 
   const newCanvasSessionImmediate = useCallback(() => {
-    dispatch(newCanvasSessionRequested());
-    imageViewer.close();
+    dispatch(canvasSessionReset());
     dispatch(activeTabCanvasRightPanelChanged('layers'));
-  }, [dispatch, imageViewer]);
+  }, [dispatch]);
 
   const newCanvasSessionWithDialog = useCallback(() => {
     if (shouldConfirmOnNewSession) {
