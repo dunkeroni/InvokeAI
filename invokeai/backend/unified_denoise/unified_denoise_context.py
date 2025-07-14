@@ -7,13 +7,13 @@ import torch
 from diffusers import UNet2DConditionModel
 from diffusers.schedulers.scheduling_utils import SchedulerMixin, SchedulerOutput
 
-from invokeai.app.invocations.model import TransformerField, UNetField
+from invokeai.app.invocations.model import BaseModelType, TransformerField, UNetField
 from invokeai.app.services.shared.invocation_context import InvocationContext
-from invokeai.app.invocations.model import BaseModelType
-#from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
+
+# from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
 
 if TYPE_CHECKING:
-    from invokeai.backend.stable_diffusion.diffusion.conditioning_data import ConditioningMode, TextConditioningData
+    from invokeai.backend.stable_diffusion.diffusion.conditioning_data import ConditioningMode
 
 
 @dataclass
@@ -52,7 +52,7 @@ class DenoiseInputs:
     denoising_start: float
 
     # Text conditionging data.
-    positive_conditioning: Any 
+    positive_conditioning: Any
     negative_conditioning: Any
 
     guidance_scale: Union[float, list[float]]

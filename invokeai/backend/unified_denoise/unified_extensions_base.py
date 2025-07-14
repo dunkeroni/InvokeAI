@@ -8,6 +8,7 @@ from diffusers import UNet2DConditionModel
 from pydantic import BaseModel
 
 from invokeai.app.invocations.fields import Field
+from invokeai.app.invocations.model import BaseModelType
 from invokeai.backend.util.logging import info
 from invokeai.invocation_api import (
     BaseInvocationOutput,
@@ -15,15 +16,14 @@ from invokeai.invocation_api import (
     invocation_output,
 )
 
-from invokeai.app.invocations.model import BaseModelType
-
 if TYPE_CHECKING:
-    from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext
     from invokeai.backend.unified_denoise.extension_callback_type import ExtensionCallbackType
+    from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext
     from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
 
 
 DENOISE_EXTENSIONS = {}
+
 
 def denoise_extension(name: str):
     """Register an extension class object under a string reference"""
@@ -52,6 +52,7 @@ class GuidanceDataOutput(BaseInvocationOutput):
         title="Guidance Module", description="Information to alter the denoising process"
     )
 
+
 @dataclass
 class CallbackMetadata:
     callback_type: ExtensionCallbackType
@@ -74,23 +75,29 @@ def callback(callback_type: ExtensionCallbackType, order: int = 0):
 
     return _decorator
 
+
 @dataclass
 class SwapMetadata:
     function_name: str
+
 
 @dataclass
 class SwapFunctionWithMetadata:
     metadata: SwapMetadata
     function: Callable
 
+
 def swap(function_name: str):
     def _decorator(function):
         function._swap_metadata = SwapMetadata(function_name=function_name)
         return function
+
     return _decorator
 
+
 class UnifiedExtensionBase:
-    name: str = "Undefined" # Used for warning messages and debugging.
+    name: str = "Undefined"  # Used for warning messages and debugging.
+
     def __init__(self, ctx: DenoiseContext, kwargs: dict[str, Any]):
         self._callbacks: Dict[ExtensionCallbackType, List[CallbackFunctionWithMetadata]] = {}
 
@@ -115,7 +122,7 @@ class UnifiedExtensionBase:
 
     def get_callbacks(self):
         return self._callbacks
-    
+
     def get_swaps(self) -> Dict[str, SwapFunctionWithMetadata]:
         """Returns a dictionary of function names to SwapFunctionWithMetadata objects."""
         swaps = {}

@@ -1,12 +1,13 @@
-from typing import Callable, Type
-
-from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
-from invokeai.backend.util.logging import info
 import abc
+from typing import Callable, Type
 
 import torch
 
+from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext
+from invokeai.backend.util.logging import info
+
 DENOISE_CORES = {}
+
 
 def denoise_core(name: str):
     """Register an core class object under a string reference"""
@@ -31,7 +32,7 @@ class BaseCore(abc.ABC):
 
     def __init__(self, is_canceled: Callable[[], bool] | None = None):
         self._is_canceled = is_canceled
-    
+
     def _prepare_cfg_scale(self, ctx: DenoiseContext):
         """Prepare the CFG scale list.
 
@@ -80,14 +81,17 @@ class BaseCore(abc.ABC):
         ctx.latents = latents
         self._post_denoise(ctx)
 
+    @abc.abstractmethod
     def _pre_denoise(self, ctx: DenoiseContext):
         """Hook for logic before denoising loop."""
         pass
 
+    @abc.abstractmethod
     def _post_denoise(self, ctx: DenoiseContext):
         """Hook for logic after denoising loop."""
         pass
 
+    @abc.abstractmethod
     def validate(self, ctx: DenoiseContext):
         """Add runtime validation steps based on the model type."""
         pass
@@ -103,12 +107,15 @@ class BaseCore(abc.ABC):
     def _get_noise(self, ctx: DenoiseContext, shape, seed):
         """Generate noise tensor for denoising."""
         generator = torch.Generator(device=ctx.inputs.orig_latents.device).manual_seed(seed)
-        return torch.randn(shape, generator=generator, device=ctx.inputs.orig_latents.device).to(dtype=ctx.inputs.orig_latents.dtype,device=ctx.inputs.orig_latents.device)
+        return torch.randn(shape, generator=generator, device=ctx.inputs.orig_latents.device).to(
+            dtype=ctx.inputs.orig_latents.dtype, device=ctx.inputs.orig_latents.device
+        )
 
     def _get_cfg_scales(self, ctx: DenoiseContext):
         """Prepare classifier-free guidance scales."""
         return self.prepare_cfg_scales(ctx)
 
+    @abc.abstractmethod
     def _step_callback(self, ctx: DenoiseContext, step_index, timestep, latents):
         """Optional callback at each step."""
         pass

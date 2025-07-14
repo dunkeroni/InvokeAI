@@ -55,7 +55,6 @@ class CogView4Core(BaseCore):
         sigmas = time_shift_linear(mu, 1.0, timesteps)
         return sigmas.tolist()
 
-
     def _run_diffusion(
         self,
         context: InvocationContext,

@@ -1,32 +1,31 @@
-from typing import Callable, List, Optional, Type, Any, Union
+from typing import Callable, List, Optional, Type, Union
 
 import torch
 
 from invokeai.app.invocations.baseinvocation import BaseInvocation, Classification, invocation
 from invokeai.app.invocations.fields import (
     CogView4ConditioningField,
+    ConditioningField,
     FieldDescriptions,
     Input,
     InputField,
     LatentsField,
+    UIType,
     WithBoard,
     WithMetadata,
-    UIType,
-    ConditioningField,
 )
-from invokeai.app.invocations.model import BaseModelType, TransformerField, UNetField, ModelIdentifierField
+from invokeai.app.invocations.model import BaseModelType, ModelIdentifierField, TransformerField, UNetField
 from invokeai.app.invocations.primitives import LatentsOutput
 from invokeai.app.services.shared.invocation_context import InvocationContext
 from invokeai.backend.stable_diffusion.diffusers_pipeline import PipelineIntermediateState
 from invokeai.backend.unified_denoise.core_base import DENOISE_CORES, BaseCore
-from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
-from invokeai.backend.unified_denoise.unified_extensions_base import DENOISE_EXTENSIONS, ExtensionField
-from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
 from invokeai.backend.unified_denoise.extension_callback_type import ExtensionCallbackType
+from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
+from invokeai.backend.unified_denoise.unified_extensions_base import ExtensionField
+from invokeai.backend.unified_denoise.unified_extensions_manager import UnifiedExtensionsManager
 
+CONDITIONING_TYPES = Union[ConditioningField, list[ConditioningField], CogView4ConditioningField]
 
-CONDITIONING_TYPES = Union[ConditioningField, list[ConditioningField],
-                    CogView4ConditioningField]
 
 @invocation(
     "unified_denoise",
@@ -48,7 +47,7 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
         default=[], description=FieldDescriptions.denoise_extensions, input=Input.Connection
     )
     denoising_start: float = InputField(default=0.0, ge=0, le=1, description=FieldDescriptions.denoising_start)
-    #denoising_end: float = InputField(default=1.0, ge=0, le=1, description=FieldDescriptions.denoising_end)
+    # denoising_end: float = InputField(default=1.0, ge=0, le=1, description=FieldDescriptions.denoising_end)
     model: ModelIdentifierField = InputField(
         description=FieldDescriptions.cogview4_model, input=Input.Connection, title="Model", ui_type=UIType.Any
     )
@@ -58,12 +57,13 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
     negative_conditioning: Optional[CONDITIONING_TYPES] = InputField(
         description=FieldDescriptions.negative_cond, input=Input.Connection, default=None, ui_type=UIType.Any
     )
-    guidance_scale: float | list[float] = InputField(default=3.5, description=FieldDescriptions.cfg_scale, title="Guidance Scale")
+    guidance_scale: float | list[float] = InputField(
+        default=3.5, description=FieldDescriptions.cfg_scale, title="Guidance Scale"
+    )
     width: int = InputField(default=1024, multiple_of=32, description="Width of the generated image.")
     height: int = InputField(default=1024, multiple_of=32, description="Height of the generated image.")
     steps: int = InputField(default=25, gt=0, description=FieldDescriptions.steps)
     seed: int = InputField(default=0, description="Randomness seed for reproducibility.")
-
 
     def select_core(self, inputs: DenoiseInputs) -> BaseCore:
         """Select the core to use for the denoising process based on the model type."""
@@ -83,7 +83,6 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
         coretype: Type[BaseCore] = DENOISE_CORES[model_core_string]
         return coretype(is_canceled=inputs.context.util.is_canceled)
 
-
     @torch.no_grad()
     def invoke(self, context: InvocationContext) -> LatentsOutput:
         """Run the denoising process with the provided model and inputs."""
@@ -95,7 +94,7 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
             latents = context.tensors.load(self.latents.latents_name)
             orig_latents = latents.clone()
 
-        #dataclass for referencing inputs
+        # dataclass for referencing inputs
         denoise_inputs = DenoiseInputs(
             context=context,
             orig_latents=orig_latents,
@@ -146,11 +145,6 @@ class UnifiedDenoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
 
         # let extensions modify the denoise context before starting
         ext_manager.run_callback(ExtensionCallbackType.PRE_DENOISE_LOOP, ctx)
-
-        
-
-
-
 
         latents = self._run_diffusion(context)
         latents = latents.detach().to("cpu")

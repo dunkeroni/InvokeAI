@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from contextlib import ExitStack, contextmanager
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type
 
 import torch
 from diffusers import UNet2DConditionModel
-from invokeai.app.invocations.model import BaseModelType
 
+from invokeai.app.invocations.model import BaseModelType
 from invokeai.app.services.session_processor.session_processor_common import CanceledException
-from invokeai.backend.unified_denoise.unified_extensions_base import CallbackFunctionWithMetadata, UnifiedExtensionBase
-from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
-from invokeai.backend.unified_denoise.unified_extensions_base import DENOISE_EXTENSIONS, ExtensionField, UnifiedExtensionBase
-from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext, DenoiseInputs
 from invokeai.backend.unified_denoise.extension_callback_type import ExtensionCallbackType
+from invokeai.backend.unified_denoise.unified_denoise_context import DenoiseContext
+from invokeai.backend.unified_denoise.unified_extensions_base import (
+    DENOISE_EXTENSIONS,
+    CallbackFunctionWithMetadata,
+    ExtensionField,
+    UnifiedExtensionBase,
+)
+from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
 
 
 class UnifiedExtensionsManager:
@@ -23,7 +27,7 @@ class UnifiedExtensionsManager:
         self._extensions: List[UnifiedExtensionBase] = []
         self._ordered_callbacks: Dict[ExtensionCallbackType, List[CallbackFunctionWithMetadata]] = {}
         self._swaps: Dict[str, tuple[Callable, UnifiedExtensionBase]] = {}
-    
+
     def assert_compatibility(self, model_type: BaseModelType):
         """Chheck that each extension is compatible with the provided model."""
         for ext in self._extensions:
@@ -102,7 +106,6 @@ class UnifiedExtensionsManager:
         callbacks = self._ordered_callbacks.get(callback_type, [])
         for cb in callbacks:
             cb.function(ctx)
-    
 
     @contextmanager
     def patch_extensions(self, ctx: DenoiseContext):
