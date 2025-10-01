@@ -12,31 +12,26 @@ import {
   isChatGPT4oModelConfig,
   isCLIPEmbedModelConfig,
   isCLIPVisionModelConfig,
-  isCogView4MainModelModelConfig,
   isControlLayerModelConfig,
   isControlLoRAModelConfig,
   isControlNetModelConfig,
   isFluxKontextApiModelConfig,
   isFluxKontextModelConfig,
-  isFluxMainModelModelConfig,
   isFluxReduxModelConfig,
   isFluxVAEModelConfig,
-  isImagen3ModelConfig,
-  isImagen4ModelConfig,
+  isGemini2_5ModelConfig,
   isIPAdapterModelConfig,
   isLLaVAModelConfig,
   isLoRAModelConfig,
   isNonRefinerMainModelConfig,
-  isNonSDXLMainModelConfig,
   isRefinerMainModelModelConfig,
-  isSD3MainModelModelConfig,
-  isSDXLMainModelModelConfig,
   isSigLipModelConfig,
   isSpandrelImageToImageModelConfig,
   isT2IAdapterModelConfig,
   isT5EncoderModelConfig,
   isTIModelConfig,
   isVAEModelConfig,
+  isVideoModelConfig,
 } from 'services/api/types';
 
 type ModelHookArgs = { excludeSubmodels?: boolean };
@@ -62,12 +57,7 @@ const buildModelsHook =
     return [modelConfigs, result] as const;
   };
 export const useMainModels = buildModelsHook(isNonRefinerMainModelConfig);
-export const useNonSDXLMainModels = buildModelsHook(isNonSDXLMainModelConfig);
 export const useRefinerModels = buildModelsHook(isRefinerMainModelModelConfig);
-export const useFluxModels = buildModelsHook(isFluxMainModelModelConfig);
-export const useSD3Models = buildModelsHook(isSD3MainModelModelConfig);
-export const useCogView4Models = buildModelsHook(isCogView4MainModelModelConfig);
-export const useSDXLModels = buildModelsHook(isSDXLMainModelModelConfig);
 export const useLoRAModels = buildModelsHook(isLoRAModelConfig);
 export const useControlLoRAModel = buildModelsHook(isControlLoRAModelConfig);
 export const useControlLayerModels = buildModelsHook(isControlLayerModelConfig);
@@ -92,16 +82,14 @@ export const useGlobalReferenceImageModels = buildModelsHook(
     isFluxReduxModelConfig(config) ||
     isChatGPT4oModelConfig(config) ||
     isFluxKontextApiModelConfig(config) ||
-    isFluxKontextModelConfig(config)
+    isFluxKontextModelConfig(config) ||
+    isGemini2_5ModelConfig(config)
 );
 export const useRegionalReferenceImageModels = buildModelsHook(
   (config) => isIPAdapterModelConfig(config) || isFluxReduxModelConfig(config)
 );
 export const useLLaVAModels = buildModelsHook(isLLaVAModelConfig);
-export const useImagen3Models = buildModelsHook(isImagen3ModelConfig);
-export const useImagen4Models = buildModelsHook(isImagen4ModelConfig);
-export const useChatGPT4oModels = buildModelsHook(isChatGPT4oModelConfig);
-export const useFluxKontextModels = buildModelsHook(isFluxKontextApiModelConfig);
+export const useVideoModels = buildModelsHook(isVideoModelConfig);
 
 const buildModelsSelector =
   <T extends AnyModelConfig>(typeGuard: (config: AnyModelConfig) => config is T): Selector<RootState, T[]> =>
@@ -129,6 +117,18 @@ export const selectIPAdapterModels = buildModelsSelector(isIPAdapterModelConfig)
 // export const selectEmbeddingModels = buildModelsSelector(isTIModelConfig);
 // export const selectVAEModels = buildModelsSelector(isVAEModelConfig);
 // export const selectFluxVAEModels = buildModelsSelector(isFluxVAEModelConfig);
+export const selectGlobalRefImageModels = buildModelsSelector(
+  (config) =>
+    isIPAdapterModelConfig(config) ||
+    isFluxReduxModelConfig(config) ||
+    isChatGPT4oModelConfig(config) ||
+    isFluxKontextApiModelConfig(config) ||
+    isFluxKontextModelConfig(config) ||
+    isGemini2_5ModelConfig(config)
+);
+export const selectRegionalRefImageModels = buildModelsSelector(
+  (config) => isIPAdapterModelConfig(config) || isFluxReduxModelConfig(config)
+);
 
 export const buildSelectModelConfig = <T extends AnyModelConfig>(
   key: string,

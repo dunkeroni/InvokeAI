@@ -1,15 +1,15 @@
-import type { ChakraProps, CollapseProps } from '@invoke-ai/ui-library';
+import type { ChakraProps, CollapseProps, FlexProps } from '@invoke-ai/ui-library';
 import { Badge, ButtonGroup, Collapse, Flex, IconButton, Text } from '@invoke-ai/ui-library';
 import QueueStatusBadge from 'features/queue/components/common/QueueStatusBadge';
 import { useDestinationText } from 'features/queue/components/QueueList/useDestinationText';
 import { useOriginText } from 'features/queue/components/QueueList/useOriginText';
-import { useDeleteQueueItem } from 'features/queue/hooks/useDeleteQueueItem';
+import { useCancelQueueItem } from 'features/queue/hooks/useCancelQueueItem';
 import { useRetryQueueItem } from 'features/queue/hooks/useRetryQueueItem';
 import { getSecondsFromTimestamps } from 'features/queue/util/getSecondsFromTimestamps';
 import { useFeatureStatus } from 'features/system/hooks/useFeatureStatus';
 import { selectShouldShowCredits } from 'features/system/store/configSlice';
 import type { MouseEvent } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PiArrowCounterClockwiseBold, PiXBold } from 'react-icons/pi';
 import { useSelector } from 'react-redux';
@@ -17,14 +17,12 @@ import type { S } from 'services/api/types';
 
 import { COLUMN_WIDTHS } from './constants';
 import QueueItemDetail from './QueueItemDetail';
-import type { ListContext } from './types';
 
 const selectedStyles = { bg: 'base.700' };
 
 type InnerItemProps = {
   index: number;
   item: S['SessionQueueItem'];
-  context: ListContext;
 };
 
 const sx: ChakraProps['sx'] = {
@@ -32,19 +30,18 @@ const sx: ChakraProps['sx'] = {
   "&[aria-selected='true']": selectedStyles,
 };
 
-const QueueItemComponent = ({ index, item, context }: InnerItemProps) => {
+const QueueItemComponent = ({ index, item }: InnerItemProps) => {
   const { t } = useTranslation();
   const isRetryEnabled = useFeatureStatus('retryQueueItem');
-  const handleToggle = useCallback(() => {
-    context.toggleQueueItem(item.item_id);
-  }, [context, item.item_id]);
-  const deleteQueueItem = useDeleteQueueItem();
-  const onClickDeleteQueueItem = useCallback(
+  const [isOpen, setIsOpen] = useState(false);
+  const handleToggle = useCallback(() => setIsOpen((s) => !s), [setIsOpen]);
+  const cancelQueueItem = useCancelQueueItem();
+  const onClickCancelQueueItem = useCallback(
     (e: MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
-      deleteQueueItem.trigger(item.item_id);
+      cancelQueueItem.trigger(item.item_id);
     },
-    [deleteQueueItem, item.item_id]
+    [cancelQueueItem, item.item_id]
   );
   const retryQueueItem = useRetryQueueItem();
   const onClickRetryQueueItem = useCallback(
@@ -54,7 +51,6 @@ const QueueItemComponent = ({ index, item, context }: InnerItemProps) => {
     },
     [item.item_id, retryQueueItem]
   );
-  const isOpen = useMemo(() => context.openQueueItems.includes(item.item_id), [context.openQueueItems, item.item_id]);
 
   const executionTime = useMemo(() => {
     if (!item.completed_at || !item.started_at) {
@@ -83,22 +79,16 @@ const QueueItemComponent = ({ index, item, context }: InnerItemProps) => {
       data-testid="queue-item"
     >
       <Flex minH={9} alignItems="center" gap={4} p={1.5} cursor="pointer" onClick={handleToggle}>
-        <Flex w={COLUMN_WIDTHS.number} justifyContent="flex-end" alignItems="center" flexShrink={0}>
+        <Flex w={COLUMN_WIDTHS.number} alignItems="center" flexShrink={0}>
           <Text variant="subtext">{index + 1}</Text>
+        </Flex>
+        <Flex w={COLUMN_WIDTHS.createdAt} alignItems="center" flexShrink={0} flexGrow={0}>
+          {new Date(item.created_at).toLocaleString()}
         </Flex>
         <Flex w={COLUMN_WIDTHS.statusBadge} alignItems="center" flexShrink={0}>
           <QueueStatusBadge status={item.status} />
         </Flex>
-        <Flex w={COLUMN_WIDTHS.origin} flexShrink={0}>
-          <Text overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" alignItems="center">
-            {originText}
-          </Text>
-        </Flex>
-        <Flex w={COLUMN_WIDTHS.destination} flexShrink={0}>
-          <Text overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" alignItems="center">
-            {destinationText}
-          </Text>
-        </Flex>
+
         <Flex w={COLUMN_WIDTHS.time} alignItems="center" flexShrink={0}>
           {executionTime || '-'}
         </Flex>
@@ -107,12 +97,17 @@ const QueueItemComponent = ({ index, item, context }: InnerItemProps) => {
             {item.credits || '-'}
           </Flex>
         )}
+        <Flex w={COLUMN_WIDTHS.origin_destination} flexShrink={0}>
+          <Text overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" alignItems="center">
+            {originText} / {destinationText}
+          </Text>
+        </Flex>
         <Flex w={COLUMN_WIDTHS.batchId} flexShrink={0}>
           <Text overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" alignItems="center">
             {item.batch_id}
           </Text>
         </Flex>
-        <Flex alignItems="center" overflow="hidden" flexGrow={1}>
+        <Flex overflow="hidden" flexGrow={1}>
           {item.field_values && (
             <Flex gap={2} w="full" whiteSpace="nowrap" textOverflow="ellipsis" overflow="hidden">
               {item.field_values
@@ -128,16 +123,18 @@ const QueueItemComponent = ({ index, item, context }: InnerItemProps) => {
             </Flex>
           )}
         </Flex>
+
         <Flex alignItems="center" w={COLUMN_WIDTHS.validationRun} flexShrink={0}>
           {isValidationRun && <Badge>{t('workflows.builder.publishingValidationRun')}</Badge>}
         </Flex>
+
         <Flex alignItems="center" w={COLUMN_WIDTHS.actions} pe={3}>
           <ButtonGroup size="xs" variant="ghost">
             {(!isFailed || !isRetryEnabled || isValidationRun) && (
               <IconButton
-                onClick={onClickDeleteQueueItem}
+                onClick={onClickCancelQueueItem}
                 isDisabled={isCanceled}
-                isLoading={deleteQueueItem.isLoading}
+                isLoading={cancelQueueItem.isLoading}
                 aria-label={t('queue.cancelItem')}
                 icon={<PiXBold />}
               />
@@ -167,3 +164,9 @@ const transition: CollapseProps['transition'] = {
 };
 
 export default memo(QueueItemComponent);
+
+export const QueueItemPlaceholder = memo((props: FlexProps) => (
+  <Flex h={9} w="full" bg="base.800" borderRadius="base" alignItems="center" justifyContent="center" {...props}></Flex>
+));
+
+QueueItemPlaceholder.displayName = 'QueueItemPlaceholder';

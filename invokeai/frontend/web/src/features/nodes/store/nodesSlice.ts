@@ -11,98 +11,57 @@ import type {
   XYPosition,
 } from '@xyflow/react';
 import { applyEdgeChanges, applyNodeChanges, getConnectedEdges, getIncomers, getOutgoers } from '@xyflow/react';
-import type { PersistConfig } from 'app/store/store';
+import type { SliceConfig } from 'app/store/types';
 import { deepClone } from 'common/util/deepClone';
+import { isPlainObject } from 'es-toolkit';
 import {
   addElement,
   removeElement,
   reparentElement,
 } from 'features/nodes/components/sidePanel/builder/form-manipulation';
-import type { NodesState } from 'features/nodes/store/types';
+import { type NodesState, zNodesState } from 'features/nodes/store/types';
 import { SHARED_NODE_PROPERTIES } from 'features/nodes/types/constants';
 import type {
   BoardFieldValue,
   BooleanFieldValue,
-  ChatGPT4oModelFieldValue,
-  CLIPEmbedModelFieldValue,
-  CLIPGEmbedModelFieldValue,
-  CLIPLEmbedModelFieldValue,
   ColorFieldValue,
-  ControlLoRAModelFieldValue,
-  ControlNetModelFieldValue,
   EnumFieldValue,
   FieldValue,
   FloatFieldValue,
   FloatGeneratorFieldValue,
-  FluxKontextModelFieldValue,
-  FluxReduxModelFieldValue,
-  FluxVAEModelFieldValue,
   ImageFieldCollectionValue,
   ImageFieldValue,
   ImageGeneratorFieldValue,
-  Imagen3ModelFieldValue,
-  Imagen4ModelFieldValue,
   IntegerFieldCollectionValue,
   IntegerFieldValue,
   IntegerGeneratorFieldValue,
-  IPAdapterModelFieldValue,
-  LLaVAModelFieldValue,
-  LoRAModelFieldValue,
-  MainModelFieldValue,
   ModelIdentifierFieldValue,
   SchedulerFieldValue,
-  SDXLRefinerModelFieldValue,
-  SigLipModelFieldValue,
-  SpandrelImageToImageModelFieldValue,
   StatefulFieldValue,
   StringFieldCollectionValue,
   StringFieldValue,
   StringGeneratorFieldValue,
-  T2IAdapterModelFieldValue,
-  T5EncoderModelFieldValue,
-  VAEModelFieldValue,
 } from 'features/nodes/types/field';
 import {
   zBoardFieldValue,
   zBooleanFieldValue,
-  zChatGPT4oModelFieldValue,
-  zCLIPEmbedModelFieldValue,
-  zCLIPGEmbedModelFieldValue,
-  zCLIPLEmbedModelFieldValue,
   zColorFieldValue,
-  zControlLoRAModelFieldValue,
-  zControlNetModelFieldValue,
   zEnumFieldValue,
   zFloatFieldCollectionValue,
   zFloatFieldValue,
   zFloatGeneratorFieldValue,
-  zFluxKontextModelFieldValue,
-  zFluxReduxModelFieldValue,
-  zFluxVAEModelFieldValue,
   zImageFieldCollectionValue,
   zImageFieldValue,
   zImageGeneratorFieldValue,
-  zImagen3ModelFieldValue,
-  zImagen4ModelFieldValue,
   zIntegerFieldCollectionValue,
   zIntegerFieldValue,
   zIntegerGeneratorFieldValue,
-  zIPAdapterModelFieldValue,
-  zLLaVAModelFieldValue,
-  zLoRAModelFieldValue,
-  zMainModelFieldValue,
   zModelIdentifierFieldValue,
   zSchedulerFieldValue,
-  zSDXLRefinerModelFieldValue,
-  zSigLipModelFieldValue,
-  zSpandrelImageToImageModelFieldValue,
   zStatefulFieldValue,
   zStringFieldCollectionValue,
   zStringFieldValue,
   zStringGeneratorFieldValue,
-  zT2IAdapterModelFieldValue,
-  zT5EncoderModelFieldValue,
-  zVAEModelFieldValue,
 } from 'features/nodes/types/field';
 import type { AnyEdge, AnyNode } from 'features/nodes/types/invocation';
 import { isInvocationNode, isNotesNode } from 'features/nodes/types/invocation';
@@ -127,7 +86,8 @@ import {
 import { atom, computed } from 'nanostores';
 import type { MouseEvent } from 'react';
 import type { UndoableOptions } from 'redux-undo';
-import type { z } from 'zod/v4';
+import { assert } from 'tsafe';
+import type { z } from 'zod';
 
 import type { PendingConnection, Templates } from './types';
 
@@ -151,11 +111,11 @@ export const getInitialWorkflow = (): Omit<NodesState, 'mode' | 'formFieldInitia
   };
 };
 
-const initialState: NodesState = {
+const getInitialState = (): NodesState => ({
   _version: 1,
   formFieldInitialValues: {},
   ...getInitialWorkflow(),
-};
+});
 
 type FieldValueAction<T extends FieldValue> = PayloadAction<{
   nodeId: string;
@@ -208,11 +168,14 @@ const fieldValueReducer = <T extends FieldValue>(
   field.value = result.data;
 };
 
-export const nodesSlice = createSlice({
+const slice = createSlice({
   name: 'nodes',
-  initialState: initialState,
+  initialState: getInitialState(),
   reducers: {
     nodesChanged: (state, action: PayloadAction<NodeChange<AnyNode>[]>) => {
+      // TODO(psyche): The below TS issue was recently fixed upstream. Need to upgrade @xyflow/react and then we
+      // should be able to remove this cast.
+      //
       // In v12.7.0, @xyflow/react added a `domAttributes` property to the node data. One DOM attribute is
       // defaultValue, which may have a value of type `readonly string[]`. This conflicts with the immer-
       // provided Draft type, used internally by RTK. We don't use `domAttributes`, so we can safely cast
@@ -223,63 +186,75 @@ export const nodesSlice = createSlice({
       //
       // But we don't have immer as an explicit dependency so we'll just cast.
       state.nodes = applyNodeChanges(action.payload, state.nodes) as typeof state.nodes;
-      // Remove edges that are no longer valid, due to a removed or otherwise changed node
-      const edgeChanges: EdgeChange<AnyEdge>[] = [];
-      state.edges.forEach((e) => {
-        const sourceExists = state.nodes.some((n) => n.id === e.source);
-        const targetExists = state.nodes.some((n) => n.id === e.target);
-        if (!(sourceExists && targetExists)) {
-          edgeChanges.push({ type: 'remove', id: e.id });
-        }
-      });
-      state.edges = applyEdgeChanges<AnyEdge>(edgeChanges, state.edges);
 
-      // If a node was removed, we should remove any form fields that were associated with it. However, node changes
-      // may remove and then add the same node back. For example, when updating a workflow, we replace old nodes with
-      // updated nodes. In this case, we should not remove the form fields. To handle this, we find the last remove
-      // and add changes for each exposed field. If the remove change comes after the add change, we remove the exposed
-      // field.
-      for (const el of Object.values(state.form.elements)) {
-        if (!isNodeFieldElement(el)) {
-          continue;
+      // Remove edges that are no longer valid, due to a removed or otherwise changed node
+      const didNodesChange = action.payload.some(
+        (change) => change.type === 'add' || change.type === 'remove' || change.type === 'replace'
+      );
+
+      if (didNodesChange) {
+        const edgeChanges: EdgeChange<AnyEdge>[] = [];
+        for (const e of state.edges) {
+          const sourceExists = state.nodes.some((n) => n.id === e.source);
+          const targetExists = state.nodes.some((n) => n.id === e.target);
+          if (!(sourceExists && targetExists)) {
+            edgeChanges.push({ type: 'remove', id: e.id });
+          }
         }
-        const { nodeId } = el.data.fieldIdentifier;
-        const removeIndex = action.payload.findLastIndex((change) => change.type === 'remove' && change.id === nodeId);
-        const addIndex = action.payload.findLastIndex((change) => change.type === 'add' && change.item.id === nodeId);
-        if (removeIndex > addIndex) {
-          removeElement({ form: state.form, id: el.id });
+        if (edgeChanges.length > 0) {
+          state.edges = applyEdgeChanges<AnyEdge>(edgeChanges, state.edges);
+        }
+      }
+
+      const wereNodesRemoved = action.payload.some((change) => change.type === 'remove' || change.type === 'replace');
+
+      if (wereNodesRemoved) {
+        // If a node was removed, we should remove any form fields that were associated with it. However, node changes
+        // may remove and then add the same node back. For example, when updating a workflow, we replace old nodes with
+        // updated nodes. In this case, we should not remove the form fields. To handle this, we find the last remove
+        // and add changes for each exposed field. If the remove change comes after the add change, we remove the exposed
+        // field.
+        for (const el of Object.values(state.form.elements)) {
+          if (!isNodeFieldElement(el)) {
+            continue;
+          }
+          const { nodeId } = el.data.fieldIdentifier;
+          const removeIndex = action.payload.findLastIndex(
+            (change) => change.type === 'remove' && change.id === nodeId
+          );
+          const addIndex = action.payload.findLastIndex((change) => change.type === 'add' && change.item.id === nodeId);
+          if (removeIndex > addIndex) {
+            removeElement({ form: state.form, id: el.id });
+          }
         }
       }
     },
     edgesChanged: (state, action: PayloadAction<EdgeChange<AnyEdge>[]>) => {
       const changes: EdgeChange<AnyEdge>[] = [];
       // We may need to massage the edge changes or otherwise handle them
-      action.payload.forEach((change) => {
+      for (const change of action.payload) {
         if (change.type === 'remove' || change.type === 'select') {
           const edge = state.edges.find((e) => e.id === change.id);
           // If we deleted or selected a collapsed edge, we need to find its "hidden" edges and do the same to them
           if (edge && edge.type === 'collapsed') {
             const hiddenEdges = state.edges.filter((e) => e.source === edge.source && e.target === edge.target);
-            if (change.type === 'remove') {
-              hiddenEdges.forEach(({ id }) => {
+            for (const { id } of hiddenEdges) {
+              if (change.type === 'remove') {
                 changes.push({ type: 'remove', id });
-              });
-            }
-            if (change.type === 'select') {
-              hiddenEdges.forEach(({ id }) => {
+              }
+              if (change.type === 'select') {
                 changes.push({ type: 'select', id, selected: change.selected });
-              });
+              }
             }
           }
-        }
-        if (change.type === 'add') {
+        } else if (change.type === 'add') {
           if (!change.item.type) {
             // We must add the edge type!
             change.item.type = 'default';
           }
         }
         changes.push(change);
-      });
+      }
       state.edges = applyEdgeChanges(changes, state.edges);
     },
     fieldLabelChanged: (
@@ -472,74 +447,8 @@ export const nodesSlice = createSlice({
     fieldColorValueChanged: (state, action: FieldValueAction<ColorFieldValue>) => {
       fieldValueReducer(state, action, zColorFieldValue);
     },
-    fieldMainModelValueChanged: (state, action: FieldValueAction<MainModelFieldValue>) => {
-      fieldValueReducer(state, action, zMainModelFieldValue);
-    },
     fieldModelIdentifierValueChanged: (state, action: FieldValueAction<ModelIdentifierFieldValue>) => {
       fieldValueReducer(state, action, zModelIdentifierFieldValue);
-    },
-    fieldRefinerModelValueChanged: (state, action: FieldValueAction<SDXLRefinerModelFieldValue>) => {
-      fieldValueReducer(state, action, zSDXLRefinerModelFieldValue);
-    },
-    fieldVaeModelValueChanged: (state, action: FieldValueAction<VAEModelFieldValue>) => {
-      fieldValueReducer(state, action, zVAEModelFieldValue);
-    },
-    fieldLoRAModelValueChanged: (state, action: FieldValueAction<LoRAModelFieldValue>) => {
-      fieldValueReducer(state, action, zLoRAModelFieldValue);
-    },
-    fieldLLaVAModelValueChanged: (state, action: FieldValueAction<LLaVAModelFieldValue>) => {
-      fieldValueReducer(state, action, zLLaVAModelFieldValue);
-    },
-    fieldControlNetModelValueChanged: (state, action: FieldValueAction<ControlNetModelFieldValue>) => {
-      fieldValueReducer(state, action, zControlNetModelFieldValue);
-    },
-    fieldIPAdapterModelValueChanged: (state, action: FieldValueAction<IPAdapterModelFieldValue>) => {
-      fieldValueReducer(state, action, zIPAdapterModelFieldValue);
-    },
-    fieldT2IAdapterModelValueChanged: (state, action: FieldValueAction<T2IAdapterModelFieldValue>) => {
-      fieldValueReducer(state, action, zT2IAdapterModelFieldValue);
-    },
-    fieldSpandrelImageToImageModelValueChanged: (
-      state,
-      action: FieldValueAction<SpandrelImageToImageModelFieldValue>
-    ) => {
-      fieldValueReducer(state, action, zSpandrelImageToImageModelFieldValue);
-    },
-    fieldT5EncoderValueChanged: (state, action: FieldValueAction<T5EncoderModelFieldValue>) => {
-      fieldValueReducer(state, action, zT5EncoderModelFieldValue);
-    },
-    fieldCLIPEmbedValueChanged: (state, action: FieldValueAction<CLIPEmbedModelFieldValue>) => {
-      fieldValueReducer(state, action, zCLIPEmbedModelFieldValue);
-    },
-    fieldCLIPLEmbedValueChanged: (state, action: FieldValueAction<CLIPLEmbedModelFieldValue>) => {
-      fieldValueReducer(state, action, zCLIPLEmbedModelFieldValue);
-    },
-    fieldCLIPGEmbedValueChanged: (state, action: FieldValueAction<CLIPGEmbedModelFieldValue>) => {
-      fieldValueReducer(state, action, zCLIPGEmbedModelFieldValue);
-    },
-    fieldControlLoRAModelValueChanged: (state, action: FieldValueAction<ControlLoRAModelFieldValue>) => {
-      fieldValueReducer(state, action, zControlLoRAModelFieldValue);
-    },
-    fieldFluxVAEModelValueChanged: (state, action: FieldValueAction<FluxVAEModelFieldValue>) => {
-      fieldValueReducer(state, action, zFluxVAEModelFieldValue);
-    },
-    fieldSigLipModelValueChanged: (state, action: FieldValueAction<SigLipModelFieldValue>) => {
-      fieldValueReducer(state, action, zSigLipModelFieldValue);
-    },
-    fieldFluxReduxModelValueChanged: (state, action: FieldValueAction<FluxReduxModelFieldValue>) => {
-      fieldValueReducer(state, action, zFluxReduxModelFieldValue);
-    },
-    fieldImagen3ModelValueChanged: (state, action: FieldValueAction<Imagen3ModelFieldValue>) => {
-      fieldValueReducer(state, action, zImagen3ModelFieldValue);
-    },
-    fieldImagen4ModelValueChanged: (state, action: FieldValueAction<Imagen4ModelFieldValue>) => {
-      fieldValueReducer(state, action, zImagen4ModelFieldValue);
-    },
-    fieldChatGPT4oModelValueChanged: (state, action: FieldValueAction<ChatGPT4oModelFieldValue>) => {
-      fieldValueReducer(state, action, zChatGPT4oModelFieldValue);
-    },
-    fieldFluxKontextModelValueChanged: (state, action: FieldValueAction<FluxKontextModelFieldValue>) => {
-      fieldValueReducer(state, action, zFluxKontextModelFieldValue);
     },
     fieldEnumModelValueChanged: (state, action: FieldValueAction<EnumFieldValue>) => {
       fieldValueReducer(state, action, zEnumFieldValue);
@@ -576,7 +485,7 @@ export const nodesSlice = createSlice({
       }
       node.data.notes = value;
     },
-    nodeEditorReset: () => deepClone(initialState),
+    nodeEditorReset: () => getInitialState(),
     workflowNameChanged: (state, action: PayloadAction<string>) => {
       state.name = action.payload;
     },
@@ -661,7 +570,7 @@ export const nodesSlice = createSlice({
       const formFieldInitialValues = getFormFieldInitialValues(workflowExtra.form, nodes);
 
       return {
-        ...deepClone(initialState),
+        ...getInitialState(),
         ...deepClone(workflowExtra),
         formFieldInitialValues,
         nodes: nodes.map((node) => ({ ...SHARED_NODE_PROPERTIES, ...node })),
@@ -679,39 +588,18 @@ export const {
   fieldBoardValueChanged,
   fieldBooleanValueChanged,
   fieldColorValueChanged,
-  fieldControlNetModelValueChanged,
   fieldEnumModelValueChanged,
   fieldImageValueChanged,
   fieldImageCollectionValueChanged,
-  fieldIPAdapterModelValueChanged,
-  fieldT2IAdapterModelValueChanged,
-  fieldSpandrelImageToImageModelValueChanged,
   fieldLabelChanged,
-  fieldLoRAModelValueChanged,
-  fieldLLaVAModelValueChanged,
   fieldModelIdentifierValueChanged,
-  fieldMainModelValueChanged,
   fieldIntegerValueChanged,
   fieldFloatValueChanged,
   fieldFloatCollectionValueChanged,
   fieldIntegerCollectionValueChanged,
-  fieldRefinerModelValueChanged,
   fieldSchedulerValueChanged,
   fieldStringValueChanged,
   fieldStringCollectionValueChanged,
-  fieldVaeModelValueChanged,
-  fieldT5EncoderValueChanged,
-  fieldCLIPEmbedValueChanged,
-  fieldCLIPLEmbedValueChanged,
-  fieldCLIPGEmbedValueChanged,
-  fieldControlLoRAModelValueChanged,
-  fieldFluxVAEModelValueChanged,
-  fieldSigLipModelValueChanged,
-  fieldFluxReduxModelValueChanged,
-  fieldImagen3ModelValueChanged,
-  fieldImagen4ModelValueChanged,
-  fieldChatGPT4oModelValueChanged,
-  fieldFluxKontextModelValueChanged,
   fieldFloatGeneratorValueChanged,
   fieldIntegerGeneratorValueChanged,
   fieldStringGeneratorValueChanged,
@@ -746,7 +634,7 @@ export const {
   workflowLoaded,
   undo,
   redo,
-} = nodesSlice.actions;
+} = slice.actions;
 
 export const $cursorPos = atom<XYPosition | null>(null);
 export const $templates = atom<Templates>({});
@@ -762,21 +650,6 @@ export const $lastEdgeUpdateMouseEvent = atom<MouseEvent | null>(null);
 
 export const $viewport = atom<Viewport>({ x: 0, y: 0, zoom: 1 });
 export const $addNodeCmdk = atom(false);
-
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-const migrateNodesState = (state: any): any => {
-  if (!('_version' in state)) {
-    state._version = 1;
-  }
-  return state;
-};
-
-export const nodesPersistConfig: PersistConfig<NodesState> = {
-  name: nodesSlice.name,
-  initialState: initialState,
-  migrate: migrateNodesState,
-  persistDenylist: [],
-};
 
 type NodeSelectionAction = {
   type: ReturnType<typeof nodesChanged>['type'];
@@ -881,10 +754,10 @@ const isHighFrequencyWorkflowDetailsAction = isAnyOf(
 // a note in a notes node, we don't want to create a new undo group for every keystroke.
 const isHighFrequencyNodeScopedAction = isAnyOf(nodeLabelChanged, nodeNotesChanged, notesNodeValueChanged);
 
-export const nodesUndoableConfig: UndoableOptions<NodesState, UnknownAction> = {
+const reduxUndoOptions: UndoableOptions<NodesState, UnknownAction> = {
   limit: 64,
-  undoType: nodesSlice.actions.undo.type,
-  redoType: nodesSlice.actions.redo.type,
+  undoType: slice.actions.undo.type,
+  redoType: slice.actions.redo.type,
   groupBy: (action, _state, _history) => {
     if (isHighFrequencyFieldChangeAction(action)) {
       // Group by type, node id and field name
@@ -916,7 +789,7 @@ export const nodesUndoableConfig: UndoableOptions<NodesState, UnknownAction> = {
   },
   filter: (action, _state, _history) => {
     // Ignore all actions from other slices
-    if (!action.type.startsWith(nodesSlice.name)) {
+    if (!action.type.startsWith(slice.name)) {
       return false;
     }
     // Ignore actions that only select or deselect nodes and edges
@@ -928,6 +801,24 @@ export const nodesUndoableConfig: UndoableOptions<NodesState, UnknownAction> = {
       return false;
     }
     return true;
+  },
+};
+
+export const nodesSliceConfig: SliceConfig<typeof slice> = {
+  slice,
+  schema: zNodesState,
+  getInitialState,
+  persistConfig: {
+    migrate: (state) => {
+      assert(isPlainObject(state));
+      if (!('_version' in state)) {
+        state._version = 1;
+      }
+      return zNodesState.parse(state);
+    },
+  },
+  undoableConfig: {
+    reduxUndoOptions,
   },
 };
 

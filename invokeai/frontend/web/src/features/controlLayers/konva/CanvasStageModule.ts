@@ -42,7 +42,7 @@ const DEFAULT_CONFIG: CanvasStageModuleConfig = {
   SCALE_FACTOR: 0.999,
   FIT_LAYERS_TO_STAGE_PADDING_PX: 48,
   SCALE_SNAP_POINTS: [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5],
-  SCALE_SNAP_TOLERANCE: 0.05,
+  SCALE_SNAP_TOLERANCE: 0.02,
 };
 
 export class CanvasStageModule extends CanvasModuleBase {
@@ -125,9 +125,14 @@ export class CanvasStageModule extends CanvasModuleBase {
     this.konva.stage.on('dragmove', this.onStageDragMove);
     this.konva.stage.on('dragend', this.onStageDragEnd);
 
-    // Start dragging the stage when the middle mouse button is clicked. We do not need to listen for 'pointerdown' to
-    // do cleanup - that is done in onStageDragEnd.
+    // Start dragging the stage when the middle mouse button is clicked and stop dragging when it's released.
+    // We _also_ stop dragging on dragend - but in case the user doesn't actually start a drag (just clicks MMB once),
+    // we still need to stop dragging.
+    //
+    // Why start dragging on pointerdown instead of dragstart? Because it allows us to immediately show the cursor as
+    // grabbing, instead of waiting for the user to actually move the mouse to start the drag. Minor UX affordance.
     this.konva.stage.on('pointerdown', this.onStagePointerDown);
+    this.konva.stage.on('pointerup', this.onStagePointerUp);
 
     this.subscriptions.add(() => this.konva.stage.off('wheel', this.onStageMouseWheel));
     this.subscriptions.add(() => this.konva.stage.off('dragmove', this.onStageDragMove));
@@ -339,7 +344,9 @@ export class CanvasStageModule extends CanvasModuleBase {
 
   onStageMouseWheel = (e: KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
-    this._snapTimeout && window.clearTimeout(this._snapTimeout);
+    if (this._snapTimeout !== null) {
+      window.clearTimeout(this._snapTimeout);
+    }
 
     if (e.evt.ctrlKey || e.evt.metaKey) {
       return;
@@ -364,11 +371,22 @@ export class CanvasStageModule extends CanvasModuleBase {
     if (deltaT > 300) {
       dynamicScaleFactor = this.config.SCALE_FACTOR + (1 - this.config.SCALE_FACTOR) / 2;
     } else if (deltaT < 300) {
-      dynamicScaleFactor = this.config.SCALE_FACTOR + (1 - this.config.SCALE_FACTOR) * (deltaT / 200);
+      // Ensure dynamic scale factor stays below 1 to maintain zoom-out direction - if it goes over, we could end up
+      // zooming in the wrong direction with small scroll amounts
+      const maxScaleFactor = 0.9999;
+      dynamicScaleFactor = Math.min(
+        this.config.SCALE_FACTOR + (1 - this.config.SCALE_FACTOR) * (deltaT / 200),
+        maxScaleFactor
+      );
     }
 
     // Update the intended scale based on the last intended scale, creating a continuous zoom feel
-    const newIntendedScale = this._intendedScale * dynamicScaleFactor ** scrollAmount;
+    // Handle the sign explicitly to prevent direction reversal with small scroll amounts
+    const scaleFactor =
+      scrollAmount > 0
+        ? dynamicScaleFactor ** Math.abs(scrollAmount)
+        : (1 / dynamicScaleFactor) ** Math.abs(scrollAmount);
+    const newIntendedScale = this._intendedScale * scaleFactor;
     this._intendedScale = this.constrainScale(newIntendedScale);
 
     // Pass control to the snapping logic
@@ -395,6 +413,9 @@ export class CanvasStageModule extends CanvasModuleBase {
         // User has scrolled far enough to break the snap
         this._activeSnapPoint = null;
         this._applyScale(this._intendedScale, center);
+      } else {
+        // Reset intended scale to prevent drift while snapped
+        this._intendedScale = this._activeSnapPoint;
       }
       // Else, do nothing - we remain snapped at the current scale, creating a "dead zone"
       return;
@@ -419,6 +440,13 @@ export class CanvasStageModule extends CanvasModuleBase {
     // If the middle mouse button is clicked and we are not already dragging, start dragging the stage
     if (e.evt.button === 1) {
       this.startDragging();
+    }
+  };
+
+  onStagePointerUp = (e: KonvaEventObject<PointerEvent>) => {
+    // If the middle mouse button is released and we are dragging, stop dragging the stage
+    if (e.evt.button === 1) {
+      this.stopDragging();
     }
   };
 

@@ -1,66 +1,101 @@
 import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { PersistConfig, RootState } from 'app/store/store';
-import { deepClone } from 'common/util/deepClone';
-import { canvasReset } from 'features/controlLayers/store/actions';
+import { EMPTY_ARRAY } from 'app/store/constants';
+import type { RootState } from 'app/store/store';
+import { useAppSelector } from 'app/store/storeHooks';
+import type { SliceConfig } from 'app/store/types';
+import { isPlainObject } from 'es-toolkit';
+import { getPrefixedId } from 'features/controlLayers/konva/util';
+import { useMemo } from 'react';
+import { queueApi } from 'services/api/endpoints/queue';
+import { assert } from 'tsafe';
+import z from 'zod';
 
-type CanvasStagingAreaState = {
-  generateSessionId: string | null;
-  canvasSessionId: string | null;
-};
+const zCanvasStagingAreaState = z.object({
+  _version: z.literal(1),
+  canvasSessionId: z.string(),
+  canvasDiscardedQueueItems: z.array(z.number().int()),
+});
+type CanvasStagingAreaState = z.infer<typeof zCanvasStagingAreaState>;
 
-const INITIAL_STATE: CanvasStagingAreaState = {
-  generateSessionId: null,
-  canvasSessionId: null,
-};
+const getInitialState = (): CanvasStagingAreaState => ({
+  _version: 1,
+  canvasSessionId: getPrefixedId('canvas'),
+  canvasDiscardedQueueItems: [],
+});
 
-const getInitialState = (): CanvasStagingAreaState => deepClone(INITIAL_STATE);
-
-export const canvasSessionSlice = createSlice({
+const slice = createSlice({
   name: 'canvasSession',
   initialState: getInitialState(),
   reducers: {
-    generateSessionIdChanged: (state, action: PayloadAction<{ id: string }>) => {
-      const { id } = action.payload;
-      state.generateSessionId = id;
+    canvasQueueItemDiscarded: (state, action: PayloadAction<{ itemId: number }>) => {
+      const { itemId } = action.payload;
+      if (!state.canvasDiscardedQueueItems.includes(itemId)) {
+        state.canvasDiscardedQueueItems.push(itemId);
+      }
     },
-    generateSessionReset: (state) => {
-      state.generateSessionId = null;
+    canvasSessionReset: {
+      reducer: (state, action: PayloadAction<{ canvasSessionId: string }>) => {
+        const { canvasSessionId } = action.payload;
+        state.canvasSessionId = canvasSessionId;
+        state.canvasDiscardedQueueItems = [];
+      },
+      prepare: () => {
+        return {
+          payload: {
+            canvasSessionId: getPrefixedId('canvas'),
+          },
+        };
+      },
     },
-    canvasSessionIdChanged: (state, action: PayloadAction<{ id: string }>) => {
-      const { id } = action.payload;
-      state.canvasSessionId = id;
-    },
-    canvasSessionReset: (state) => {
-      state.canvasSessionId = null;
-    },
-  },
-  extraReducers(builder) {
-    builder.addCase(canvasReset, (state) => {
-      state.canvasSessionId = null;
-    });
   },
 });
 
-export const { generateSessionIdChanged, generateSessionReset, canvasSessionIdChanged, canvasSessionReset } =
-  canvasSessionSlice.actions;
+export const { canvasSessionReset, canvasQueueItemDiscarded } = slice.actions;
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-const migrate = (state: any): any => {
-  return state;
+export const canvasSessionSliceConfig: SliceConfig<typeof slice> = {
+  slice,
+  schema: zCanvasStagingAreaState,
+  getInitialState,
+  persistConfig: {
+    migrate: (state) => {
+      assert(isPlainObject(state));
+      if (!('_version' in state)) {
+        state._version = 1;
+        state.canvasSessionId = state.canvasSessionId ?? getPrefixedId('canvas');
+      }
+
+      return zCanvasStagingAreaState.parse(state);
+    },
+  },
 };
 
-export const canvasStagingAreaPersistConfig: PersistConfig<CanvasStagingAreaState> = {
-  name: canvasSessionSlice.name,
-  initialState: getInitialState(),
-  migrate,
-  persistDenylist: [],
-};
-
-export const selectCanvasSessionSlice = (s: RootState) => s[canvasSessionSlice.name];
-
+export const selectCanvasSessionSlice = (s: RootState) => s[slice.name];
 export const selectCanvasSessionId = createSelector(selectCanvasSessionSlice, ({ canvasSessionId }) => canvasSessionId);
-export const selectGenerateSessionId = createSelector(
+
+const selectDiscardedItems = createSelector(
   selectCanvasSessionSlice,
-  ({ generateSessionId }) => generateSessionId
+  ({ canvasDiscardedQueueItems }) => canvasDiscardedQueueItems
 );
-export const selectIsStaging = createSelector(selectCanvasSessionId, (canvasSessionId) => canvasSessionId !== null);
+
+export const buildSelectCanvasQueueItems = (sessionId: string) =>
+  createSelector(
+    [queueApi.endpoints.listAllQueueItems.select({ destination: sessionId }), selectDiscardedItems],
+    ({ data }, discardedItems) => {
+      if (!data) {
+        return EMPTY_ARRAY;
+      }
+      return data.filter(
+        ({ status, item_id }) => status !== 'canceled' && status !== 'failed' && !discardedItems.includes(item_id)
+      );
+    }
+  );
+
+export const buildSelectIsStaging = (sessionId: string) =>
+  createSelector([buildSelectCanvasQueueItems(sessionId)], (queueItems) => {
+    return queueItems.length > 0;
+  });
+export const useCanvasIsStaging = () => {
+  const sessionId = useAppSelector(selectCanvasSessionId);
+  const selector = useMemo(() => buildSelectIsStaging(sessionId), [sessionId]);
+  return useAppSelector(selector);
+};

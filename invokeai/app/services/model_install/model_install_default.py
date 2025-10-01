@@ -7,7 +7,7 @@ import threading
 import time
 from pathlib import Path
 from queue import Empty, Queue
-from shutil import copyfile, copytree, move, rmtree
+from shutil import move, rmtree
 from tempfile import mkdtemp
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -51,6 +51,7 @@ from invokeai.backend.model_manager.metadata import (
 from invokeai.backend.model_manager.metadata.metadata_base import HuggingFaceMetadata
 from invokeai.backend.model_manager.search import ModelSearch
 from invokeai.backend.model_manager.taxonomy import ModelRepoVariant, ModelSourceType
+from invokeai.backend.model_manager.util.lora_metadata_extractor import apply_lora_metadata
 from invokeai.backend.util import InvokeAILogger
 from invokeai.backend.util.catch_sigint import catch_sigint
 from invokeai.backend.util.devices import TorchDevice
@@ -185,13 +186,15 @@ class ModelInstallService(ModelInstallServiceBase):
         info: AnyModelConfig = self._probe(Path(model_path), config)  # type: ignore
 
         if preferred_name := config.name:
-            preferred_name = Path(preferred_name).with_suffix(model_path.suffix)
+            if Path(model_path).is_file():
+                # Careful! Don't use pathlib.Path(...).with_suffix - it can will strip everything after the first dot.
+                preferred_name = f"{preferred_name}{model_path.suffix}"
 
         dest_path = (
             self.app_config.models_path / info.base.value / info.type.value / (preferred_name or model_path.name)
         )
         try:
-            new_path = self._copy_model(model_path, dest_path)
+            new_path = self._move_model(model_path, dest_path)
         except FileExistsError as excp:
             raise DuplicateModelException(
                 f"A model named {model_path.name} is already installed at {dest_path.as_posix()}"
@@ -616,30 +619,17 @@ class ModelInstallService(ModelInstallServiceBase):
         self.record_store.update_model(key, ModelRecordChanges(path=model.path))
         return model
 
-    def _copy_model(self, old_path: Path, new_path: Path) -> Path:
-        if old_path == new_path:
-            return old_path
-        new_path.parent.mkdir(parents=True, exist_ok=True)
-        if old_path.is_dir():
-            copytree(old_path, new_path)
-        else:
-            copyfile(old_path, new_path)
-        return new_path
-
     def _move_model(self, old_path: Path, new_path: Path) -> Path:
         if old_path == new_path:
             return old_path
 
+        if new_path.exists():
+            raise FileExistsError(f"Cannot move {old_path} to {new_path}: destination already exists")
+
         new_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # if path already exists then we jigger the name to make it unique
-        counter: int = 1
-        while new_path.exists():
-            path = new_path.with_stem(new_path.stem + f"_{counter:02d}")
-            if not path.exists():
-                new_path = path
-            counter += 1
         move(old_path, new_path)
+
         return new_path
 
     def _probe(self, model_path: Path, config: Optional[ModelRecordChanges] = None):
@@ -666,6 +656,10 @@ class ModelInstallService(ModelInstallServiceBase):
         config = config or ModelRecordChanges()
 
         info = info or self._probe(model_path, config)
+
+        # Apply LoRA metadata if applicable
+        model_images_path = self.app_config.models_path / "model_images"
+        apply_lora_metadata(info, model_path.resolve(), model_images_path)
 
         model_path = model_path.resolve()
 

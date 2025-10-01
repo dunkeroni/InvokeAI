@@ -27,6 +27,7 @@ from invokeai.app.invocations.fields import (
     SD3ConditioningField,
     TensorField,
     UIComponent,
+    VideoField,
 )
 from invokeai.app.services.images.images_common import ImageDTO
 from invokeai.app.services.shared.invocation_context import InvocationContext
@@ -289,6 +290,30 @@ class ImageCollectionInvocation(BaseInvocation):
 
 # endregion
 
+# region Video
+
+
+@invocation_output("video_output")
+class VideoOutput(BaseInvocationOutput):
+    """Base class for nodes that output a video"""
+
+    video: VideoField = OutputField(description="The output video")
+    width: int = OutputField(description="The width of the video in pixels")
+    height: int = OutputField(description="The height of the video in pixels")
+    duration_seconds: float = OutputField(description="The duration of the video in seconds")
+
+    @classmethod
+    def build(cls, video_id: str, width: int, height: int, duration_seconds: float) -> "VideoOutput":
+        return cls(
+            video=VideoField(video_id=video_id),
+            width=width,
+            height=height,
+            duration_seconds=duration_seconds,
+        )
+
+
+# endregion
+
 # region DenoiseMask
 
 
@@ -428,6 +453,15 @@ class FluxConditioningOutput(BaseInvocationOutput):
     @classmethod
     def build(cls, conditioning_name: str) -> "FluxConditioningOutput":
         return cls(conditioning=FluxConditioningField(conditioning_name=conditioning_name))
+
+
+@invocation_output("flux_conditioning_collection_output")
+class FluxConditioningCollectionOutput(BaseInvocationOutput):
+    """Base class for nodes that output a collection of conditioning tensors"""
+
+    collection: list[FluxConditioningField] = OutputField(
+        description="The output conditioning tensors",
+    )
 
 
 @invocation_output("sd3_conditioning_output")

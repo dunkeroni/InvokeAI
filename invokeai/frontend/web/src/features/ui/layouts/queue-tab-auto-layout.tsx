@@ -1,9 +1,10 @@
-import type { GridviewApi, IGridviewPanel, IGridviewReactProps } from 'dockview';
+import type { GridviewApi, IGridviewReactProps } from 'dockview';
 import { GridviewReact, LayoutPriority, Orientation } from 'dockview';
 import QueueTab from 'features/ui/components/tabs/QueueTab';
 import type { RootLayoutGridviewComponents } from 'features/ui/layouts/auto-layout-context';
 import { AutoLayoutProvider } from 'features/ui/layouts/auto-layout-context';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import type { TabName } from 'features/ui/store/uiTypes';
+import { memo, useCallback, useEffect } from 'react';
 
 import { navigationApi } from './navigation-api';
 import { QUEUE_PANEL_ID } from './shared';
@@ -12,43 +13,31 @@ const rootPanelComponents: RootLayoutGridviewComponents = {
   [QUEUE_PANEL_ID]: QueueTab,
 };
 
-const initializeRootPanelLayout = (layoutApi: GridviewApi) => {
-  const queue = layoutApi.addPanel({
-    id: QUEUE_PANEL_ID,
-    component: QUEUE_PANEL_ID,
-    priority: LayoutPriority.High,
+const initializeRootPanelLayout = (tab: TabName, api: GridviewApi) => {
+  navigationApi.registerContainer(tab, 'root', api, () => {
+    api.addPanel({
+      id: QUEUE_PANEL_ID,
+      component: QUEUE_PANEL_ID,
+      priority: LayoutPriority.High,
+    });
   });
-
-  navigationApi.registerPanel('queue', QUEUE_PANEL_ID, queue);
-
-  return { queue } satisfies Record<string, IGridviewPanel>;
 };
 
 export const QueueTabAutoLayout = memo(() => {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [rootApi, setRootApi] = useState<GridviewApi | null>(null);
   const onReady = useCallback<IGridviewReactProps['onReady']>(({ api }) => {
-    setRootApi(api);
+    initializeRootPanelLayout('queue', api);
   }, []);
 
-  useEffect(() => {
-    if (!rootApi) {
-      return;
-    }
-
-    initializeRootPanelLayout(rootApi);
-
-    navigationApi.onSwitchedTab();
-
-    return () => {
+  useEffect(
+    () => () => {
       navigationApi.unregisterTab('queue');
-    };
-  }, [rootApi]);
+    },
+    []
+  );
 
   return (
-    <AutoLayoutProvider tab="queue" rootRef={rootRef}>
+    <AutoLayoutProvider tab="queue">
       <GridviewReact
-        ref={rootRef}
         className="dockview-theme-invoke"
         components={rootPanelComponents}
         onReady={onReady}

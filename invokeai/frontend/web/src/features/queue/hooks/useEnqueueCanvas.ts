@@ -7,18 +7,19 @@ import { extractMessageFromAssertionError } from 'common/util/extractMessageFrom
 import { withResult, withResultAsync } from 'common/util/result';
 import { useCanvasManagerSafe } from 'features/controlLayers/contexts/CanvasManagerProviderGate';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
-import { getPrefixedId } from 'features/controlLayers/konva/util';
-import { canvasSessionIdChanged, selectCanvasSessionId } from 'features/controlLayers/store/canvasStagingAreaSlice';
+import { positivePromptAddedToHistory, selectPositivePrompt } from 'features/controlLayers/store/paramsSlice';
 import { prepareLinearUIBatch } from 'features/nodes/util/graph/buildLinearBatchConfig';
 import { buildChatGPT4oGraph } from 'features/nodes/util/graph/generation/buildChatGPT4oGraph';
 import { buildCogView4Graph } from 'features/nodes/util/graph/generation/buildCogView4Graph';
 import { buildFLUXGraph } from 'features/nodes/util/graph/generation/buildFLUXGraph';
 import { buildFluxKontextGraph } from 'features/nodes/util/graph/generation/buildFluxKontextGraph';
+import { buildGemini2_5Graph } from 'features/nodes/util/graph/generation/buildGemini2_5Graph';
 import { buildImagen3Graph } from 'features/nodes/util/graph/generation/buildImagen3Graph';
 import { buildImagen4Graph } from 'features/nodes/util/graph/generation/buildImagen4Graph';
 import { buildSD1Graph } from 'features/nodes/util/graph/generation/buildSD1Graph';
 import { buildSD3Graph } from 'features/nodes/util/graph/generation/buildSD3Graph';
 import { buildSDXLGraph } from 'features/nodes/util/graph/generation/buildSDXLGraph';
+import { selectCanvasDestination } from 'features/nodes/util/graph/graphBuilderUtils';
 import type { GraphBuilderArg } from 'features/nodes/util/graph/types';
 import { UnsupportedGenerationModeError } from 'features/nodes/util/graph/types';
 import { toast } from 'features/toast/toast';
@@ -28,7 +29,7 @@ import { enqueueMutationFixedCacheKeyOptions, queueApi } from 'services/api/endp
 import { assert, AssertionError } from 'tsafe';
 
 const log = logger('generation');
-const enqueueRequestedCanvas = createAction('app/enqueueRequestedCanvas');
+export const enqueueRequestedCanvas = createAction('app/enqueueRequestedCanvas');
 
 const enqueueCanvas = async (store: AppStore, canvasManager: CanvasManager, prepend: boolean) => {
   const { dispatch, getState } = store;
@@ -37,17 +38,17 @@ const enqueueCanvas = async (store: AppStore, canvasManager: CanvasManager, prep
 
   const state = getState();
 
-  let destination = selectCanvasSessionId(state);
-  if (destination === null) {
-    destination = getPrefixedId('canvas');
-    dispatch(canvasSessionIdChanged({ id: destination }));
+  const destination = selectCanvasDestination(state);
+
+  const model = state.params.model;
+  if (!model) {
+    log.error('No model found in state');
+    return;
   }
 
-  const buildGraphResult = await withResultAsync(async () => {
-    const model = state.params.model;
-    assert(model, 'No model found in state');
-    const base = model.base;
+  const base = model.base;
 
+  const buildGraphResult = await withResultAsync(async () => {
     const generationMode = await canvasManager.compositor.getGenerationMode();
     const graphBuilderArg: GraphBuilderArg = { generationMode, state, manager: canvasManager };
 
@@ -71,6 +72,8 @@ const enqueueCanvas = async (store: AppStore, canvasManager: CanvasManager, prep
         return await buildChatGPT4oGraph(graphBuilderArg);
       case 'flux-kontext':
         return buildFluxKontextGraph(graphBuilderArg);
+      case 'gemini-2.5':
+        return buildGemini2_5Graph(graphBuilderArg);
       default:
         assert(false, `No graph builders for base ${base}`);
     }
@@ -97,15 +100,16 @@ const enqueueCanvas = async (store: AppStore, canvasManager: CanvasManager, prep
     return;
   }
 
-  const { g, seedFieldIdentifier, positivePromptFieldIdentifier } = buildGraphResult.value;
+  const { g, seed, positivePrompt } = buildGraphResult.value;
 
   const prepareBatchResult = withResult(() =>
     prepareLinearUIBatch({
       state,
       g,
+      base,
       prepend,
-      seedFieldIdentifier,
-      positivePromptFieldIdentifier,
+      seedNode: seed,
+      positivePromptNode: positivePrompt,
       origin: 'canvas',
       destination,
     })
@@ -126,6 +130,9 @@ const enqueueCanvas = async (store: AppStore, canvasManager: CanvasManager, prep
   );
 
   const enqueueResult = await req.unwrap();
+
+  // Push to prompt history on successful enqueue
+  dispatch(positivePromptAddedToHistory(selectPositivePrompt(state)));
 
   return { batchConfig, enqueueResult };
 };

@@ -10,12 +10,15 @@ import type {
   ChatGPT4oReferenceImageConfig,
   ControlLoRAConfig,
   ControlNetConfig,
-  Dimensions,
+  CroppableImageWithDims,
   FluxKontextReferenceImageConfig,
   FLUXReduxConfig,
+  Gemini2_5ReferenceImageConfig,
   ImageWithDims,
   IPAdapterConfig,
+  RasterLayerAdjustments,
   RefImageState,
+  RegionalGuidanceIPAdapterConfig,
   RgbColor,
   T2IAdapterConfig,
 } from 'features/controlLayers/store/types';
@@ -38,27 +41,26 @@ export const imageDTOToImageObject = (imageDTO: ImageDTO, overrides?: Partial<Ca
   };
 };
 
-export const imageNameToImageObject = (
-  imageName: string,
-  dimensions: Dimensions,
-  overrides?: Partial<CanvasImageState>
-): CanvasImageState => {
-  return {
-    id: getPrefixedId('image'),
-    type: 'image',
-    image: {
-      image_name: imageName,
-      ...dimensions,
-    },
-    ...overrides,
-  };
-};
-
 export const imageDTOToImageWithDims = ({ image_name, width, height }: ImageDTO): ImageWithDims => ({
   image_name,
   width,
   height,
 });
+
+export const imageDTOToCroppableImage = (
+  originalImageDTO: ImageDTO,
+  crop?: CroppableImageWithDims['crop']
+): CroppableImageWithDims => {
+  const { image_name, width, height } = originalImageDTO;
+  const val: CroppableImageWithDims = {
+    original: { image: { image_name, width, height } },
+  };
+  if (crop) {
+    val.crop = deepClone(crop);
+  }
+
+  return val;
+};
 
 export const imageDTOToImageField = ({ image_name }: ImageDTO): ImageField => ({ image_name });
 
@@ -94,6 +96,15 @@ export const initialIPAdapter: IPAdapterConfig = {
   clipVisionModel: 'ViT-H',
   weight: 1,
 };
+export const initialRegionalGuidanceIPAdapter: RegionalGuidanceIPAdapterConfig = {
+  type: 'ip_adapter',
+  image: null,
+  model: null,
+  beginEndStepPct: [0, 1],
+  method: 'full',
+  clipVisionModel: 'ViT-H',
+  weight: 1,
+};
 export const initialFLUXRedux: FLUXReduxConfig = {
   type: 'flux_redux',
   image: null,
@@ -102,6 +113,11 @@ export const initialFLUXRedux: FLUXReduxConfig = {
 };
 export const initialChatGPT4oReferenceImage: ChatGPT4oReferenceImageConfig = {
   type: 'chatgpt_4o_reference_image',
+  image: null,
+  model: null,
+};
+export const initialGemini2_5ReferenceImage: Gemini2_5ReferenceImageConfig = {
+  type: 'gemini_2_5_reference_image',
   image: null,
   model: null,
 };
@@ -128,6 +144,32 @@ export const initialControlLoRA: ControlLoRAConfig = {
   model: null,
   weight: 0.75,
 };
+
+export const makeDefaultRasterLayerAdjustments = (mode: 'simple' | 'curves' = 'simple'): RasterLayerAdjustments => ({
+  version: 1,
+  enabled: true,
+  collapsed: false,
+  mode,
+  simple: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpness: 0 },
+  curves: {
+    master: [
+      [0, 0],
+      [255, 255],
+    ],
+    r: [
+      [0, 0],
+      [255, 255],
+    ],
+    g: [
+      [0, 0],
+      [255, 255],
+    ],
+    b: [
+      [0, 0],
+      [255, 255],
+    ],
+  },
+});
 
 export const getReferenceImageState = (id: string, overrides?: PartialDeep<RefImageState>): RefImageState => {
   const entityState: RefImageState = {
@@ -198,6 +240,7 @@ export const getRasterLayerState = (
     objects: [],
     opacity: 1,
     position: { x: 0, y: 0 },
+    adjustments: undefined,
   };
   merge(entityState, overrides);
   return entityState;

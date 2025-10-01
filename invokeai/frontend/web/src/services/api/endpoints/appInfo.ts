@@ -1,5 +1,6 @@
 import { $openAPISchemaUrl } from 'app/store/nanostores/openAPISchemaUrl';
 import type { OpenAPIV3_1 } from 'openapi-types';
+import type { stringify } from 'querystring';
 import type { paths } from 'services/api/schema';
 import type { AppConfig, AppVersion } from 'services/api/types';
 
@@ -11,7 +12,8 @@ import { api, buildV1Url } from '..';
  * buildAppInfoUrl('some-path')
  * // '/api/v1/app/some-path'
  */
-const buildAppInfoUrl = (path: string = '') => buildV1Url(`app/${path}`);
+const buildAppInfoUrl = (path: string = '', query?: Parameters<typeof stringify>[0]) =>
+  buildV1Url(`app/${path}`, query);
 
 export const appInfoApi = api.injectEndpoints({
   endpoints: (build) => ({

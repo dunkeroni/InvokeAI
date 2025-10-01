@@ -90,6 +90,11 @@ class MainModelDefaultSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class LoraModelDefaultSettings(BaseModel):
+    weight: float | None = Field(default=None, ge=-1, le=2, description="Default weight for this model")
+    model_config = ConfigDict(extra="forbid")
+
+
 class ControlAdapterDefaultSettings(BaseModel):
     # This could be narrowed to controlnet processor nodes, but they change. Leaving this a string is safer.
     preprocessor: str | None
@@ -187,7 +192,7 @@ class ModelConfigBase(ABC, BaseModel):
             else:
                 return config_cls.from_model_on_disk(mod, **overrides)
 
-        raise InvalidModelConfigException("No valid config found")
+        raise InvalidModelConfigException("Unable to determine model type")
 
     @classmethod
     def get_tag(cls) -> Tag:
@@ -287,6 +292,9 @@ class LoRAConfigBase(ABC, BaseModel):
 
     type: Literal[ModelType.LoRA] = ModelType.LoRA
     trigger_phrases: Optional[set[str]] = Field(description="Set of trigger phrases for this model", default=None)
+    default_settings: Optional[LoraModelDefaultSettings] = Field(
+        description="Default settings for this model", default=None
+    )
 
     @classmethod
     def flux_lora_format(cls, mod: ModelOnDisk):
@@ -492,6 +500,15 @@ class MainConfigBase(ABC, BaseModel):
     variant: AnyVariant = ModelVariantType.Normal
 
 
+class VideoConfigBase(ABC, BaseModel):
+    type: Literal[ModelType.Video] = ModelType.Video
+    trigger_phrases: Optional[set[str]] = Field(description="Set of trigger phrases for this model", default=None)
+    default_settings: Optional[MainModelDefaultSettings] = Field(
+        description="Default settings for this model", default=None
+    )
+    variant: AnyVariant = ModelVariantType.Normal
+
+
 class MainCheckpointConfig(CheckpointConfigBase, MainConfigBase, LegacyProbeMixin, ModelConfigBase):
     """Model config for main checkpoint models."""
 
@@ -649,6 +666,21 @@ class ApiModelConfig(MainConfigBase, ModelConfigBase):
         raise NotImplementedError("API models are not parsed from disk.")
 
 
+class VideoApiModelConfig(VideoConfigBase, ModelConfigBase):
+    """Model config for API-based video models."""
+
+    format: Literal[ModelFormat.Api] = ModelFormat.Api
+
+    @classmethod
+    def matches(cls, mod: ModelOnDisk) -> bool:
+        # API models are not stored on disk, so we can't match them.
+        return False
+
+    @classmethod
+    def parse(cls, mod: ModelOnDisk) -> dict[str, Any]:
+        raise NotImplementedError("API models are not parsed from disk.")
+
+
 def get_model_discriminator_value(v: Any) -> str:
     """
     Computes the discriminator value for a model config.
@@ -718,12 +750,13 @@ AnyModelConfig = Annotated[
         Annotated[FluxReduxConfig, FluxReduxConfig.get_tag()],
         Annotated[LlavaOnevisionConfig, LlavaOnevisionConfig.get_tag()],
         Annotated[ApiModelConfig, ApiModelConfig.get_tag()],
+        Annotated[VideoApiModelConfig, VideoApiModelConfig.get_tag()],
     ],
     Discriminator(get_model_discriminator_value),
 ]
 
 AnyModelConfigValidator = TypeAdapter(AnyModelConfig)
-AnyDefaultSettings: TypeAlias = Union[MainModelDefaultSettings, ControlAdapterDefaultSettings]
+AnyDefaultSettings: TypeAlias = Union[MainModelDefaultSettings, LoraModelDefaultSettings, ControlAdapterDefaultSettings]
 
 
 class ModelConfigFactory:

@@ -1,35 +1,47 @@
 import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { PersistConfig, RootState } from 'app/store/store';
-import { deepClone } from 'common/util/deepClone';
+import type { RootState } from 'app/store/store';
+import type { SliceConfig } from 'app/store/types';
+import type { NumericalParameterConfig } from 'app/types/invokeai';
 import { paramsReset } from 'features/controlLayers/store/paramsSlice';
-import type { LoRA } from 'features/controlLayers/store/types';
+import { type LoRA, zLoRA } from 'features/controlLayers/store/types';
 import { zModelIdentifierField } from 'features/nodes/types/common';
 import type { LoRAModelConfig } from 'services/api/types';
 import { v4 as uuidv4 } from 'uuid';
+import z from 'zod';
 
-type LoRAsState = {
-  loras: LoRA[];
+export const DEFAULT_LORA_WEIGHT_CONFIG: NumericalParameterConfig = {
+  initial: 0.75,
+  sliderMin: -1,
+  sliderMax: 2,
+  numberInputMin: -10,
+  numberInputMax: 10,
+  fineStep: 0.01,
+  coarseStep: 0.05,
 };
 
-const defaultLoRAConfig: Pick<LoRA, 'weight' | 'isEnabled'> = {
-  weight: 0.75,
-  isEnabled: true,
-};
+const zLoRAsState = z.object({
+  loras: z.array(zLoRA),
+});
+type LoRAsState = z.infer<typeof zLoRAsState>;
 
-const initialState: LoRAsState = {
+const getInitialState = (): LoRAsState => ({
   loras: [],
-};
+});
 
 const selectLoRA = (state: LoRAsState, id: string) => state.loras.find((lora) => lora.id === id);
 
-export const lorasSlice = createSlice({
+const slice = createSlice({
   name: 'loras',
-  initialState,
+  initialState: getInitialState(),
   reducers: {
     loraAdded: {
       reducer: (state, action: PayloadAction<{ model: LoRAModelConfig; id: string }>) => {
         const { model, id } = action.payload;
         const parsedModel = zModelIdentifierField.parse(model);
+        const defaultLoRAConfig: Pick<LoRA, 'weight' | 'isEnabled'> = {
+          weight: model.default_settings?.weight ?? DEFAULT_LORA_WEIGHT_CONFIG.initial,
+          isEnabled: true,
+        };
         state.loras.push({ ...defaultLoRAConfig, model: parsedModel, id });
       },
       prepare: (payload: { model: LoRAModelConfig }) => ({ payload: { ...payload, id: uuidv4() } }),
@@ -66,25 +78,26 @@ export const lorasSlice = createSlice({
   extraReducers(builder) {
     builder.addCase(paramsReset, () => {
       // When a new session is requested, clear all LoRAs
-      return deepClone(initialState);
+      return getInitialState();
     });
   },
 });
 
 export const { loraAdded, loraRecalled, loraDeleted, loraWeightChanged, loraIsEnabledChanged, loraAllDeleted } =
-  lorasSlice.actions;
+  slice.actions;
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-const migrate = (state: any): any => {
-  return state;
-};
-
-export const lorasPersistConfig: PersistConfig<LoRAsState> = {
-  name: lorasSlice.name,
-  initialState,
-  migrate,
-  persistDenylist: [],
+export const lorasSliceConfig: SliceConfig<typeof slice> = {
+  slice,
+  schema: zLoRAsState,
+  getInitialState,
+  persistConfig: {
+    migrate: (state) => zLoRAsState.parse(state),
+  },
 };
 
 export const selectLoRAsSlice = (state: RootState) => state.loras;
 export const selectAddedLoRAs = createSelector(selectLoRAsSlice, (loras) => loras.loras);
+export const buildSelectLoRA = (id: string) =>
+  createSelector([selectLoRAsSlice], (loras) => {
+    return selectLoRA(loras, id);
+  });

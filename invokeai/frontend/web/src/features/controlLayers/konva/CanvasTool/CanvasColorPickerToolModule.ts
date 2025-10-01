@@ -289,11 +289,24 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
     this.manager.stage.setCursor('none');
   };
 
+  getCanPick = () => {
+    if (this.manager.stage.getIsDragging()) {
+      return false;
+    }
+
+    return true;
+  };
+
   /**
    * Renders the color picker tool preview on the canvas.
    */
   render = () => {
     if (this.parent.$tool.get() !== 'colorPicker') {
+      this.setVisibility(false);
+      return;
+    }
+
+    if (!this.getCanPick()) {
       this.setVisibility(false);
       return;
     }
@@ -315,6 +328,7 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
     const colorPickerOuterRadius = this.manager.stage.unscale(this.config.RING_OUTER_RADIUS);
     const onePixel = this.manager.stage.unscale(1);
     const twoPixels = this.manager.stage.unscale(2);
+    const color = settings.activeColor === 'bgColor' ? settings.bgColor : settings.fgColor;
 
     this.konva.ringCandidateColor.setAttrs({
       x,
@@ -326,7 +340,7 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
     this.konva.ringCurrentColor.setAttrs({
       x,
       y,
-      fill: rgbColorToString(settings.color),
+      fill: rgbColorToString(color),
       innerRadius: colorPickerInnerRadius,
       outerRadius: colorPickerOuterRadius,
     });
@@ -406,11 +420,21 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
   };
 
   onStagePointerUp = (_e: KonvaEventObject<PointerEvent>) => {
-    const color = this.$colorUnderCursor.get();
-    this.manager.stateApi.setColor({ ...color, a: color.a / 255 });
+    if (!this.getCanPick()) {
+      this.setVisibility(false);
+      return;
+    }
+
+    const { a: _, ...color } = this.$colorUnderCursor.get();
+    this.manager.stateApi.setColor(color);
   };
 
   onStagePointerMove = (_e: KonvaEventObject<PointerEvent>) => {
+    if (!this.getCanPick()) {
+      this.setVisibility(false);
+      return;
+    }
+
     this.syncColorUnderCursor();
   };
 

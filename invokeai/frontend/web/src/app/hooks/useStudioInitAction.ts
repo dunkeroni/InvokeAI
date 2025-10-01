@@ -4,7 +4,6 @@ import { useAssertSingleton } from 'common/hooks/useAssertSingleton';
 import { withResultAsync } from 'common/util/result';
 import { canvasReset } from 'features/controlLayers/store/actions';
 import { rasterLayerAdded } from 'features/controlLayers/store/canvasSlice';
-import { paramsReset } from 'features/controlLayers/store/paramsSlice';
 import type { CanvasRasterLayerState } from 'features/controlLayers/store/types';
 import { imageDTOToImageObject } from 'features/controlLayers/store/util';
 import { sentImageToCanvas } from 'features/gallery/store/actions';
@@ -20,7 +19,7 @@ import {
 import { $isStylePresetsMenuOpen, activeStylePresetIdChanged } from 'features/stylePresets/store/stylePresetSlice';
 import { toast } from 'features/toast/toast';
 import { navigationApi } from 'features/ui/layouts/navigation-api';
-import { activeTabCanvasRightPanelChanged } from 'features/ui/store/uiSlice';
+import { LAUNCHPAD_PANEL_ID, WORKSPACE_PANEL_ID } from 'features/ui/layouts/shared';
 import { useLoadWorkflowWithDialog } from 'features/workflowLibrary/components/LoadWorkflowConfirmationAlertDialog';
 import { atom } from 'nanostores';
 import { useCallback, useEffect } from 'react';
@@ -42,6 +41,7 @@ type StudioDestinationAction = _StudioInitAction<
       | 'canvas'
       | 'workflows'
       | 'upscaling'
+      | 'video'
       | 'viewAllWorkflows'
       | 'viewAllWorkflowsRecommended'
       | 'viewAllStylePresets';
@@ -91,6 +91,7 @@ export const useStudioInitAction = (action?: StudioInitAction) => {
       const overrides: Partial<CanvasRasterLayerState> = {
         objects: [imageObject],
       };
+      await navigationApi.focusPanel('canvas', WORKSPACE_PANEL_ID);
       store.dispatch(canvasReset());
       store.dispatch(rasterLayerAdded({ overrides, isSelected: true }));
       store.dispatch(sentImageToCanvas());
@@ -117,7 +118,7 @@ export const useStudioInitAction = (action?: StudioInitAction) => {
       const metadata = getImageMetadataResult.value;
       store.dispatch(canvasReset());
       // This shows a toast
-      await MetadataUtils.recallAll(metadata, store);
+      await MetadataUtils.recallAllImageMetadata(metadata, store);
     },
     [store, t]
   );
@@ -157,16 +158,15 @@ export const useStudioInitAction = (action?: StudioInitAction) => {
   );
 
   const handleGoToDestination = useCallback(
-    (destination: StudioDestinationAction['data']['destination']) => {
+    async (destination: StudioDestinationAction['data']['destination']) => {
       switch (destination) {
         case 'generation':
-          // Go to the canvas tab, open the image viewer, and enable send-to-gallery mode
-          store.dispatch(paramsReset());
-          store.dispatch(activeTabCanvasRightPanelChanged('gallery'));
+          // Go to the generate tab, open the launchpad
+          await navigationApi.focusPanel('generate', LAUNCHPAD_PANEL_ID);
           break;
         case 'canvas':
-          // Go to the canvas tab, close the image viewer, and disable send-to-gallery mode
-          store.dispatch(canvasReset());
+          // Go to the canvas tab, open the launchpad
+          await navigationApi.focusPanel('canvas', WORKSPACE_PANEL_ID);
           break;
         case 'workflows':
           // Go to the workflows tab
@@ -175,6 +175,10 @@ export const useStudioInitAction = (action?: StudioInitAction) => {
         case 'upscaling':
           // Go to the upscaling tab
           navigationApi.switchToTab('upscaling');
+          break;
+        case 'video':
+          // Go to the video tab
+          await navigationApi.focusPanel('video', LAUNCHPAD_PANEL_ID);
           break;
         case 'viewAllWorkflows':
           // Go to the workflows tab and open the workflow library modal

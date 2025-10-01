@@ -40,7 +40,7 @@ export const FloatFieldCollectionInputComponent = memo(
     const store = useAppStore();
     const { t } = useTranslation();
 
-    const isInvalid = useInputFieldIsInvalid(nodeId, field.name);
+    const isInvalid = useInputFieldIsInvalid(field.name);
 
     const onChangeValue = useCallback(
       (value: FloatFieldCollectionInputInstance['value']) => {
@@ -202,6 +202,7 @@ const FloatListItemContent = memo(
             fineStep={fineStep}
             className={NO_DRAG_CLASS}
             flexGrow={1}
+            allowMath
           />
         </GridItem>
         <GridItem>

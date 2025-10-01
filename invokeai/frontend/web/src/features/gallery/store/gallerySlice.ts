@@ -1,13 +1,21 @@
-import { objectEquals } from '@observ33r/object-equals';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSlice } from '@reduxjs/toolkit';
-import type { PersistConfig, RootState } from 'app/store/store';
-import { uniq } from 'es-toolkit/compat';
+import type { RootState } from 'app/store/store';
+import type { SliceConfig } from 'app/store/types';
+import { isPlainObject } from 'es-toolkit';
 import type { BoardRecordOrderBy } from 'services/api/types';
+import { assert } from 'tsafe';
 
-import type { BoardId, ComparisonMode, GalleryState, GalleryView, OrderDir } from './types';
+import {
+  type BoardId,
+  type ComparisonMode,
+  type GalleryState,
+  type GalleryView,
+  type OrderDir,
+  zGalleryState,
+} from './types';
 
-const initialGalleryState: GalleryState = {
+const getInitialState = (): GalleryState => ({
   selection: [],
   shouldAutoSwitch: true,
   autoAssignBoardOnClick: true,
@@ -26,61 +34,29 @@ const initialGalleryState: GalleryState = {
   shouldShowArchivedBoards: false,
   boardsListOrderBy: 'created_at',
   boardsListOrderDir: 'DESC',
-};
+});
 
-export const gallerySlice = createSlice({
+const slice = createSlice({
   name: 'gallery',
-  initialState: initialGalleryState,
+  initialState: getInitialState(),
   reducers: {
-    imageSelected: (state, action: PayloadAction<string | null>) => {
-      // Let's be efficient here and not update the selection unless it has actually changed. This helps to prevent
-      // unnecessary re-renders of the gallery.
+    itemSelected: (state, action: PayloadAction<{ type: 'image' | 'video'; id: string } | null>) => {
+      const selectedItem = action.payload;
 
-      const selectedImageName = action.payload;
-
-      // If we got `null`, clear the selection
-      if (!selectedImageName) {
-        // But only if we have images selected
-        if (state.selection.length > 0) {
-          state.selection = [];
-        }
-        return;
+      if (!selectedItem) {
+        state.selection = [];
+      } else {
+        state.selection = [selectedItem];
       }
-
-      // If we have multiple images selected, clear the selection and select the new image
-      if (state.selection.length !== 1) {
-        state.selection = [selectedImageName];
-        return;
-      }
-
-      // If the selected image is different from the current selection, clear the selection and select the new image
-      if (state.selection[0] !== selectedImageName) {
-        state.selection = [selectedImageName];
-        return;
-      }
-
-      // Else we have the same image selected, do nothing
     },
-    selectionChanged: (state, action: PayloadAction<string[]>) => {
-      // Let's be efficient here and not update the selection unless it has actually changed. This helps to prevent
-      // unnecessary re-renders of the gallery.
-
-      // Remove duplicates from the selection
-      const newSelection = uniq(action.payload);
-
-      // If the new selection has a different length, update the selection
-      if (newSelection.length !== state.selection.length) {
-        state.selection = newSelection;
-        return;
+    selectionChanged: (state, action: PayloadAction<{ type: 'image' | 'video'; id: string }[]>) => {
+      const uniqueById = new Map<string, { type: 'image' | 'video'; id: string }>();
+      for (const item of action.payload) {
+        if (!uniqueById.has(item.id)) {
+          uniqueById.set(item.id, item);
+        }
       }
-
-      // If the new selection is different, update the selection
-      if (!objectEquals(newSelection, state.selection)) {
-        state.selection = newSelection;
-        return;
-      }
-
-      // Else we have the same selection, do nothing
+      state.selection = Array.from(uniqueById.values());
     },
     imageToCompareChanged: (state, action: PayloadAction<string | null>) => {
       state.imageToCompare = action.payload;
@@ -110,12 +86,21 @@ export const gallerySlice = createSlice({
     autoAssignBoardOnClickChanged: (state, action: PayloadAction<boolean>) => {
       state.autoAssignBoardOnClick = action.payload;
     },
-    boardIdSelected: (state, action: PayloadAction<{ boardId: BoardId; selectedImageName?: string }>) => {
-      const { boardId, selectedImageName } = action.payload;
+    boardIdSelected: (
+      state,
+      action: PayloadAction<{
+        boardId: BoardId;
+        select?: {
+          selection: GalleryState['selection'];
+          galleryView: GalleryState['galleryView'];
+        };
+      }>
+    ) => {
+      const { boardId, select } = action.payload;
       state.selectedBoardId = boardId;
-      state.galleryView = 'images';
-      if (selectedImageName) {
-        state.selection = [selectedImageName];
+      if (select) {
+        state.selection = select.selection;
+        state.galleryView = select.galleryView;
       }
     },
     autoAddBoardIdChanged: (state, action: PayloadAction<BoardId>) => {
@@ -137,8 +122,8 @@ export const gallerySlice = createSlice({
     comparedImagesSwapped: (state) => {
       if (state.imageToCompare) {
         const oldSelection = state.selection;
-        state.selection = [state.imageToCompare];
-        state.imageToCompare = oldSelection[0] ?? null;
+        state.selection = [{ type: 'image', id: state.imageToCompare }];
+        state.imageToCompare = oldSelection[0]?.id ?? null;
       }
     },
     comparisonFitChanged: (state, action: PayloadAction<'contain' | 'fill'>) => {
@@ -166,7 +151,7 @@ export const gallerySlice = createSlice({
 });
 
 export const {
-  imageSelected,
+  itemSelected,
   shouldAutoSwitchChanged,
   autoAssignBoardOnClickChanged,
   setGalleryImageMinimumWidth,
@@ -187,21 +172,22 @@ export const {
   searchTermChanged,
   boardsListOrderByChanged,
   boardsListOrderDirChanged,
-} = gallerySlice.actions;
+} = slice.actions;
 
 export const selectGallerySlice = (state: RootState) => state.gallery;
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-const migrateGalleryState = (state: any): any => {
-  if (!('_version' in state)) {
-    state._version = 1;
-  }
-  return state;
-};
-
-export const galleryPersistConfig: PersistConfig<GalleryState> = {
-  name: gallerySlice.name,
-  initialState: initialGalleryState,
-  migrate: migrateGalleryState,
-  persistDenylist: ['selection', 'selectedBoardId', 'galleryView', 'imageToCompare'],
+export const gallerySliceConfig: SliceConfig<typeof slice> = {
+  slice,
+  schema: zGalleryState,
+  getInitialState,
+  persistConfig: {
+    migrate: (state) => {
+      assert(isPlainObject(state));
+      if (!('_version' in state)) {
+        state._version = 1;
+      }
+      return zGalleryState.parse(state);
+    },
+    persistDenylist: ['selection', 'selectedBoardId', 'galleryView', 'imageToCompare'],
+  },
 };

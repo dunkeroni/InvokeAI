@@ -1,9 +1,18 @@
 import { createSelector } from '@reduxjs/toolkit';
 import type { RootState } from 'app/store/store';
-import { pick } from 'es-toolkit/compat';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
-import { selectParamsSlice } from 'features/controlLayers/store/paramsSlice';
-import type { CanvasState, ParamsState } from 'features/controlLayers/store/types';
+import { selectSaveAllImagesToGallery } from 'features/controlLayers/store/canvasSettingsSlice';
+import { selectCanvasSessionId } from 'features/controlLayers/store/canvasStagingAreaSlice';
+import {
+  selectImg2imgStrength,
+  selectMainModelConfig,
+  selectOptimizedDenoisingEnabled,
+  selectParamsSlice,
+  selectRefinerModel,
+  selectRefinerStart,
+} from 'features/controlLayers/store/paramsSlice';
+import { selectCanvasSlice } from 'features/controlLayers/store/selectors';
+import type { ParamsState } from 'features/controlLayers/store/types';
 import type { BoardField } from 'features/nodes/types/common';
 import type { Graph } from 'features/nodes/util/graph/generation/Graph';
 import { buildPresetModifiedPrompt } from 'features/stylePresets/hooks/usePresetModifiedPrompts';
@@ -34,11 +43,13 @@ export const getBoardField = (state: RootState): BoardField | undefined => {
  * - board
  */
 export const selectCanvasOutputFields = (state: RootState) => {
-  // Advanced session means working on canvas - images are not saved to gallery or added to a board.
-  // Simple session means working in YOLO mode - images are saved to gallery & board.
   const tab = selectActiveTab(state);
-  const is_intermediate = tab === 'canvas';
-  const board = tab === 'canvas' ? undefined : getBoardField(state);
+  // This flag also has an effect on the canvas destination - see selectCanvasDestination below.
+  const saveAllImagesToGallery = selectSaveAllImagesToGallery(state);
+
+  // If we're on canvas and the save all images setting is enabled, save to gallery
+  const is_intermediate = tab === 'canvas' && !saveAllImagesToGallery;
+  const board = tab === 'canvas' && !saveAllImagesToGallery ? undefined : getBoardField(state);
 
   return {
     is_intermediate,
@@ -46,6 +57,23 @@ export const selectCanvasOutputFields = (state: RootState) => {
     use_cache: false,
     id: getPrefixedId(CANVAS_OUTPUT_PREFIX),
   };
+};
+
+/**
+ * Select the destination to use for canvas queue items.
+ *
+ */
+export const selectCanvasDestination = (state: RootState) => {
+  // The canvas will stage images that have its session ID as the destination. When the user has enabled saving all
+  // images to gallery, we want to bypass the staging area. So we use 'canvas' as a generic destination. Images will
+  // go directly to the gallery.
+  //
+  // This flag also has an effect on the canvas output fields - see selectCanvasOutputFields above.
+  const saveAllImagesToGallery = selectSaveAllImagesToGallery(state);
+  if (saveAllImagesToGallery) {
+    return 'canvas';
+  }
+  return selectCanvasSessionId(state);
 };
 
 /**
@@ -57,7 +85,7 @@ export const selectPresetModifiedPrompts = createSelector(
   selectListStylePresetsRequestState,
   (params, stylePresetSlice, listStylePresetsRequestState) => {
     const negativePrompt = params.negativePrompt ?? '';
-    const { positivePrompt, positivePrompt2, negativePrompt2, shouldConcatPrompts } = params;
+    const { positivePrompt } = params;
     const { activeStylePresetId } = stylePresetSlice;
 
     if (activeStylePresetId) {
@@ -77,27 +105,54 @@ export const selectPresetModifiedPrompts = createSelector(
         );
 
         return {
-          positivePrompt: presetModifiedPositivePrompt,
-          negativePrompt: presetModifiedNegativePrompt,
-          positiveStylePrompt: shouldConcatPrompts ? presetModifiedPositivePrompt : positivePrompt2,
-          negativeStylePrompt: shouldConcatPrompts ? presetModifiedNegativePrompt : negativePrompt2,
+          positive: presetModifiedPositivePrompt,
+          negative: presetModifiedNegativePrompt,
         };
       }
     }
 
     return {
-      positivePrompt,
-      negativePrompt,
-      positiveStylePrompt: shouldConcatPrompts ? positivePrompt : positivePrompt2,
-      negativeStylePrompt: shouldConcatPrompts ? negativePrompt : negativePrompt2,
+      positive: positivePrompt,
+      negative: negativePrompt,
     };
   }
 );
 
-export const getSizes = (bboxState: CanvasState['bbox']) => {
-  const originalSize = pick(bboxState.rect, 'width', 'height');
-  const scaledSize = ['auto', 'manual'].includes(bboxState.scaleMethod) ? bboxState.scaledSize : originalSize;
-  return { originalSize, scaledSize };
+export const getOriginalAndScaledSizesForTextToImage = (state: RootState) => {
+  const tab = selectActiveTab(state);
+  const params = selectParamsSlice(state);
+  const canvas = selectCanvasSlice(state);
+
+  if (tab === 'canvas') {
+    const { rect, aspectRatio } = canvas.bbox;
+    const { width, height } = rect;
+    const originalSize = { width, height };
+    const scaledSize = ['auto', 'manual'].includes(canvas.bbox.scaleMethod) ? canvas.bbox.scaledSize : originalSize;
+    return { originalSize, scaledSize, aspectRatio };
+  } else if (tab === 'generate') {
+    const { width, height, aspectRatio } = params.dimensions;
+    return {
+      originalSize: { width, height },
+      scaledSize: { width, height },
+      aspectRatio,
+    };
+  }
+
+  assert(false, `Cannot get sizes for tab ${tab} - this function is only for the Canvas or Generate tabs`);
+};
+
+export const getOriginalAndScaledSizesForOtherModes = (state: RootState) => {
+  const tab = selectActiveTab(state);
+  const canvas = selectCanvasSlice(state);
+
+  assert(tab === 'canvas', `Cannot get sizes for tab ${tab} - this function is only for the Canvas tab`);
+
+  const { rect, aspectRatio } = canvas.bbox;
+  const { width, height } = rect;
+  const originalSize = { width, height };
+  const scaledSize = ['auto', 'manual'].includes(canvas.bbox.scaleMethod) ? canvas.bbox.scaledSize : originalSize;
+
+  return { originalSize, scaledSize, aspectRatio, rect };
 };
 
 export const getInfill = (
@@ -161,3 +216,66 @@ export const isMainModelWithoutUnet = (modelLoader: Invocation<MainModelLoaderNo
 };
 
 export const isCanvasOutputNodeId = (nodeId: string) => nodeId.split(':')[0] === CANVAS_OUTPUT_PREFIX;
+
+export const getDenoisingStartAndEnd = (state: RootState): { denoising_start: number; denoising_end: number } => {
+  const optimizedDenoisingEnabled = selectOptimizedDenoisingEnabled(state);
+  const denoisingStrength = selectImg2imgStrength(state);
+  const model = selectMainModelConfig(state);
+  const refinerModel = selectRefinerModel(state);
+  const refinerDenoisingStart = selectRefinerStart(state);
+
+  switch (model?.base) {
+    case 'sd-3': {
+      // We rescale the img2imgStrength (with exponent 0.2) to effectively use the entire range [0, 1] and make the scale
+      // more user-friendly for SD3.5. Without this, most of the 'change' is concentrated in the high denoise strength
+      // range (>0.9).
+      const exponent = optimizedDenoisingEnabled ? 0.2 : 1;
+      return {
+        denoising_start: 1 - denoisingStrength ** exponent,
+        denoising_end: 1,
+      };
+    }
+    case 'flux': {
+      if (model.variant === 'inpaint') {
+        // This is a FLUX Fill model - we always denoise fully
+        return {
+          denoising_start: 0,
+          denoising_end: 1,
+        };
+      } else {
+        // We rescale the img2imgStrength (with exponent 0.2) to effectively use the entire range [0, 1] and make the scale
+        // more user-friendly for SD3.5. Without this, most of the 'change' is concentrated in the high denoise strength
+        // range (>0.9).
+        const exponent = optimizedDenoisingEnabled ? 0.2 : 1;
+        return {
+          denoising_start: 1 - denoisingStrength ** exponent,
+          denoising_end: 1,
+        };
+      }
+    }
+    case 'sd-1':
+    case 'sd-2':
+    case 'cogview4': {
+      return {
+        denoising_start: 1 - denoisingStrength,
+        denoising_end: 1,
+      };
+    }
+    case 'sdxl': {
+      if (refinerModel) {
+        return {
+          denoising_start: Math.min(refinerDenoisingStart, 1 - denoisingStrength),
+          denoising_end: refinerDenoisingStart,
+        };
+      } else {
+        return {
+          denoising_start: 1 - denoisingStrength,
+          denoising_end: 1,
+        };
+      }
+    }
+    default: {
+      assert(false, `Unsupported base: ${model?.base}`);
+    }
+  }
+};

@@ -27,6 +27,7 @@ from invokeai.backend.model_manager import LoadedModel
 from invokeai.backend.stable_diffusion.diffusers_pipeline import image_resized_to_grid_as_tensor
 from invokeai.backend.stable_diffusion.vae_tiling import patch_vae_tiling_params
 from invokeai.backend.util.devices import TorchDevice
+from invokeai.backend.util.vae_working_memory import estimate_vae_working_memory_sd15_sdxl
 
 
 @invocation(
@@ -52,11 +53,24 @@ class ImageToLatentsInvocation(BaseInvocation):
     tile_size: int = InputField(default=0, multiple_of=8, description=FieldDescriptions.vae_tile_size)
     fp32: bool = InputField(default=False, description=FieldDescriptions.fp32)
 
-    @staticmethod
+    @classmethod
     def vae_encode(
-        vae_info: LoadedModel, upcast: bool, tiled: bool, image_tensor: torch.Tensor, tile_size: int = 0
+        cls,
+        vae_info: LoadedModel,
+        upcast: bool,
+        tiled: bool,
+        image_tensor: torch.Tensor,
+        tile_size: int = 0,
     ) -> torch.Tensor:
-        with vae_info as vae:
+        assert isinstance(vae_info.model, (AutoencoderKL, AutoencoderTiny))
+        estimated_working_memory = estimate_vae_working_memory_sd15_sdxl(
+            operation="encode",
+            image_tensor=image_tensor,
+            vae=vae_info.model,
+            tile_size=tile_size if tiled else None,
+            fp32=upcast,
+        )
+        with vae_info.model_on_device(working_mem_bytes=estimated_working_memory) as (_, vae):
             assert isinstance(vae, (AutoencoderKL, AutoencoderTiny))
             orig_dtype = vae.dtype
             if upcast:
@@ -113,6 +127,7 @@ class ImageToLatentsInvocation(BaseInvocation):
         image = context.images.get_pil(self.image.image_name)
 
         vae_info = context.models.load(self.vae.vae)
+        assert isinstance(vae_info.model, (AutoencoderKL, AutoencoderTiny))
 
         image_tensor = image_resized_to_grid_as_tensor(image.convert("RGB"))
         if image_tensor.dim() == 3:
@@ -120,7 +135,11 @@ class ImageToLatentsInvocation(BaseInvocation):
 
         context.util.signal_progress("Running VAE encoder")
         latents = self.vae_encode(
-            vae_info=vae_info, upcast=self.fp32, tiled=self.tiled, image_tensor=image_tensor, tile_size=self.tile_size
+            vae_info=vae_info,
+            upcast=self.fp32,
+            tiled=self.tiled or context.config.get().force_tiled_decode,
+            image_tensor=image_tensor,
+            tile_size=self.tile_size,
         )
 
         latents = latents.to("cpu")

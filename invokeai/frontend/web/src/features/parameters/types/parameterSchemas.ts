@@ -2,7 +2,7 @@ import { NUMPY_RAND_MAX } from 'app/constants';
 import { roundToMultiple } from 'common/util/roundDownToMultiple';
 import { buildZodTypeGuard } from 'common/util/zodUtils';
 import { zModelIdentifierField, zSchedulerField } from 'features/nodes/types/common';
-import { z } from 'zod/v4';
+import { z } from 'zod';
 
 /**
  * Schemas, types and type guards for parameters.
@@ -31,16 +31,6 @@ export type ParameterPositivePrompt = z.infer<typeof zParameterPositivePrompt>;
 // #region Negative prompt
 export const [zParameterNegativePrompt, isParameterNegativePrompt] = buildParameter(z.string().nullable());
 export type ParameterNegativePrompt = z.infer<typeof zParameterNegativePrompt>;
-// #endregion
-
-// #region Positive style prompt (SDXL)
-export const [zParameterPositiveStylePromptSDXL, isParameterPositiveStylePromptSDXL] = buildParameter(z.string());
-export type ParameterPositiveStylePromptSDXL = z.infer<typeof zParameterPositiveStylePromptSDXL>;
-// #endregion
-
-// #region Positive style prompt (SDXL)
-export const [zParameterNegativeStylePromptSDXL, isParameterNegativeStylePromptSDXL] = buildParameter(z.string());
-export type ParameterNegativeStylePromptSDXL = z.infer<typeof zParameterNegativeStylePromptSDXL>;
 // #endregion
 
 // #region Steps
@@ -131,8 +121,8 @@ export type ParameterCLIPGEmbedModel = z.infer<typeof zParameterCLIPGEmbedModel>
 // #endregion
 
 // #region LoRA Model
-const zParameterLoRAModel = zModelIdentifierField;
-export type ParameterLoRAModel = z.infer<typeof zParameterLoRAModel>;
+const _zParameterLoRAModel = zModelIdentifierField;
+export type ParameterLoRAModel = z.infer<typeof _zParameterLoRAModel>;
 // #endregion
 
 // #region VAE Model
@@ -202,4 +192,9 @@ export type ParameterCanvasCoherenceMode = z.infer<typeof zParameterCanvasCohere
 // #region LoRA weight
 export const [zLoRAWeight, isParameterLoRAWeight] = buildParameter(z.number());
 export type ParameterLoRAWeight = z.infer<typeof zLoRAWeight>;
+// #endregion
+
+// #region CLIP skip
+export const [zParameterCLIPSkip, isParameterCLIPSkip] = buildParameter(z.number().int().min(0));
+export type ParameterCLIPSkip = z.infer<typeof zParameterCLIPSkip>;
 // #endregion

@@ -2,12 +2,11 @@ import { Box, Flex } from '@invoke-ai/ui-library';
 import { useStore } from '@nanostores/react';
 import { useAppSelector } from 'app/store/storeHooks';
 import { overlayScrollbarsParams } from 'common/components/OverlayScrollbars/constants';
-import { selectIsCogView4, selectIsSDXL } from 'features/controlLayers/store/paramsSlice';
+import { selectIsApiBaseModel, selectIsCogView4, selectIsSDXL } from 'features/controlLayers/store/paramsSlice';
 import { Prompts } from 'features/parameters/components/Prompts/Prompts';
-import { useIsApiModel } from 'features/parameters/hooks/useIsApiModel';
 import { AdvancedSettingsAccordion } from 'features/settingsAccordions/components/AdvancedSettingsAccordion/AdvancedSettingsAccordion';
 import { GenerationSettingsAccordion } from 'features/settingsAccordions/components/GenerationSettingsAccordion/GenerationSettingsAccordion';
-import { ImageSettingsAccordion } from 'features/settingsAccordions/components/ImageSettingsAccordion/ImageSettingsAccordion';
+import { GenerateTabImageSettingsAccordion } from 'features/settingsAccordions/components/ImageSettingsAccordion/GenerateTabImageSettingsAccordion';
 import { RefinerSettingsAccordion } from 'features/settingsAccordions/components/RefinerSettingsAccordion/RefinerSettingsAccordion';
 import { StylePresetMenu } from 'features/stylePresets/components/StylePresetMenu';
 import { StylePresetMenuTrigger } from 'features/stylePresets/components/StylePresetMenuTrigger';
@@ -26,7 +25,7 @@ export const ParametersPanelGenerate = memo(() => {
   const isCogview4 = useAppSelector(selectIsCogView4);
   const isStylePresetsMenuOpen = useStore($isStylePresetsMenuOpen);
 
-  const isApiModel = useIsApiModel();
+  const isApiModel = useAppSelector(selectIsApiBaseModel);
 
   return (
     <Flex w="full" h="full" flexDir="column" gap={2}>
@@ -43,7 +42,7 @@ export const ParametersPanelGenerate = memo(() => {
           <OverlayScrollbarsComponent defer style={overlayScrollbarsStyles} options={overlayScrollbarsParams.options}>
             <Flex gap={2} flexDirection="column" h="full" w="full">
               <Prompts />
-              <ImageSettingsAccordion />
+              <GenerateTabImageSettingsAccordion />
               <GenerationSettingsAccordion />
               {isSDXL && <RefinerSettingsAccordion />}
               {!isCogview4 && !isApiModel && <AdvancedSettingsAccordion />}

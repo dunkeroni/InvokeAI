@@ -1,7 +1,7 @@
 import { $alt, $ctrl, $meta, $shift } from '@invoke-ai/ui-library';
 import type { Selector } from '@reduxjs/toolkit';
-import { addAppListener } from 'app/store/middleware/listenerMiddleware';
 import type { AppStore, RootState } from 'app/store/store';
+import { addAppListener } from 'app/store/store';
 import type { CanvasEntityAdapterControlLayer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterControlLayer';
 import type { CanvasEntityAdapterRasterLayer } from 'features/controlLayers/konva/CanvasEntity/CanvasEntityAdapterRasterLayer';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
@@ -10,9 +10,10 @@ import type { SubscriptionHandler } from 'features/controlLayers/konva/util';
 import { createReduxSubscription, getPrefixedId } from 'features/controlLayers/konva/util';
 import {
   selectCanvasSettingsSlice,
+  settingsBgColorChanged,
   settingsBrushWidthChanged,
-  settingsColorChanged,
   settingsEraserWidthChanged,
+  settingsFgColorChanged,
 } from 'features/controlLayers/store/canvasSettingsSlice';
 import {
   bboxChangedFromCanvas,
@@ -231,8 +232,10 @@ export class CanvasStateApiModule extends CanvasModuleBase {
   /**
    * Sets the drawing color, pushing state to redux.
    */
-  setColor = (color: RgbaColor) => {
-    return this.store.dispatch(settingsColorChanged(color));
+  setColor = (color: Partial<RgbaColor>) => {
+    return this.getSettings().activeColor === 'bgColor'
+      ? this.store.dispatch(settingsBgColorChanged(color))
+      : this.store.dispatch(settingsFgColorChanged(color));
   };
 
   /**
@@ -319,6 +322,14 @@ export class CanvasStateApiModule extends CanvasModuleBase {
   getPositionGridSize = (): number => {
     const snapToGrid = this.getSettings().snapToGrid;
     if (!snapToGrid) {
+      const overrideSnap = this.$ctrlKey.get() || this.$metaKey.get();
+      if (overrideSnap) {
+        const useFine = this.$shiftKey.get();
+        if (useFine) {
+          return 8;
+        }
+        return 64;
+      }
       return 1;
     }
     const useFine = this.$ctrlKey.get() || this.$metaKey.get();
@@ -413,7 +424,8 @@ export class CanvasStateApiModule extends CanvasModuleBase {
    * consistency with conventional black and white mask images, we use black as the color for these entities.
    */
   getCurrentColor = (): RgbaColor => {
-    let color: RgbaColor = this.getSettings().color;
+    let color: RgbaColor =
+      this.getSettings().activeColor === 'bgColor' ? this.getSettings().bgColor : this.getSettings().fgColor;
     const selectedEntity = this.getSelectedEntityAdapter();
     if (selectedEntity) {
       // These two entity types use a compositing rect for opacity. Their fill is always a solid color.
@@ -441,7 +453,7 @@ export class CanvasStateApiModule extends CanvasModuleBase {
       // selected entity's fill color with 50% opacity.
       return { ...selectedEntity.state.fill.color, a: 0.5 };
     } else {
-      return this.getSettings().color;
+      return this.getSettings().activeColor === 'bgColor' ? this.getSettings().bgColor : this.getSettings().fgColor;
     }
   };
 

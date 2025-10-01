@@ -1,11 +1,13 @@
 import { Box, Flex, Icon, Image } from '@invoke-ai/ui-library';
+import { useStore } from '@nanostores/react';
+import { $crossOrigin } from 'app/store/nanostores/authToken';
 import { useAppSelector } from 'app/store/storeHooks';
 import { preventDefault } from 'common/util/stopPropagation';
 import { TRANSPARENCY_CHECKERBOARD_PATTERN_DARK_DATAURL } from 'features/controlLayers/konva/patterns/transparency-checkerboard-pattern';
 import type { Dimensions } from 'features/controlLayers/store/types';
 import { ImageComparisonLabel } from 'features/gallery/components/ImageViewer/ImageComparisonLabel';
 import { selectComparisonFit } from 'features/gallery/store/gallerySelectors';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PiCaretLeftBold, PiCaretRightBold } from 'react-icons/pi';
 
 import type { ComparisonProps } from './common';
@@ -19,8 +21,9 @@ const HANDLE_HITBOX_PX = `${HANDLE_HITBOX}px`;
 const HANDLE_INNER_LEFT_PX = `${HANDLE_HITBOX / 2 - HANDLE_WIDTH / 2}px`;
 const HANDLE_LEFT_INITIAL_PX = `calc(${INITIAL_POS} - ${HANDLE_HITBOX / 2}px)`;
 
-export const ImageComparisonSlider = memo(({ firstImage, secondImage, containerDims }: ComparisonProps) => {
+export const ImageComparisonSlider = memo(({ firstImage, secondImage, rect }: ComparisonProps) => {
   const comparisonFit = useAppSelector(selectComparisonFit);
+  const crossOrigin = useStore($crossOrigin);
 
   // How far the handle is from the left - this will be a CSS calculation that takes into account the handle width
   const [left, setLeft] = useState(HANDLE_LEFT_INITIAL_PX);
@@ -33,10 +36,12 @@ export const ImageComparisonSlider = memo(({ firstImage, secondImage, containerD
   const rafRef = useRef<number | null>(null);
   const lastMoveTimeRef = useRef<number>(0);
 
-  const fittedDims = useMemo<Dimensions>(
-    () => fitDimsToContainer(containerDims, firstImage),
-    [containerDims, firstImage]
-  );
+  const fittedDims = useMemo<Dimensions>(() => {
+    if (!rect) {
+      return { width: 0, height: 0 };
+    }
+    return fitDimsToContainer(rect, firstImage);
+  }, [firstImage, rect]);
 
   const compareImageDims = useMemo<Dimensions>(
     () => getSecondImageDims(comparisonFit, fittedDims, firstImage, secondImage),
@@ -130,6 +135,7 @@ export const ImageComparisonSlider = memo(({ firstImage, secondImage, containerD
             id="image-comparison-second-image"
             src={secondImage.image_url}
             fallbackSrc={secondImage.thumbnail_url}
+            crossOrigin={crossOrigin}
             w={compareImageDims.width}
             h={compareImageDims.height}
             maxW={fittedDims.width}
@@ -152,6 +158,7 @@ export const ImageComparisonSlider = memo(({ firstImage, secondImage, containerD
               id="image-comparison-first-image"
               src={firstImage.image_url}
               fallbackSrc={firstImage.thumbnail_url}
+              crossOrigin={crossOrigin}
               w={fittedDims.width}
               h={fittedDims.height}
               objectFit="cover"

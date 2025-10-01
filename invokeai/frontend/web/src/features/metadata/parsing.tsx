@@ -8,14 +8,14 @@ import { getPrefixedId } from 'features/controlLayers/konva/util';
 import { bboxHeightChanged, bboxWidthChanged, canvasMetadataRecalled } from 'features/controlLayers/store/canvasSlice';
 import { loraAllDeleted, loraRecalled } from 'features/controlLayers/store/lorasSlice';
 import {
-  negativePrompt2Changed,
+  heightChanged,
   negativePromptChanged,
-  positivePrompt2Changed,
   positivePromptChanged,
   refinerModelChanged,
   selectBase,
   setCfgRescaleMultiplier,
   setCfgScale,
+  setClipSkip,
   setGuidance,
   setImg2imgStrength,
   setRefinerCFGScale,
@@ -29,25 +29,45 @@ import {
   setSeamlessYAxis,
   setSeed,
   setSteps,
-  shouldConcatPromptsChanged,
   vaeSelected,
+  widthChanged,
 } from 'features/controlLayers/store/paramsSlice';
-import { refImageRecalled } from 'features/controlLayers/store/refImagesSlice';
-import type { CanvasMetadata, LoRA, RefImageState } from 'features/controlLayers/store/types';
-import { zCanvasMetadata, zCanvasReferenceImageState_OLD, zRefImageState } from 'features/controlLayers/store/types';
+import { refImagesRecalled } from 'features/controlLayers/store/refImagesSlice';
+import type {
+  CanvasMetadata,
+  LoRA,
+  RefImageState,
+  VideoAspectRatio as ParameterVideoAspectRatio,
+  VideoDuration as ParameterVideoDuration,
+  VideoResolution as ParameterVideoResolution,
+} from 'features/controlLayers/store/types';
+import {
+  zCanvasMetadata,
+  zCanvasReferenceImageState_OLD,
+  zRefImageState,
+  zVideoAspectRatio,
+  zVideoDuration,
+  zVideoResolution,
+} from 'features/controlLayers/store/types';
 import type { ModelIdentifierField } from 'features/nodes/types/common';
 import { zModelIdentifierField } from 'features/nodes/types/common';
 import { zModelIdentifier } from 'features/nodes/types/v2/common';
 import { modelSelected } from 'features/parameters/store/actions';
+import {
+  videoAspectRatioChanged,
+  videoDurationChanged,
+  videoModelChanged,
+  videoResolutionChanged,
+} from 'features/parameters/store/videoSlice';
 import type {
   ParameterCFGRescaleMultiplier,
   ParameterCFGScale,
+  ParameterCLIPSkip,
   ParameterGuidance,
   ParameterHeight,
   ParameterModel,
   ParameterNegativePrompt,
   ParameterPositivePrompt,
-  ParameterPositiveStylePromptSDXL,
   ParameterScheduler,
   ParameterSDXLRefinerModel,
   ParameterSDXLRefinerNegativeAestheticScore,
@@ -65,12 +85,11 @@ import {
   zLoRAWeight,
   zParameterCFGRescaleMultiplier,
   zParameterCFGScale,
+  zParameterCLIPSkip,
   zParameterGuidance,
   zParameterImageDimension,
   zParameterNegativePrompt,
-  zParameterNegativeStylePromptSDXL,
   zParameterPositivePrompt,
-  zParameterPositiveStylePromptSDXL,
   zParameterScheduler,
   zParameterSDXLRefinerNegativeAestheticScore,
   zParameterSDXLRefinerPositiveAestheticScore,
@@ -82,14 +101,16 @@ import {
   zParameterStrength,
 } from 'features/parameters/types/parameterSchemas';
 import { toast } from 'features/toast/toast';
+import { selectActiveTab } from 'features/ui/store/uiSelectors';
 import { t } from 'i18next';
-import type { ComponentType, ReactNode } from 'react';
+import type { ComponentType } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { imagesApi } from 'services/api/endpoints/images';
 import { modelsApi } from 'services/api/endpoints/models';
 import type { AnyModelConfig, ModelType } from 'services/api/types';
 import { assert } from 'tsafe';
-import z from 'zod/v4';
+import z from 'zod';
 
 const MetadataLabel = ({ i18nKey }: { i18nKey: string }) => {
   const { t } = useTranslation();
@@ -101,7 +122,13 @@ const MetadataLabel = ({ i18nKey }: { i18nKey: string }) => {
 };
 
 const MetadataPrimitiveValue = ({ value }: { value: string | number | boolean | null | undefined }) => {
-  return <Text as="span">{value}</Text>;
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (isString(value)) {
+    return <Text as="span">{value || '<empty string>'}</Text>;
+  }
+  return <Text as="span">{String(value)}</Text>;
 };
 
 const getProperty = (obj: unknown, path: string): unknown => {
@@ -164,7 +191,8 @@ export type SingleMetadataHandler<T> = {
   type: string;
   parse: (metadata: unknown, store: AppStore) => Promise<T>;
   recall: (value: T, store: AppStore) => void;
-  LabelComponent: ComponentType;
+  i18nKey: string;
+  LabelComponent: ComponentType<{ i18nKey: string }>;
   ValueComponent: ComponentType<SingleMetadataValueProps<T>>;
 };
 
@@ -178,7 +206,8 @@ export type CollectionMetadataHandler<T extends any[]> = {
   parse: (metadata: unknown, store: AppStore) => Promise<T>;
   recall: (values: T, store: AppStore) => void;
   recallOne: (value: T[number], store: AppStore) => void;
-  LabelComponent: ComponentType;
+  i18nKey: string;
+  LabelComponent: ComponentType<{ i18nKey: string }>;
   ValueComponent: ComponentType<CollectionMetadataValueProps<T>>;
 };
 
@@ -190,7 +219,8 @@ export type UnrecallableMetadataHandler<T> = {
   [UnrecallableMetadataKey]: true;
   type: string;
   parse: (metadata: unknown, store: AppStore) => Promise<T>;
-  LabelComponent: ComponentType;
+  i18nKey: string;
+  LabelComponent: ComponentType<{ i18nKey: string }>;
   ValueComponent: ComponentType<UnrecallableMetadataValueProps<T>>;
 };
 
@@ -215,7 +245,8 @@ const CreatedBy: UnrecallableMetadataHandler<string> = {
     const parsed = z.string().parse(raw);
     return Promise.resolve(parsed);
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.createdBy" />,
+  i18nKey: 'metadata.createdBy',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: UnrecallableMetadataValueProps<string>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion Created By
@@ -229,7 +260,8 @@ const GenerationMode: UnrecallableMetadataHandler<string> = {
     const parsed = z.string().parse(raw);
     return Promise.resolve(parsed);
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.generationMode" />,
+  i18nKey: 'metadata.generationMode',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: UnrecallableMetadataValueProps<string>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion Generation Mode
@@ -246,7 +278,8 @@ const PositivePrompt: SingleMetadataHandler<ParameterPositivePrompt> = {
   recall: (value, store) => {
     store.dispatch(positivePromptChanged(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.positivePrompt" />,
+  i18nKey: 'metadata.positivePrompt',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterPositivePrompt>) => (
     <MetadataPrimitiveValue value={value} />
   ),
@@ -263,52 +296,15 @@ const NegativePrompt: SingleMetadataHandler<ParameterNegativePrompt> = {
     return Promise.resolve(parsed);
   },
   recall: (value, store) => {
-    store.dispatch(negativePromptChanged(value));
+    store.dispatch(negativePromptChanged(value || null));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.negativePrompt" />,
+  i18nKey: 'metadata.negativePrompt',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterNegativePrompt>) => (
     <MetadataPrimitiveValue value={value} />
   ),
 };
 //#endregion Negative Prompt
-
-//#region SDXL Positive Style Prompt
-const PositiveStylePrompt: SingleMetadataHandler<ParameterPositiveStylePromptSDXL> = {
-  [SingleMetadataKey]: true,
-  type: 'PositiveStylePrompt',
-  parse: (metadata, _store) => {
-    const raw = getProperty(metadata, 'positive_style_prompt');
-    const parsed = zParameterPositiveStylePromptSDXL.parse(raw);
-    return Promise.resolve(parsed);
-  },
-  recall: (value, store) => {
-    store.dispatch(positivePrompt2Changed(value));
-  },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.posStylePrompt" />,
-  ValueComponent: ({ value }: SingleMetadataValueProps<ParameterPositiveStylePromptSDXL>) => (
-    <MetadataPrimitiveValue value={value} />
-  ),
-};
-//#endregion SDXL Positive Style Prompt
-
-//#region SDXL Negative Style Prompt
-const NegativeStylePrompt: SingleMetadataHandler<ParameterPositiveStylePromptSDXL> = {
-  [SingleMetadataKey]: true,
-  type: 'NegativeStylePrompt',
-  parse: (metadata, _store) => {
-    const raw = getProperty(metadata, 'negative_style_prompt');
-    const parsed = zParameterNegativeStylePromptSDXL.parse(raw);
-    return Promise.resolve(parsed);
-  },
-  recall: (value, store) => {
-    store.dispatch(negativePrompt2Changed(value));
-  },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.negStylePrompt" />,
-  ValueComponent: ({ value }: SingleMetadataValueProps<ParameterPositiveStylePromptSDXL>) => (
-    <MetadataPrimitiveValue value={value} />
-  ),
-};
-//#endregion SDXL Negative Style Prompt
 
 //#region CFG Scale
 const CFGScale: SingleMetadataHandler<ParameterCFGScale> = {
@@ -322,7 +318,8 @@ const CFGScale: SingleMetadataHandler<ParameterCFGScale> = {
   recall: (value, store) => {
     store.dispatch(setCfgScale(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.cfgScale" />,
+  i18nKey: 'metadata.cfgScale',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterCFGScale>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion CFG Scale
@@ -339,12 +336,31 @@ const CFGRescaleMultiplier: SingleMetadataHandler<ParameterCFGRescaleMultiplier>
   recall: (value, store) => {
     store.dispatch(setCfgRescaleMultiplier(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.cfgRescaleMultiplier" />,
+  i18nKey: 'metadata.cfgRescaleMultiplier',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterCFGRescaleMultiplier>) => (
     <MetadataPrimitiveValue value={value} />
   ),
 };
 //#endregion CFG Rescale Multiplier
+
+//#region CLIP Skip
+const CLIPSkip: SingleMetadataHandler<ParameterCLIPSkip> = {
+  [SingleMetadataKey]: true,
+  type: 'CLIPSkip',
+  parse: (metadata, _store) => {
+    const raw = getProperty(metadata, 'clip_skip');
+    const parsed = zParameterCLIPSkip.parse(raw);
+    return Promise.resolve(parsed);
+  },
+  recall: (value, store) => {
+    store.dispatch(setClipSkip(value));
+  },
+  i18nKey: 'metadata.clipSkip',
+  LabelComponent: MetadataLabel,
+  ValueComponent: ({ value }: SingleMetadataValueProps<ParameterCLIPSkip>) => <MetadataPrimitiveValue value={value} />,
+};
+//#endregion CLIP Skip
 
 //#region Guidance
 const Guidance: SingleMetadataHandler<ParameterGuidance> = {
@@ -358,7 +374,8 @@ const Guidance: SingleMetadataHandler<ParameterGuidance> = {
   recall: (value, store) => {
     store.dispatch(setGuidance(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.guidance" />,
+  i18nKey: 'metadata.guidance',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterGuidance>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion Guidance
@@ -375,7 +392,8 @@ const Scheduler: SingleMetadataHandler<ParameterScheduler> = {
   recall: (value, store) => {
     store.dispatch(setScheduler(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.scheduler" />,
+  i18nKey: 'metadata.scheduler',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterScheduler>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion Scheduler
@@ -390,9 +408,15 @@ const Width: SingleMetadataHandler<ParameterWidth> = {
     return Promise.resolve(parsed);
   },
   recall: (value, store) => {
-    store.dispatch(bboxWidthChanged({ width: value, updateAspectRatio: true, clamp: true }));
+    const activeTab = selectActiveTab(store.getState());
+    if (activeTab === 'canvas') {
+      store.dispatch(bboxWidthChanged({ width: value, updateAspectRatio: true, clamp: true }));
+    } else if (activeTab === 'generate') {
+      store.dispatch(widthChanged({ width: value, updateAspectRatio: true, clamp: true }));
+    }
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.width" />,
+  i18nKey: 'metadata.width',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterWidth>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion Width
@@ -407,9 +431,15 @@ const Height: SingleMetadataHandler<ParameterHeight> = {
     return Promise.resolve(parsed);
   },
   recall: (value, store) => {
-    store.dispatch(bboxHeightChanged({ height: value, updateAspectRatio: true, clamp: true }));
+    const activeTab = selectActiveTab(store.getState());
+    if (activeTab === 'canvas') {
+      store.dispatch(bboxHeightChanged({ height: value, updateAspectRatio: true, clamp: true }));
+    } else if (activeTab === 'generate') {
+      store.dispatch(heightChanged({ height: value, updateAspectRatio: true, clamp: true }));
+    }
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.height" />,
+  i18nKey: 'metadata.height',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterHeight>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion Height
@@ -426,7 +456,8 @@ const Seed: SingleMetadataHandler<ParameterSeed> = {
   recall: (value, store) => {
     store.dispatch(setSeed(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.seed" />,
+  i18nKey: 'metadata.seed',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSeed>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion Seed
@@ -443,7 +474,8 @@ const Steps: SingleMetadataHandler<ParameterSteps> = {
   recall: (value, store) => {
     store.dispatch(setSteps(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.steps" />,
+  i18nKey: 'metadata.steps',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSteps>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion Steps
@@ -460,7 +492,8 @@ const DenoisingStrength: SingleMetadataHandler<ParameterStrength> = {
   recall: (value, store) => {
     store.dispatch(setImg2imgStrength(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.strength" />,
+  i18nKey: 'metadata.strength',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterStrength>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion DenoisingStrength
@@ -477,7 +510,8 @@ const SeamlessX: SingleMetadataHandler<ParameterSeamlessX> = {
   recall: (value, store) => {
     store.dispatch(setSeamlessXAxis(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.seamlessXAxis" />,
+  i18nKey: 'metadata.seamlessXAxis',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSeamlessX>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion SeamlessX
@@ -494,7 +528,8 @@ const SeamlessY: SingleMetadataHandler<ParameterSeamlessY> = {
   recall: (value, store) => {
     store.dispatch(setSeamlessYAxis(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.seamlessYAxis" />,
+  i18nKey: 'metadata.seamlessYAxis',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSeamlessY>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion SeamlessY
@@ -514,7 +549,8 @@ const RefinerModel: SingleMetadataHandler<ParameterSDXLRefinerModel> = {
   recall: (value, store) => {
     store.dispatch(refinerModelChanged(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.refinermodel" />,
+  i18nKey: 'sdxl.refinermodel',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSDXLRefinerModel>) => (
     <MetadataPrimitiveValue value={`${value.name} (${value.base.toUpperCase()})`} />
   ),
@@ -533,7 +569,8 @@ const RefinerSteps: SingleMetadataHandler<ParameterSteps> = {
   recall: (value, store) => {
     store.dispatch(setRefinerSteps(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.refinerSteps" />,
+  i18nKey: 'sdxl.refinerSteps',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSteps>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion RefinerSteps
@@ -550,7 +587,8 @@ const RefinerCFGScale: SingleMetadataHandler<ParameterCFGScale> = {
   recall: (value, store) => {
     store.dispatch(setRefinerCFGScale(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.cfgScale" />,
+  i18nKey: 'sdxl.cfgScale',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterCFGScale>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion RefinerCFGScale
@@ -567,7 +605,8 @@ const RefinerScheduler: SingleMetadataHandler<ParameterScheduler> = {
   recall: (value, store) => {
     store.dispatch(setRefinerScheduler(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.scheduler" />,
+  i18nKey: 'sdxl.scheduler',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterScheduler>) => <MetadataPrimitiveValue value={value} />,
 };
 //#endregion RefinerScheduler
@@ -584,7 +623,8 @@ const RefinerPositiveAestheticScore: SingleMetadataHandler<ParameterSDXLRefinerP
   recall: (value, store) => {
     store.dispatch(setRefinerPositiveAestheticScore(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.posAestheticScore" />,
+  i18nKey: 'sdxl.posAestheticScore',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSDXLRefinerPositiveAestheticScore>) => (
     <MetadataPrimitiveValue value={value} />
   ),
@@ -603,7 +643,8 @@ const RefinerNegativeAestheticScore: SingleMetadataHandler<ParameterSDXLRefinerN
   recall: (value, store) => {
     store.dispatch(setRefinerNegativeAestheticScore(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.negAestheticScore" />,
+  i18nKey: 'sdxl.negAestheticScore',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSDXLRefinerNegativeAestheticScore>) => (
     <MetadataPrimitiveValue value={value} />
   ),
@@ -622,7 +663,8 @@ const RefinerDenoisingStart: SingleMetadataHandler<ParameterSDXLRefinerStart> = 
   recall: (value, store) => {
     store.dispatch(setRefinerStart(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="sdxl.refinerStart" />,
+  i18nKey: 'sdxl.refinerStart',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterSDXLRefinerStart>) => (
     <MetadataPrimitiveValue value={value} />
   ),
@@ -642,7 +684,8 @@ const MainModel: SingleMetadataHandler<ParameterModel> = {
   recall: (value, store) => {
     store.dispatch(modelSelected(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.model" />,
+  i18nKey: 'metadata.model',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterModel>) => (
     <MetadataPrimitiveValue value={`${value.name} (${value.base.toUpperCase()})`} />
   ),
@@ -663,12 +706,94 @@ const VAEModel: SingleMetadataHandler<ParameterVAEModel> = {
   recall: (value, store) => {
     store.dispatch(vaeSelected(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.vae" />,
+  i18nKey: 'metadata.vae',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<ParameterVAEModel>) => (
     <MetadataPrimitiveValue value={`${value.name} (${value.base.toUpperCase()})`} />
   ),
 };
 //#endregion VAEModel
+
+//#region VideoModel
+const VideoModel: SingleMetadataHandler<ModelIdentifierField> = {
+  [SingleMetadataKey]: true,
+  type: 'VideoModel',
+  parse: async (metadata, store) => {
+    const raw = getProperty(metadata, 'model');
+    const parsed = await parseModelIdentifier(raw, store, 'video');
+    assert(parsed.type === 'video');
+    return Promise.resolve(parsed);
+  },
+  recall: (value, store) => {
+    store.dispatch(videoModelChanged({ videoModel: value }));
+  },
+  i18nKey: 'metadata.videoModel',
+  LabelComponent: MetadataLabel,
+  ValueComponent: ({ value }: SingleMetadataValueProps<ModelIdentifierField>) => (
+    <MetadataPrimitiveValue value={`${value.name} (${value.base.toUpperCase()})`} />
+  ),
+};
+//#endregion VideoModel
+
+//#region VideoDuration
+const VideoDuration: SingleMetadataHandler<ParameterVideoDuration> = {
+  [SingleMetadataKey]: true,
+  type: 'VideoDuration',
+  parse: (metadata) => {
+    const raw = getProperty(metadata, 'duration');
+    const parsed = zVideoDuration.parse(raw);
+    return Promise.resolve(parsed);
+  },
+  recall: (value, store) => {
+    store.dispatch(videoDurationChanged(value));
+  },
+  i18nKey: 'metadata.videoDuration',
+  LabelComponent: MetadataLabel,
+  ValueComponent: ({ value }: SingleMetadataValueProps<ParameterVideoDuration>) => (
+    <MetadataPrimitiveValue value={value} />
+  ),
+};
+//#endregion VideoDuration
+
+//#region VideoResolution
+const VideoResolution: SingleMetadataHandler<ParameterVideoResolution> = {
+  [SingleMetadataKey]: true,
+  type: 'VideoResolution',
+  parse: (metadata) => {
+    const raw = getProperty(metadata, 'resolution');
+    const parsed = zVideoResolution.parse(raw);
+    return Promise.resolve(parsed);
+  },
+  recall: (value, store) => {
+    store.dispatch(videoResolutionChanged(value));
+  },
+  i18nKey: 'metadata.videoResolution',
+  LabelComponent: MetadataLabel,
+  ValueComponent: ({ value }: SingleMetadataValueProps<ParameterVideoResolution>) => (
+    <MetadataPrimitiveValue value={value} />
+  ),
+};
+//#endregion VideoResolution
+
+//#region VideoAspectRatio
+const VideoAspectRatio: SingleMetadataHandler<ParameterVideoAspectRatio> = {
+  [SingleMetadataKey]: true,
+  type: 'VideoAspectRatio',
+  parse: (metadata) => {
+    const raw = getProperty(metadata, 'aspect_ratio');
+    const parsed = zVideoAspectRatio.parse(raw);
+    return Promise.resolve(parsed);
+  },
+  recall: (value, store) => {
+    store.dispatch(videoAspectRatioChanged(value));
+  },
+  i18nKey: 'metadata.videoAspectRatio',
+  LabelComponent: MetadataLabel,
+  ValueComponent: ({ value }: SingleMetadataValueProps<ParameterVideoAspectRatio>) => (
+    <MetadataPrimitiveValue value={value} />
+  ),
+};
+//#endregion VideoAspectRatio
 
 //#region LoRAs
 const LoRAs: CollectionMetadataHandler<LoRA[]> = {
@@ -676,6 +801,11 @@ const LoRAs: CollectionMetadataHandler<LoRA[]> = {
   type: 'LoRAs',
   parse: async (metadata, store) => {
     const rawArray = getProperty(metadata, 'loras');
+
+    if (!rawArray) {
+      return [];
+    }
+
     assert(isArray(rawArray));
 
     const loras: LoRA[] = [];
@@ -727,7 +857,8 @@ const LoRAs: CollectionMetadataHandler<LoRA[]> = {
       store.dispatch(loraRecalled({ lora }));
     }
   },
-  LabelComponent: () => <MetadataLabel i18nKey="models.lora" />,
+  i18nKey: 'models.lora',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: CollectionMetadataValueProps<LoRA[]>) => (
     <MetadataPrimitiveValue value={`${value.model.name} (${value.model.base.toUpperCase()}) - ${value.weight}`} />
   ),
@@ -738,11 +869,55 @@ const LoRAs: CollectionMetadataHandler<LoRA[]> = {
 const CanvasLayers: SingleMetadataHandler<CanvasMetadata> = {
   [SingleMetadataKey]: true,
   type: 'CanvasLayers',
-  parse: async (metadata) => {
+  parse: async (metadata, store) => {
     const raw = getProperty(metadata, 'canvas_v2_metadata');
     // This validator fetches all referenced images. If any do not exist, validation fails. The logic for this is in
     // the zImageWithDims schema.
     const parsed = await zCanvasMetadata.parseAsync(raw);
+
+    for (const entity of parsed.controlLayers) {
+      if (entity.controlAdapter.model) {
+        await throwIfModelDoesNotExist(entity.controlAdapter.model.key, store);
+      }
+      for (const object of entity.objects) {
+        if (object.type === 'image' && 'image_name' in object.image) {
+          await throwIfImageDoesNotExist(object.image.image_name, store);
+        }
+      }
+    }
+
+    for (const entity of parsed.inpaintMasks) {
+      for (const object of entity.objects) {
+        if (object.type === 'image' && 'image_name' in object.image) {
+          await throwIfImageDoesNotExist(object.image.image_name, store);
+        }
+      }
+    }
+
+    for (const entity of parsed.rasterLayers) {
+      for (const object of entity.objects) {
+        if (object.type === 'image' && 'image_name' in object.image) {
+          await throwIfImageDoesNotExist(object.image.image_name, store);
+        }
+      }
+    }
+
+    for (const entity of parsed.regionalGuidance) {
+      for (const object of entity.objects) {
+        if (object.type === 'image' && 'image_name' in object.image) {
+          await throwIfImageDoesNotExist(object.image.image_name, store);
+        }
+      }
+      for (const refImage of entity.referenceImages) {
+        if (refImage.config.image) {
+          await throwIfImageDoesNotExist(refImage.config.image.image_name, store);
+        }
+        if (refImage.config.model) {
+          await throwIfModelDoesNotExist(refImage.config.model.key, store);
+        }
+      }
+    }
+
     return Promise.resolve(parsed);
   },
   recall: (value, store) => {
@@ -757,7 +932,8 @@ const CanvasLayers: SingleMetadataHandler<CanvasMetadata> = {
     }
     store.dispatch(canvasMetadataRecalled(value));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="metadata.canvasV2Metadata" />,
+  i18nKey: 'metadata.canvasV2Metadata',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: SingleMetadataValueProps<CanvasMetadata>) => {
     const { t } = useTranslation();
     const count =
@@ -774,37 +950,50 @@ const CanvasLayers: SingleMetadataHandler<CanvasMetadata> = {
 const RefImages: CollectionMetadataHandler<RefImageState[]> = {
   [CollectionMetadataKey]: true,
   type: 'RefImages',
-  parse: async (metadata) => {
+  parse: async (metadata, store) => {
+    let parsed: RefImageState[] | null = null;
     try {
       // First attempt to parse from the v6 slot
       const raw = getProperty(metadata, 'ref_images');
-      // This validator fetches all referenced images. If any do not exist, validation fails. The logic for this is in
-      // the zImageWithDims schema.
-      const parsed = await z.array(zRefImageState).parseAsync(raw);
-      return Promise.resolve(parsed);
+      parsed = z.array(zRefImageState).parse(raw);
     } catch {
       // Fall back to extracting from canvas metadata]
       const raw = getProperty(metadata, 'canvas_v2_metadata.referenceImages.entities');
       // This validator fetches all referenced images. If any do not exist, validation fails. The logic for this is in
       // the zImageWithDims schema.
       const oldParsed = await z.array(zCanvasReferenceImageState_OLD).parseAsync(raw);
-      const parsed: RefImageState[] = oldParsed.map(({ id, ipAdapter, isEnabled }) => ({
+      parsed = oldParsed.map(({ id, ipAdapter, isEnabled }) => ({
         id,
         config: ipAdapter,
         isEnabled,
       }));
-      return parsed;
     }
+
+    if (!parsed) {
+      throw new Error('No valid reference images found in metadata');
+    }
+
+    for (const refImage of parsed) {
+      if (refImage.config.image) {
+        await throwIfImageDoesNotExist(refImage.config.image.original.image.image_name, store);
+      }
+      if (refImage.config.model) {
+        await throwIfModelDoesNotExist(refImage.config.model.key, store);
+      }
+    }
+
+    return parsed;
   },
   recall: (value, store) => {
-    for (const data of value) {
-      store.dispatch(refImageRecalled({ data: { ...data, id: getPrefixedId('reference_image') } }));
-    }
+    const entities = value.map((data) => ({ ...data, id: getPrefixedId('reference_image') }));
+    store.dispatch(refImagesRecalled({ entities, replace: true }));
   },
   recallOne: (data, store) => {
-    store.dispatch(refImageRecalled({ data: { ...data, id: getPrefixedId('reference_image') } }));
+    const entities = [{ ...data, id: getPrefixedId('reference_image') }];
+    store.dispatch(refImagesRecalled({ entities, replace: false }));
   },
-  LabelComponent: () => <MetadataLabel i18nKey="controlLayers.referenceImage" />,
+  i18nKey: 'controlLayers.referenceImage',
+  LabelComponent: MetadataLabel,
   ValueComponent: ({ value }: CollectionMetadataValueProps<RefImageState[]>) => {
     if (value.config.model) {
       return <MetadataPrimitiveValue value={value.config.model.name} />;
@@ -814,15 +1003,14 @@ const RefImages: CollectionMetadataHandler<RefImageState[]> = {
 };
 //#endregion RefImages
 
-export const MetadataHandlers = {
+export const ImageMetadataHandlers = {
   CreatedBy,
   GenerationMode,
   PositivePrompt,
   NegativePrompt,
-  PositiveStylePrompt,
-  NegativeStylePrompt,
   CFGScale,
   CFGRescaleMultiplier,
+  CLIPSkip,
   Guidance,
   Scheduler,
   Width,
@@ -856,7 +1044,18 @@ export const MetadataHandlers = {
   // ipAdapterToIPAdapterLayer: parseIPAdapterToIPAdapterLayer,
 } as const;
 
-const successToast = (parameter: ReactNode) => {
+export const VideoMetadataHandlers = {
+  CreatedBy,
+  GenerationMode,
+  PositivePrompt,
+  VideoModel,
+  Seed,
+  VideoAspectRatio,
+  VideoDuration,
+  VideoResolution,
+};
+
+const successToast = (parameter: string) => {
   toast({
     id: 'PARAMETER_SET',
     title: t('toast.parameterSet'),
@@ -865,7 +1064,7 @@ const successToast = (parameter: ReactNode) => {
   });
 };
 
-const failedToast = (parameter: ReactNode, message?: ReactNode) => {
+const failedToast = (parameter: string, message?: string) => {
   toast({
     id: 'PARAMETER_NOT_SET',
     title: t('toast.parameterNotSet'),
@@ -896,9 +1095,9 @@ const recallByHandler = async (arg: {
 
   if (!silent) {
     if (didRecall) {
-      successToast(<handler.LabelComponent />);
+      successToast(t(handler.i18nKey));
     } else {
-      failedToast(<handler.LabelComponent />);
+      failedToast(t(handler.i18nKey));
     }
   }
 
@@ -925,9 +1124,9 @@ const recallByHandlers = async (arg: {
   // model is recalled first, so it doesn't accidentally override the width and height. This is the only known case
   // where the order of recall matters.
   const sortedHandlers = filteredHandlers.sort((a, b) => {
-    if (a === MetadataHandlers.MainModel) {
+    if (a === ImageMetadataHandlers.MainModel) {
       return -1; // MainModel should be recalled first
-    } else if (b === MetadataHandlers.MainModel) {
+    } else if (b === ImageMetadataHandlers.MainModel) {
       return 1; // MainModel should be recalled first
     } else {
       return 0; // Keep the original order for other handlers
@@ -939,26 +1138,9 @@ const recallByHandlers = async (arg: {
       const value = await handler.parse(metadata, store);
       handler.recall(value, store);
       recalled.set(handler, value);
-    } catch (error) {
+    } catch {
       //
     }
-  }
-
-  // If we recalled style prompts, and they were _different_ from the positive prompt, we need to disable prompt concat.
-  const positivePrompt = recalled.get(MetadataHandlers.PositivePrompt);
-  const negativePrompt = recalled.get(MetadataHandlers.NegativePrompt);
-  const positiveStylePrompt = recalled.get(MetadataHandlers.PositiveStylePrompt);
-  const negativeStylePrompt = recalled.get(MetadataHandlers.NegativeStylePrompt);
-
-  if (
-    (positiveStylePrompt && positiveStylePrompt !== positivePrompt) ||
-    (negativeStylePrompt && negativeStylePrompt !== negativePrompt)
-  ) {
-    // If we set the negative style prompt or positive style prompt, we should disable prompt concat
-    store.dispatch(shouldConcatPromptsChanged(false));
-  } else {
-    // Otherwise, we should enable prompt concat
-    store.dispatch(shouldConcatPromptsChanged(true));
   }
 
   if (!silent) {
@@ -980,15 +1162,10 @@ const recallByHandlers = async (arg: {
   return recalled;
 };
 
-const recallPrompts = async (metadata: unknown, store: AppStore) => {
+const recallImagePrompts = async (metadata: unknown, store: AppStore) => {
   const recalled = await recallByHandlers({
     metadata,
-    handlers: [
-      MetadataHandlers.PositivePrompt,
-      MetadataHandlers.NegativePrompt,
-      MetadataHandlers.PositiveStylePrompt,
-      MetadataHandlers.NegativeStylePrompt,
-    ],
+    handlers: [ImageMetadataHandlers.PositivePrompt, ImageMetadataHandlers.NegativePrompt],
     store,
     silent: true,
   });
@@ -997,10 +1174,32 @@ const recallPrompts = async (metadata: unknown, store: AppStore) => {
   }
 };
 
-const recallDimensions = async (metadata: unknown, store: AppStore) => {
+const hasMetadataByHandlers = async (arg: {
+  metadata: unknown;
+  handlers: (SingleMetadataHandler<any> | CollectionMetadataHandler<any[]>)[];
+  store: AppStore;
+  require: 'some' | 'all';
+}) => {
+  const { metadata, handlers, store, require } = arg;
+  for (const handler of handlers) {
+    try {
+      await handler.parse(metadata, store);
+      if (require === 'some') {
+        return true;
+      }
+    } catch {
+      if (require === 'all') {
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
+const recallImageDimensions = async (metadata: unknown, store: AppStore) => {
   const recalled = await recallByHandlers({
     metadata,
-    handlers: [MetadataHandlers.Width, MetadataHandlers.Height],
+    handlers: [ImageMetadataHandlers.Width, ImageMetadataHandlers.Height],
     store,
     silent: true,
   });
@@ -1009,12 +1208,12 @@ const recallDimensions = async (metadata: unknown, store: AppStore) => {
   }
 };
 
-const recallAll = async (
+const recallAllImageMetadata = async (
   metadata: unknown,
   store: AppStore,
   skip?: (SingleMetadataHandler<any> | CollectionMetadataHandler<any[]>)[]
 ) => {
-  const handlers = Object.values(MetadataHandlers).filter(
+  const handlers = Object.values(ImageMetadataHandlers).filter(
     (handler) => isSingleMetadataHandler(handler) || isCollectionMetadataHandler(handler)
   );
   await recallByHandlers({
@@ -1026,11 +1225,12 @@ const recallAll = async (
 };
 
 export const MetadataUtils = {
+  hasMetadataByHandlers,
   recallByHandler,
   recallByHandlers,
-  recallAll,
-  recallPrompts,
-  recallDimensions,
+  recallAllImageMetadata,
+  recallImagePrompts,
+  recallImageDimensions,
 } as const;
 
 export function useSingleMetadataDatum<T>(metadata: unknown, handler: SingleMetadataHandler<T>) {
@@ -1069,7 +1269,6 @@ export function useSingleMetadataDatum<T>(metadata: unknown, handler: SingleMeta
   return { data, recall };
 }
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 export function useCollectionMetadataDatum<T extends any[]>(metadata: unknown, handler: CollectionMetadataHandler<T>) {
   const store = useAppStore();
   const [data, setData] = useState<Data<T>>(buildUnparsedData);
@@ -1164,4 +1363,20 @@ const isCompatibleWithMainModel = (candidate: ModelIdentifierField, store: AppSt
     return true;
   }
   return candidate.base === base;
+};
+
+const throwIfImageDoesNotExist = async (name: string, store: AppStore): Promise<void> => {
+  try {
+    await store.dispatch(imagesApi.endpoints.getImageDTO.initiate(name, { subscribe: false })).unwrap();
+  } catch {
+    throw new Error(`Image with name ${name} does not exist`);
+  }
+};
+
+const throwIfModelDoesNotExist = async (key: string, store: AppStore): Promise<void> => {
+  try {
+    await store.dispatch(modelsApi.endpoints.getModelConfig.initiate(key, { subscribe: false }));
+  } catch {
+    throw new Error(`Model with key ${key} does not exist`);
+  }
 };

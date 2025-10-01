@@ -2,29 +2,33 @@ import { objectEquals } from '@observ33r/object-equals';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSelector, createSlice } from '@reduxjs/toolkit';
 import { createMemoizedSelector } from 'app/store/createMemoizedSelector';
-import type { PersistConfig, RootState } from 'app/store/store';
+import type { RootState } from 'app/store/store';
+import type { SliceConfig } from 'app/store/types';
 import { clamp } from 'es-toolkit/compat';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
-import type { FLUXReduxImageInfluence, RefImagesState } from 'features/controlLayers/store/types';
+import type {
+  CroppableImageWithDims,
+  FLUXReduxImageInfluence,
+  RefImagesState,
+} from 'features/controlLayers/store/types';
 import { zModelIdentifierField } from 'features/nodes/types/common';
 import type {
   ChatGPT4oModelConfig,
   FLUXKontextModelConfig,
   FLUXReduxModelConfig,
-  ImageDTO,
   IPAdapterModelConfig,
 } from 'services/api/types';
 import { assert } from 'tsafe';
 import type { PartialDeep } from 'type-fest';
 
 import type { CLIPVisionModelV2, IPMethodV2, RefImageState } from './types';
-import { getInitialRefImagesState, isFLUXReduxConfig, isIPAdapterConfig } from './types';
+import { getInitialRefImagesState, isFLUXReduxConfig, isIPAdapterConfig, zRefImagesState } from './types';
 import {
   getReferenceImageState,
-  imageDTOToImageWithDims,
   initialChatGPT4oReferenceImage,
   initialFluxKontextReferenceImage,
   initialFLUXRedux,
+  initialGemini2_5ReferenceImage,
   initialIPAdapter,
 } from './util';
 
@@ -36,7 +40,7 @@ type PayloadActionWithId<T = void> = T extends void
       } & T
     >;
 
-export const refImagesSlice = createSlice({
+const slice = createSlice({
   name: 'refImages',
   initialState: getInitialRefImagesState(),
   reducers: {
@@ -53,17 +57,23 @@ export const refImagesSlice = createSlice({
         payload: { ...payload, id: getPrefixedId('reference_image') },
       }),
     },
-    refImageRecalled: (state, action: PayloadAction<{ data: RefImageState }>) => {
-      const { data } = action.payload;
-      state.entities.push(data);
+    refImagesRecalled: (state, action: PayloadAction<{ entities: RefImageState[]; replace: boolean }>) => {
+      const { entities, replace } = action.payload;
+      if (replace) {
+        state.entities = entities;
+        state.isPanelOpen = false;
+        state.selectedEntityId = null;
+      } else {
+        state.entities.push(...entities);
+      }
     },
-    refImageImageChanged: (state, action: PayloadActionWithId<{ imageDTO: ImageDTO | null }>) => {
-      const { id, imageDTO } = action.payload;
+    refImageImageChanged: (state, action: PayloadActionWithId<{ croppableImage: CroppableImageWithDims | null }>) => {
+      const { id, croppableImage } = action.payload;
       const entity = selectRefImageEntity(state, id);
       if (!entity) {
         return;
       }
-      entity.config.image = imageDTO ? imageDTOToImageWithDims(imageDTO) : null;
+      entity.config.image = croppableImage;
     },
     refImageIPAdapterMethodChanged: (state, action: PayloadActionWithId<{ method: IPMethodV2 }>) => {
       const { id, method } = action.payload;
@@ -123,6 +133,16 @@ export const refImagesSlice = createSlice({
         // Switching to chatgpt-4o ref image
         entity.config = {
           ...initialChatGPT4oReferenceImage,
+          image: entity.config.image,
+          model: entity.config.model,
+        };
+        return;
+      }
+
+      if (entity.config.model.base === 'gemini-2.5') {
+        // Switching to Gemini 2.5 Flash Preview (nano banana) ref image
+        entity.config = {
+          ...initialGemini2_5ReferenceImage,
           image: entity.config.image,
           model: entity.config.model,
         };
@@ -256,19 +276,17 @@ export const {
   refImageIPAdapterBeginEndStepPctChanged,
   refImageFLUXReduxImageInfluenceChanged,
   refImageIsEnabledToggled,
-  refImageRecalled,
-} = refImagesSlice.actions;
+  refImagesRecalled,
+} = slice.actions;
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-const migrate = (state: any): any => {
-  return state;
-};
-
-export const refImagesPersistConfig: PersistConfig<RefImagesState> = {
-  name: refImagesSlice.name,
-  initialState: getInitialRefImagesState(),
-  migrate,
-  persistDenylist: ['selectedEntityId', 'isPanelOpen'],
+export const refImagesSliceConfig: SliceConfig<typeof slice> = {
+  slice,
+  schema: zRefImagesState,
+  getInitialState: getInitialRefImagesState,
+  persistConfig: {
+    migrate: (state) => zRefImagesState.parse(state),
+    persistDenylist: ['selectedEntityId', 'isPanelOpen'],
+  },
 };
 
 export const selectRefImagesSlice = (state: RootState) => state.refImages;

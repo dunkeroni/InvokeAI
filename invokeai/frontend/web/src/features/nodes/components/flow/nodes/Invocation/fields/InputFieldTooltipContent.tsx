@@ -2,6 +2,7 @@ import { Flex, ListItem, Text, UnorderedList } from '@invoke-ai/ui-library';
 import { startCase } from 'es-toolkit/compat';
 import { useInputFieldErrors } from 'features/nodes/hooks/useInputFieldErrors';
 import { useInputFieldInstance } from 'features/nodes/hooks/useInputFieldInstance';
+import { useInputFieldIsAddedToForm } from 'features/nodes/hooks/useInputFieldIsAddedToForm';
 import { useInputFieldTemplateOrThrow } from 'features/nodes/hooks/useInputFieldTemplateOrThrow';
 import { useFieldTypeName } from 'features/nodes/hooks/usePrettyFieldType';
 import { memo, useMemo } from 'react';
@@ -12,13 +13,14 @@ interface Props {
   fieldName: string;
 }
 
-export const InputFieldTooltipContent = memo(({ nodeId, fieldName }: Props) => {
+export const InputFieldTooltipContent = memo(({ fieldName }: Props) => {
   const { t } = useTranslation();
 
-  const fieldInstance = useInputFieldInstance(nodeId, fieldName);
-  const fieldTemplate = useInputFieldTemplateOrThrow(nodeId, fieldName);
+  const fieldInstance = useInputFieldInstance(fieldName);
+  const fieldTemplate = useInputFieldTemplateOrThrow(fieldName);
   const fieldTypeName = useFieldTypeName(fieldTemplate.type);
-  const fieldErrors = useInputFieldErrors(nodeId, fieldName);
+  const fieldErrors = useInputFieldErrors(fieldName);
+  const isAddedToForm = useInputFieldIsAddedToForm(fieldName);
 
   const fieldTitle = useMemo(() => {
     if (fieldInstance.label && fieldTemplate.title) {
@@ -34,7 +36,10 @@ export const InputFieldTooltipContent = memo(({ nodeId, fieldName }: Props) => {
 
   return (
     <Flex flexDir="column">
-      <Text fontWeight="semibold">{fieldTitle}</Text>
+      <Text fontWeight="semibold">
+        {fieldTitle}
+        {isAddedToForm && ' (added to form)'}
+      </Text>
       <Text opacity={0.7} fontStyle="oblique 5deg">
         {fieldTemplate.description}
       </Text>

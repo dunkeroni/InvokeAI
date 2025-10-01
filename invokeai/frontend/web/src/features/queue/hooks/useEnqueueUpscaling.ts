@@ -1,12 +1,16 @@
 import { createAction } from '@reduxjs/toolkit';
+import { logger } from 'app/logging/logger';
 import type { AppStore } from 'app/store/store';
 import { useAppStore } from 'app/store/storeHooks';
+import { positivePromptAddedToHistory, selectPositivePrompt } from 'features/controlLayers/store/paramsSlice';
 import { prepareLinearUIBatch } from 'features/nodes/util/graph/buildLinearBatchConfig';
 import { buildMultidiffusionUpscaleGraph } from 'features/nodes/util/graph/buildMultidiffusionUpscaleGraph';
 import { useCallback } from 'react';
 import { enqueueMutationFixedCacheKeyOptions, queueApi } from 'services/api/endpoints/queue';
 
-const enqueueRequestedUpscaling = createAction('app/enqueueRequestedUpscaling');
+export const enqueueRequestedUpscaling = createAction('app/enqueueRequestedUpscaling');
+
+const log = logger('generation');
 
 const enqueueUpscaling = async (store: AppStore, prepend: boolean) => {
   const { dispatch, getState } = store;
@@ -15,14 +19,22 @@ const enqueueUpscaling = async (store: AppStore, prepend: boolean) => {
 
   const state = getState();
 
-  const { g, seedFieldIdentifier, positivePromptFieldIdentifier } = await buildMultidiffusionUpscaleGraph(state);
+  const model = state.params.model;
+  if (!model) {
+    log.error('No model found in state');
+    return;
+  }
+  const base = model.base;
+
+  const { g, seed, positivePrompt } = await buildMultidiffusionUpscaleGraph(state);
 
   const batchConfig = prepareLinearUIBatch({
     state,
     g,
+    base,
     prepend,
-    seedFieldIdentifier,
-    positivePromptFieldIdentifier,
+    seedNode: seed,
+    positivePromptNode: positivePrompt,
     origin: 'upscaling',
     destination: 'gallery',
   });
@@ -31,6 +43,9 @@ const enqueueUpscaling = async (store: AppStore, prepend: boolean) => {
     queueApi.endpoints.enqueueBatch.initiate(batchConfig, { ...enqueueMutationFixedCacheKeyOptions, track: false })
   );
   const enqueueResult = await req.unwrap();
+
+  // Push to prompt history on successful enqueue
+  dispatch(positivePromptAddedToHistory(selectPositivePrompt(state)));
 
   return { batchConfig, enqueueResult };
 };

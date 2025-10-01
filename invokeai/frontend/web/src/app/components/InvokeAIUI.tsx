@@ -1,15 +1,14 @@
 import 'i18n';
 
-import type { Middleware } from '@reduxjs/toolkit';
-import type { StudioInitAction } from 'app/hooks/useStudioInitAction';
+import type { InvokeAIUIProps } from 'app/components/types';
 import { $didStudioInit } from 'app/hooks/useStudioInitAction';
-import type { LoggingOverrides } from 'app/logging/logger';
 import { $loggingOverrides, configureLogging } from 'app/logging/logger';
+import { addStorageListeners } from 'app/store/enhancers/reduxRemember/driver';
 import { $accountSettingsLink } from 'app/store/nanostores/accountSettingsLink';
+import { $accountTypeText } from 'app/store/nanostores/accountTypeText';
 import { $authToken } from 'app/store/nanostores/authToken';
 import { $baseUrl } from 'app/store/nanostores/baseUrl';
 import { $customNavComponent } from 'app/store/nanostores/customNavComponent';
-import type { CustomStarUi } from 'app/store/nanostores/customStarUI';
 import { $customStarUI } from 'app/store/nanostores/customStarUI';
 import { $isDebugging } from 'app/store/nanostores/isDebugging';
 import { $logo } from 'app/store/nanostores/logo';
@@ -19,11 +18,10 @@ import { $projectId, $projectName, $projectUrl } from 'app/store/nanostores/proj
 import { $queueId, DEFAULT_QUEUE_ID } from 'app/store/nanostores/queueId';
 import { $store } from 'app/store/nanostores/store';
 import { $toastMap } from 'app/store/nanostores/toastMap';
+import { $videoUpsellComponent } from 'app/store/nanostores/videoUpsellComponent';
 import { $whatsNew } from 'app/store/nanostores/whatsNew';
 import { createStore } from 'app/store/store';
-import type { PartialAppConfig } from 'app/types/invokeai';
 import Loading from 'common/components/Loading/Loading';
-import type { WorkflowSortOption, WorkflowTagCategory } from 'features/nodes/store/workflowLibrarySlice';
 import {
   $workflowLibraryCategoriesOptions,
   $workflowLibrarySortOptions,
@@ -32,46 +30,12 @@ import {
   DEFAULT_WORKFLOW_LIBRARY_SORT_OPTIONS,
   DEFAULT_WORKFLOW_LIBRARY_TAG_CATEGORIES,
 } from 'features/nodes/store/workflowLibrarySlice';
-import type { WorkflowCategory } from 'features/nodes/types/workflow';
-import type { ToastConfig } from 'features/toast/toast';
-import type { PropsWithChildren, ReactNode } from 'react';
-import React, { lazy, memo, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { lazy, memo, useEffect, useLayoutEffect, useState } from 'react';
 import { Provider } from 'react-redux';
 import { addMiddleware, resetMiddlewares } from 'redux-dynamic-middlewares';
 import { $socketOptions } from 'services/events/stores';
-import type { ManagerOptions, SocketOptions } from 'socket.io-client';
 
 const App = lazy(() => import('./App'));
-const ThemeLocaleProvider = lazy(() => import('./ThemeLocaleProvider'));
-
-interface Props extends PropsWithChildren {
-  apiUrl?: string;
-  openAPISchemaUrl?: string;
-  token?: string;
-  config?: PartialAppConfig;
-  customNavComponent?: ReactNode;
-  accountSettingsLink?: string;
-  middleware?: Middleware[];
-  projectId?: string;
-  projectName?: string;
-  projectUrl?: string;
-  queueId?: string;
-  studioInitAction?: StudioInitAction;
-  customStarUi?: CustomStarUi;
-  socketOptions?: Partial<ManagerOptions & SocketOptions>;
-  isDebugging?: boolean;
-  logo?: ReactNode;
-  toastMap?: Record<string, ToastConfig>;
-  whatsNew?: ReactNode[];
-  workflowCategories?: WorkflowCategory[];
-  workflowTagCategories?: WorkflowTagCategory[];
-  workflowSortOptions?: WorkflowSortOption[];
-  loggingOverrides?: LoggingOverrides;
-  /**
-   * If provided, overrides in-app navigation to the model manager
-   */
-  onClickGoToModelManager?: () => void;
-}
 
 const InvokeAIUI = ({
   apiUrl,
@@ -91,13 +55,19 @@ const InvokeAIUI = ({
   isDebugging = false,
   logo,
   toastMap,
+  accountTypeText,
+  videoUpsellComponent,
   workflowCategories,
   workflowTagCategories,
   workflowSortOptions,
   loggingOverrides,
   onClickGoToModelManager,
   whatsNew,
-}: Props) => {
+  storagePersistDebounce = 300,
+}: InvokeAIUIProps) => {
+  const [store, setStore] = useState<ReturnType<typeof createStore> | undefined>(undefined);
+  const [didRehydrate, setDidRehydrate] = useState(false);
+
   useLayoutEffect(() => {
     /*
      * We need to configure logging before anything else happens - useLayoutEffect ensures we set this at the first
@@ -174,6 +144,26 @@ const InvokeAIUI = ({
       $customStarUI.set(undefined);
     };
   }, [customStarUi]);
+
+  useEffect(() => {
+    if (accountTypeText) {
+      $accountTypeText.set(accountTypeText);
+    }
+
+    return () => {
+      $accountTypeText.set('');
+    };
+  }, [accountTypeText]);
+
+  useEffect(() => {
+    if (videoUpsellComponent) {
+      $videoUpsellComponent.set(videoUpsellComponent);
+    }
+
+    return () => {
+      $videoUpsellComponent.set(undefined);
+    };
+  }, [videoUpsellComponent]);
 
   useEffect(() => {
     if (customNavComponent) {
@@ -309,30 +299,36 @@ const InvokeAIUI = ({
     };
   }, [isDebugging]);
 
-  const store = useMemo(() => {
-    return createStore(projectId);
-  }, [projectId]);
-
   useEffect(() => {
+    const onRehydrated = () => {
+      setDidRehydrate(true);
+    };
+    const store = createStore({ persist: true, persistDebounce: storagePersistDebounce, onRehydrated });
+    setStore(store);
     $store.set(store);
     if (import.meta.env.MODE === 'development') {
       window.$store = $store;
     }
-    () => {
+    const removeStorageListeners = addStorageListeners();
+    return () => {
+      removeStorageListeners();
+      setStore(undefined);
       $store.set(undefined);
       if (import.meta.env.MODE === 'development') {
         window.$store = undefined;
       }
     };
-  }, [store]);
+  }, [storagePersistDebounce]);
+
+  if (!store || !didRehydrate) {
+    return <Loading />;
+  }
 
   return (
     <React.StrictMode>
       <Provider store={store}>
         <React.Suspense fallback={<Loading />}>
-          <ThemeLocaleProvider>
-            <App config={config} studioInitAction={studioInitAction} />
-          </ThemeLocaleProvider>
+          <App config={config} studioInitAction={studioInitAction} />
         </React.Suspense>
       </Provider>
     </React.StrictMode>

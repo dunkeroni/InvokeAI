@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from invokeai.app.api.dependencies import ApiDependencies
 from invokeai.app.services.session_processor.session_processor_common import SessionProcessorStatus
 from invokeai.app.services.session_queue.session_queue_common import (
-    QUEUE_ITEM_STATUS,
     Batch,
     BatchStatus,
     CancelAllExceptCurrentResult,
@@ -18,6 +17,7 @@ from invokeai.app.services.session_queue.session_queue_common import (
     DeleteByDestinationResult,
     EnqueueBatchResult,
     FieldIdentifier,
+    ItemIdsResult,
     PruneResult,
     RetryItemsResult,
     SessionQueueCountsByDestination,
@@ -25,7 +25,7 @@ from invokeai.app.services.session_queue.session_queue_common import (
     SessionQueueItemNotFoundError,
     SessionQueueStatus,
 )
-from invokeai.app.services.shared.pagination import CursorPaginatedResults
+from invokeai.app.services.shared.sqlite.sqlite_common import SQLiteDirection
 
 session_queue_router = APIRouter(prefix="/v1/queue", tags=["queue"])
 
@@ -69,36 +69,6 @@ async def enqueue_batch(
 
 
 @session_queue_router.get(
-    "/{queue_id}/list",
-    operation_id="list_queue_items",
-    responses={
-        200: {"model": CursorPaginatedResults[SessionQueueItem]},
-    },
-)
-async def list_queue_items(
-    queue_id: str = Path(description="The queue id to perform this operation on"),
-    limit: int = Query(default=50, description="The number of items to fetch"),
-    status: Optional[QUEUE_ITEM_STATUS] = Query(default=None, description="The status of items to fetch"),
-    cursor: Optional[int] = Query(default=None, description="The pagination cursor"),
-    priority: int = Query(default=0, description="The pagination cursor priority"),
-    destination: Optional[str] = Query(default=None, description="The destination of queue items to fetch"),
-) -> CursorPaginatedResults[SessionQueueItem]:
-    """Gets cursor-paginated queue items"""
-
-    try:
-        return ApiDependencies.invoker.services.session_queue.list_queue_items(
-            queue_id=queue_id,
-            limit=limit,
-            status=status,
-            cursor=cursor,
-            priority=priority,
-            destination=destination,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error while listing all items: {e}")
-
-
-@session_queue_router.get(
     "/{queue_id}/list_all",
     operation_id="list_all_queue_items",
     responses={
@@ -117,6 +87,56 @@ async def list_all_queue_items(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error while listing all queue items: {e}")
+
+
+@session_queue_router.get(
+    "/{queue_id}/item_ids",
+    operation_id="get_queue_item_ids",
+    responses={
+        200: {"model": ItemIdsResult},
+    },
+)
+async def get_queue_item_ids(
+    queue_id: str = Path(description="The queue id to perform this operation on"),
+    order_dir: SQLiteDirection = Query(default=SQLiteDirection.Descending, description="The order of sort"),
+) -> ItemIdsResult:
+    """Gets all queue item ids that match the given parameters"""
+    try:
+        return ApiDependencies.invoker.services.session_queue.get_queue_item_ids(queue_id=queue_id, order_dir=order_dir)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error while listing all queue item ids: {e}")
+
+
+@session_queue_router.post(
+    "/{queue_id}/items_by_ids",
+    operation_id="get_queue_items_by_item_ids",
+    responses={200: {"model": list[SessionQueueItem]}},
+)
+async def get_queue_items_by_item_ids(
+    queue_id: str = Path(description="The queue id to perform this operation on"),
+    item_ids: list[int] = Body(
+        embed=True, description="Object containing list of queue item ids to fetch queue items for"
+    ),
+) -> list[SessionQueueItem]:
+    """Gets queue items for the specified queue item ids. Maintains order of item ids."""
+    try:
+        session_queue_service = ApiDependencies.invoker.services.session_queue
+
+        # Fetch queue items preserving the order of requested item ids
+        queue_items: list[SessionQueueItem] = []
+        for item_id in item_ids:
+            try:
+                queue_item = session_queue_service.get_queue_item(item_id=item_id)
+                if queue_item.queue_id != queue_id:  # Auth protection for items from other queues
+                    continue
+                queue_items.append(queue_item)
+            except Exception:
+                # Skip missing queue items - they may have been deleted between item id fetch and queue item fetch
+                continue
+
+        return queue_items
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to get queue items")
 
 
 @session_queue_router.put(
@@ -354,7 +374,10 @@ async def get_queue_item(
 ) -> SessionQueueItem:
     """Gets a queue item"""
     try:
-        return ApiDependencies.invoker.services.session_queue.get_queue_item(item_id)
+        queue_item = ApiDependencies.invoker.services.session_queue.get_queue_item(item_id=item_id)
+        if queue_item.queue_id != queue_id:
+            raise HTTPException(status_code=404, detail=f"Queue item with id {item_id} not found in queue {queue_id}")
+        return queue_item
     except SessionQueueItemNotFoundError:
         raise HTTPException(status_code=404, detail=f"Queue item with id {item_id} not found in queue {queue_id}")
     except Exception as e:

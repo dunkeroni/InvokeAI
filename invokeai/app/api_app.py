@@ -18,7 +18,9 @@ from invokeai.app.api.no_cache_staticfiles import NoCacheStaticFiles
 from invokeai.app.api.routers import (
     app_info,
     board_images,
+    board_videos,
     boards,
+    client_state,
     download_queue,
     images,
     model_manager,
@@ -26,6 +28,7 @@ from invokeai.app.api.routers import (
     session_queue,
     style_presets,
     utilities,
+    videos,
     workflows,
 )
 from invokeai.app.api.sockets import SocketIO
@@ -124,13 +127,16 @@ app.include_router(utilities.utilities_router, prefix="/api")
 app.include_router(model_manager.model_manager_router, prefix="/api")
 app.include_router(download_queue.download_queue_router, prefix="/api")
 app.include_router(images.images_router, prefix="/api")
+app.include_router(videos.videos_router, prefix="/api")
 app.include_router(boards.boards_router, prefix="/api")
 app.include_router(board_images.board_images_router, prefix="/api")
+app.include_router(board_videos.board_videos_router, prefix="/api")
 app.include_router(model_relationships.model_relationships_router, prefix="/api")
 app.include_router(app_info.app_router, prefix="/api")
 app.include_router(session_queue.session_queue_router, prefix="/api")
 app.include_router(workflows.workflows_router, prefix="/api")
 app.include_router(style_presets.style_presets_router, prefix="/api")
+app.include_router(client_state.client_state_router, prefix="/api")
 
 app.openapi = get_openapi_func(app)
 
@@ -154,6 +160,12 @@ def overridden_redoc() -> HTMLResponse:
 
 
 web_root_path = Path(list(web_dir.__path__)[0])
+
+if app_config.unsafe_disable_picklescan:
+    logger.warning(
+        "The unsafe_disable_picklescan option is enabled. This disables malware scanning while installing and"
+        "loading models, which may allow malicious code to be executed. Use at your own risk."
+    )
 
 try:
     app.mount("/", NoCacheStaticFiles(directory=Path(web_root_path, "dist"), html=True), name="ui")

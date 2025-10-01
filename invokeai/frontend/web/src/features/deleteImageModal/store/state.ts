@@ -11,8 +11,8 @@ import {
 import { selectCanvasSlice } from 'features/controlLayers/store/selectors';
 import type { CanvasState, RefImagesState } from 'features/controlLayers/store/types';
 import type { ImageUsage } from 'features/deleteImageModal/store/types';
-import { selectListImageNamesQueryArgs } from 'features/gallery/store/gallerySelectors';
-import { imageSelected } from 'features/gallery/store/gallerySlice';
+import { selectGetImageNamesQueryArgs } from 'features/gallery/store/gallerySelectors';
+import { itemSelected } from 'features/gallery/store/gallerySlice';
 import { fieldImageCollectionValueChanged, fieldImageValueChanged } from 'features/nodes/store/nodesSlice';
 import { selectNodesSlice } from 'features/nodes/store/selectors';
 import type { NodesState } from 'features/nodes/store/types';
@@ -80,7 +80,7 @@ const handleDeletions = async (image_names: string[], store: AppStore) => {
   try {
     const { dispatch, getState } = store;
     const state = getState();
-    const { data } = imagesApi.endpoints.getImageNames.select(selectListImageNamesQueryArgs(state))(state);
+    const { data } = imagesApi.endpoints.getImageNames.select(selectGetImageNamesQueryArgs(state))(state);
     const index = data?.image_names.findIndex((name) => name === image_names[0]);
     const { deleted_images } = await dispatch(
       imagesApi.endpoints.deleteImages.initiate({ image_names }, { track: false })
@@ -89,9 +89,15 @@ const handleDeletions = async (image_names: string[], store: AppStore) => {
     const newImageNames = data?.image_names.filter((name) => !deleted_images.includes(name)) || [];
     const newSelectedImage = newImageNames[index ?? 0] || null;
 
-    if (intersection(state.gallery.selection, image_names).length > 0) {
-      // Some selected images were deleted, clear selection
-      dispatch(imageSelected(newSelectedImage));
+    const galleryImageNames = state.gallery.selection.map((s) => s.id);
+
+    if (intersection(galleryImageNames, image_names).length > 0) {
+      if (newSelectedImage) {
+        // Some selected images were deleted, clear selection
+        dispatch(itemSelected({ type: 'image', id: newSelectedImage }));
+      } else {
+        dispatch(itemSelected(null));
+      }
     }
 
     // We need to reset the features where the image is in use - none of these work if their image(s) don't exist
@@ -230,8 +236,11 @@ const deleteControlLayerImages = (state: RootState, dispatch: AppDispatch, image
 
 const deleteReferenceImages = (state: RootState, dispatch: AppDispatch, image_name: string) => {
   selectReferenceImageEntities(state).forEach((entity) => {
-    if (entity.config.image?.image_name === image_name) {
-      dispatch(refImageImageChanged({ id: entity.id, imageDTO: null }));
+    if (
+      entity.config.image?.original.image.image_name === image_name ||
+      entity.config.image?.crop?.image.image_name === image_name
+    ) {
+      dispatch(refImageImageChanged({ id: entity.id, croppableImage: null }));
     }
   });
 };
@@ -278,7 +287,10 @@ export const getImageUsage = (
 
   const isUpscaleImage = upscale.upscaleInitialImage?.image_name === image_name;
 
-  const isReferenceImage = refImages.entities.some(({ config }) => config.image?.image_name === image_name);
+  const isReferenceImage = refImages.entities.some(
+    ({ config }) =>
+      config.image?.original.image.image_name === image_name || config.image?.crop?.image.image_name === image_name
+  );
 
   const isRasterLayerImage = canvas.rasterLayers.entities.some(({ objects }) =>
     objects.some((obj) => obj.type === 'image' && 'image_name' in obj.image && obj.image.image_name === image_name)

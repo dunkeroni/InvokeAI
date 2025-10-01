@@ -1,16 +1,24 @@
-import { IconButton, Menu, MenuButton, MenuDivider, MenuList } from '@invoke-ai/ui-library';
-import { StagingAreaToolbarMenuAutoSwitch } from 'features/controlLayers/components/StagingArea/StagingAreaToolbarMenuAutoSwitch';
+import { IconButton, Menu, MenuButton, MenuList } from '@invoke-ai/ui-library';
+import { useStore } from '@nanostores/react';
 import { StagingAreaToolbarNewLayerFromImageMenuItems } from 'features/controlLayers/components/StagingArea/StagingAreaToolbarMenuNewLayerFromImage';
+import { useCanvasManager } from 'features/controlLayers/contexts/CanvasManagerProviderGate';
 import { memo } from 'react';
-import { PiDotsThreeBold } from 'react-icons/pi';
+import { PiDotsThreeVerticalBold } from 'react-icons/pi';
 
 export const StagingAreaToolbarMenu = memo(() => {
+  const canvasManager = useCanvasManager();
+  const shouldShowStagedImage = useStore(canvasManager.stagingArea.$shouldShowStagedImage);
+
   return (
     <Menu>
-      <MenuButton as={IconButton} icon={<PiDotsThreeBold />} colorScheme="invokeBlue" />
+      <MenuButton
+        tooltip="Image Actions"
+        as={IconButton}
+        icon={<PiDotsThreeVerticalBold />}
+        colorScheme="invokeBlue"
+        isDisabled={!shouldShowStagedImage}
+      />
       <MenuList>
-        <StagingAreaToolbarMenuAutoSwitch />
-        <MenuDivider />
         <StagingAreaToolbarNewLayerFromImageMenuItems />
       </MenuList>
     </Menu>

@@ -2,7 +2,7 @@ import { Button, Flex, Grid, Heading, Text } from '@invoke-ai/ui-library';
 import ScrollableContent from 'common/components/OverlayScrollbars/ScrollableContent';
 import { map } from 'es-toolkit/compat';
 import { setInstallModelsTabByName } from 'features/modelManagerV2/store/installModelsStore';
-import { StarterBundleButton } from 'features/modelManagerV2/subpanels/AddModelPanel/StarterModels/StarterBundle';
+import { StarterBundleButton } from 'features/modelManagerV2/subpanels/AddModelPanel/StarterModels/StarterBundleButton';
 import { StarterBundleTooltipContentCompact } from 'features/modelManagerV2/subpanels/AddModelPanel/StarterModels/StarterBundleTooltipContentCompact';
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +35,7 @@ export const LaunchpadForm = memo(() => {
   return (
     <Flex flexDir="column" height="100%" gap={3}>
       <ScrollableContent>
-        <Flex flexDir="column" gap={6} p={3}>
+        <Flex flexDir="column" gap={6} py={2}>
           {/* Welcome Section */}
           <Flex flexDir="column" gap={2} alignItems="flex-start">
             <Heading size="md">{t('modelManager.launchpad.welcome')}</Heading>

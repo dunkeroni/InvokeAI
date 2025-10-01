@@ -26,7 +26,12 @@ import type {
   CanvasRasterLayerState,
   CanvasRegionalGuidanceState,
 } from 'features/controlLayers/store/types';
-import { imageDTOToImageObject, imageDTOToImageWithDims, initialControlNet } from 'features/controlLayers/store/util';
+import {
+  imageDTOToCroppableImage,
+  imageDTOToImageObject,
+  imageDTOToImageWithDims,
+  initialControlNet,
+} from 'features/controlLayers/store/util';
 import { calculateNewSize } from 'features/controlLayers/util/getScaledBoundingBoxDimensions';
 import { imageToCompareChanged, selectionChanged } from 'features/gallery/store/gallerySlice';
 import type { BoardId } from 'features/gallery/store/types';
@@ -37,13 +42,14 @@ import { getOptimalDimension } from 'features/parameters/util/optimalDimension';
 import { navigationApi } from 'features/ui/layouts/navigation-api';
 import { WORKSPACE_PANEL_ID } from 'features/ui/layouts/shared';
 import { imageDTOToFile, imagesApi, uploadImage } from 'services/api/endpoints/images';
+import { videosApi } from 'services/api/endpoints/videos';
 import type { ImageDTO } from 'services/api/types';
 import type { Equals } from 'tsafe';
 import { assert } from 'tsafe';
 
 export const setGlobalReferenceImage = (arg: { imageDTO: ImageDTO; id: string; dispatch: AppDispatch }) => {
   const { imageDTO, id, dispatch } = arg;
-  dispatch(refImageImageChanged({ id, imageDTO }));
+  dispatch(refImageImageChanged({ id, croppableImage: imageDTOToCroppableImage(imageDTO) }));
 };
 
 export const setRegionalGuidanceReferenceImage = (arg: {
@@ -58,7 +64,7 @@ export const setRegionalGuidanceReferenceImage = (arg: {
 
 export const setUpscaleInitialImage = (arg: { imageDTO: ImageDTO; dispatch: AppDispatch }) => {
   const { imageDTO, dispatch } = arg;
-  dispatch(upscaleInitialImageChanged(imageDTO));
+  dispatch(upscaleInitialImageChanged(imageDTOToImageWithDims(imageDTO)));
 };
 
 export const setNodeImageFieldImage = (arg: {
@@ -85,7 +91,12 @@ export const createNewCanvasEntityFromImage = async (arg: {
 }) => {
   const { type, imageDTO, dispatch, getState, withResize, overrides: _overrides } = arg;
   const state = getState();
-  const { x, y, width, height } = selectBboxRect(state);
+  const { x, y } = selectBboxRect(state);
+
+  const base = selectBboxModelBase(state);
+  const ratio = imageDTO.width / imageDTO.height;
+  const optimalDimension = getOptimalDimension(base);
+  const { width, height } = calculateNewSize(ratio, optimalDimension ** 2, base);
 
   let imageObject: CanvasImageState;
 
@@ -311,5 +322,17 @@ export const addImagesToBoard = (arg: { image_names: string[]; boardId: BoardId;
 export const removeImagesFromBoard = (arg: { image_names: string[]; dispatch: AppDispatch }) => {
   const { image_names, dispatch } = arg;
   dispatch(imagesApi.endpoints.removeImagesFromBoard.initiate({ image_names }, { track: false }));
+  dispatch(selectionChanged([]));
+};
+
+export const addVideosToBoard = (arg: { video_ids: string[]; boardId: BoardId; dispatch: AppDispatch }) => {
+  const { video_ids, boardId, dispatch } = arg;
+  dispatch(videosApi.endpoints.addVideosToBoard.initiate({ video_ids, board_id: boardId }, { track: false }));
+  dispatch(selectionChanged([]));
+};
+
+export const removeVideosFromBoard = (arg: { video_ids: string[]; dispatch: AppDispatch }) => {
+  const { video_ids, dispatch } = arg;
+  dispatch(videosApi.endpoints.removeVideosFromBoard.initiate({ video_ids }, { track: false }));
   dispatch(selectionChanged([]));
 };

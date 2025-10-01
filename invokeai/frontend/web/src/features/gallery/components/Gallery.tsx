@@ -6,13 +6,9 @@ import { useDisclosure } from 'common/hooks/useBoolean';
 import { useGallerySearchTerm } from 'features/gallery/components/ImageGrid/useGallerySearchTerm';
 import { selectSelectedBoardId } from 'features/gallery/store/gallerySelectors';
 import { galleryViewChanged, selectGallerySlice } from 'features/gallery/store/gallerySlice';
+import { useFeatureStatus } from 'features/system/hooks/useFeatureStatus';
 import { useAutoLayoutContext } from 'features/ui/layouts/auto-layout-context';
-import {
-  GALLERY_PANEL_DEFAULT_HEIGHT_PX,
-  GALLERY_PANEL_ID,
-  GALLERY_PANEL_MIN_HEIGHT_PX,
-} from 'features/ui/layouts/shared';
-import { useCollapsibleGridviewPanel } from 'features/ui/layouts/use-collapsible-gridview-panel';
+import { useGalleryPanel } from 'features/ui/layouts/use-gallery-panel';
 import type { CSSProperties } from 'react';
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +18,8 @@ import { useBoardName } from 'services/api/hooks/useBoardName';
 import { GallerySettingsPopover } from './GallerySettingsPopover/GallerySettingsPopover';
 import { GalleryUploadButton } from './GalleryUploadButton';
 import { GallerySearch } from './ImageGrid/GallerySearch';
-import { NewGallery } from './NewGallery';
+import { ImageGallery } from './NewGallery';
+import { VideoGallery } from './VideoGallery';
 
 const COLLAPSE_STYLES: CSSProperties = { flexShrink: 0, minHeight: 0, width: '100%' };
 
@@ -33,15 +30,8 @@ export const GalleryPanel = memo(() => {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const { tab } = useAutoLayoutContext();
-  const collapsibleApi = useCollapsibleGridviewPanel(
-    tab,
-    GALLERY_PANEL_ID,
-    'vertical',
-    GALLERY_PANEL_DEFAULT_HEIGHT_PX,
-    GALLERY_PANEL_MIN_HEIGHT_PX
-  );
-  const isCollapsed = useStore(collapsibleApi.$isCollapsed);
-
+  const galleryPanel = useGalleryPanel(tab);
+  const isCollapsed = useStore(galleryPanel.$isCollapsed);
   const galleryView = useAppSelector(selectGalleryView);
   const initialSearchTerm = useAppSelector(selectSearchTerm);
   const searchDisclosure = useDisclosure(!!initialSearchTerm);
@@ -54,16 +44,21 @@ export const GalleryPanel = memo(() => {
     dispatch(galleryViewChanged('assets'));
   }, [dispatch]);
 
+  const handleClickVideos = useCallback(() => {
+    dispatch(galleryViewChanged('videos'));
+  }, [dispatch]);
+
   const handleClickSearch = useCallback(() => {
     onResetSearchTerm();
-    if (!searchDisclosure.isOpen && collapsibleApi.$isCollapsed.get()) {
-      collapsibleApi.expand();
+    if (!searchDisclosure.isOpen && galleryPanel.$isCollapsed.get()) {
+      galleryPanel.expand();
     }
     searchDisclosure.toggle();
-  }, [collapsibleApi, onResetSearchTerm, searchDisclosure]);
+  }, [galleryPanel, onResetSearchTerm, searchDisclosure]);
 
   const selectedBoardId = useAppSelector(selectSelectedBoardId);
   const boardName = useBoardName(selectedBoardId);
+  const isVideoEnabled = useFeatureStatus('video');
 
   return (
     <Flex flexDirection="column" alignItems="center" justifyContent="space-between" h="full" w="full" minH={0}>
@@ -71,8 +66,9 @@ export const GalleryPanel = memo(() => {
         <Button
           size="sm"
           variant="ghost"
-          onClick={collapsibleApi.toggle}
+          onClick={galleryPanel.toggle}
           leftIcon={isCollapsed ? <PiCaretDownBold /> : <PiCaretUpBold />}
+          noOfLines={1}
         >
           {boardName}
         </Button>
@@ -86,6 +82,17 @@ export const GalleryPanel = memo(() => {
           >
             {t('parameters.images')}
           </Button>
+
+          {isVideoEnabled && (
+            <Button
+              tooltip={t('gallery.videosTab')}
+              onClick={handleClickVideos}
+              data-testid="videos-tab"
+              colorScheme={galleryView === 'videos' ? 'invokeBlue' : undefined}
+            >
+              {t('gallery.videos')}
+            </Button>
+          )}
           <Button
             tooltip={t('gallery.assetsTab')}
             onClick={handleClickAssets}
@@ -120,7 +127,7 @@ export const GalleryPanel = memo(() => {
       </Collapse>
       <Divider pt={2} />
       <Flex w="full" h="full" pt={2}>
-        <NewGallery />
+        {galleryView === 'videos' ? <VideoGallery /> : <ImageGallery />}
       </Flex>
     </Flex>
   );

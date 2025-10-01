@@ -17,6 +17,7 @@ from invokeai.app.services.shared.invocation_context import InvocationContext
 from invokeai.backend.model_manager.load.load_base import LoadedModel
 from invokeai.backend.stable_diffusion.diffusers_pipeline import image_resized_to_grid_as_tensor
 from invokeai.backend.util.devices import TorchDevice
+from invokeai.backend.util.vae_working_memory import estimate_vae_working_memory_sd3
 
 
 @invocation(
@@ -34,7 +35,11 @@ class SD3ImageToLatentsInvocation(BaseInvocation, WithMetadata, WithBoard):
 
     @staticmethod
     def vae_encode(vae_info: LoadedModel, image_tensor: torch.Tensor) -> torch.Tensor:
-        with vae_info as vae:
+        assert isinstance(vae_info.model, AutoencoderKL)
+        estimated_working_memory = estimate_vae_working_memory_sd3(
+            operation="encode", image_tensor=image_tensor, vae=vae_info.model
+        )
+        with vae_info.model_on_device(working_mem_bytes=estimated_working_memory) as (_, vae):
             assert isinstance(vae, AutoencoderKL)
 
             vae.disable_tiling()
@@ -58,6 +63,8 @@ class SD3ImageToLatentsInvocation(BaseInvocation, WithMetadata, WithBoard):
             image_tensor = einops.rearrange(image_tensor, "c h w -> 1 c h w")
 
         vae_info = context.models.load(self.vae.vae)
+        assert isinstance(vae_info.model, AutoencoderKL)
+
         latents = self.vae_encode(vae_info=vae_info, image_tensor=image_tensor)
 
         latents = latents.to("cpu")

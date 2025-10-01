@@ -143,10 +143,34 @@ flux_dev = StarterModel(
 flux_kontext = StarterModel(
     name="FLUX.1 Kontext dev",
     base=BaseModelType.Flux,
-    source="black-forest-labs/FLUX.1-Kontext-dev::flux1-kontext-dev.safetensors",
+    source="https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev/resolve/main/flux1-kontext-dev.safetensors",
     description="FLUX.1 Kontext dev transformer in bfloat16. Total size with dependencies: ~33GB",
     type=ModelType.Main,
     dependencies=[t5_base_encoder, flux_vae, clip_l_encoder],
+)
+flux_kontext_quantized = StarterModel(
+    name="FLUX.1 Kontext dev (quantized)",
+    base=BaseModelType.Flux,
+    source="https://huggingface.co/unsloth/FLUX.1-Kontext-dev-GGUF/resolve/main/flux1-kontext-dev-Q4_K_M.gguf",
+    description="FLUX.1 Kontext dev quantized (q4_k_m). Total size with dependencies: ~14GB",
+    type=ModelType.Main,
+    dependencies=[t5_8b_quantized_encoder, flux_vae, clip_l_encoder],
+)
+flux_krea = StarterModel(
+    name="FLUX.1 Krea dev",
+    base=BaseModelType.Flux,
+    source="https://huggingface.co/InvokeAI/FLUX.1-Krea-dev/resolve/main/flux1-krea-dev.safetensors",
+    description="FLUX.1 Krea dev. Total size with dependencies: ~33GB",
+    type=ModelType.Main,
+    dependencies=[t5_8b_quantized_encoder, flux_vae, clip_l_encoder],
+)
+flux_krea_quantized = StarterModel(
+    name="FLUX.1 Krea dev (quantized)",
+    base=BaseModelType.Flux,
+    source="https://huggingface.co/InvokeAI/FLUX.1-Krea-dev-GGUF/resolve/main/flux1-krea-dev-Q4_K_M.gguf",
+    description="FLUX.1 Krea dev quantized (q4_k_m). Total size with dependencies: ~14GB",
+    type=ModelType.Main,
+    dependencies=[t5_8b_quantized_encoder, flux_vae, clip_l_encoder],
 )
 sd35_medium = StarterModel(
     name="SD3.5 Medium",
@@ -572,13 +596,14 @@ t2i_sketch_sdxl = StarterModel(
 )
 # endregion
 # region SpandrelImageToImage
-realesrgan_anime = StarterModel(
-    name="RealESRGAN_x4plus_anime_6B",
+animesharp_v4_rcan = StarterModel(
+    name="2x-AnimeSharpV4_RCAN",
     base=BaseModelType.Any,
-    source="https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth",
-    description="A Real-ESRGAN 4x upscaling model (optimized for anime images).",
+    source="https://github.com/Kim2091/Kim2091-Models/releases/download/2x-AnimeSharpV4/2x-AnimeSharpV4_RCAN.safetensors",
+    description="A 2x upscaling model (optimized for anime images).",
     type=ModelType.SpandrelImageToImage,
 )
+
 realesrgan_x4 = StarterModel(
     name="RealESRGAN_x4plus",
     base=BaseModelType.Any,
@@ -664,7 +689,7 @@ flux_fill = StarterModel(
 # List of starter models, displayed on the frontend.
 # The order/sort of this list is not changed by the frontend - set it how you want it here.
 STARTER_MODELS: list[StarterModel] = [
-    flux_kontext,
+    flux_kontext_quantized,
     flux_schnell_quantized,
     flux_dev_quantized,
     flux_schnell,
@@ -724,7 +749,7 @@ STARTER_MODELS: list[StarterModel] = [
     t2i_lineart_sdxl,
     t2i_sketch_sdxl,
     realesrgan_x4,
-    realesrgan_anime,
+    animesharp_v4_rcan,
     realesrgan_x2,
     swinir,
     t5_base_encoder,
@@ -735,6 +760,8 @@ STARTER_MODELS: list[StarterModel] = [
     llava_onevision,
     flux_fill,
     cogview4,
+    flux_krea,
+    flux_krea_quantized,
 ]
 
 sd1_bundle: list[StarterModel] = [
@@ -785,7 +812,8 @@ flux_bundle: list[StarterModel] = [
     flux_depth_control_lora,
     flux_redux,
     flux_fill,
-    flux_kontext,
+    flux_kontext_quantized,
+    flux_krea_quantized,
 ]
 
 STARTER_BUNDLES: dict[str, StarterModelBundle] = {

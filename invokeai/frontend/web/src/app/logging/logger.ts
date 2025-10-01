@@ -2,7 +2,7 @@ import { createLogWriter } from '@roarr/browser-log-writer';
 import { atom } from 'nanostores';
 import type { Logger, MessageSerializer } from 'roarr';
 import { ROARR, Roarr } from 'roarr';
-import { z } from 'zod/v4';
+import { z } from 'zod';
 
 const serializeMessage: MessageSerializer = (message) => {
   return JSON.stringify(message);
@@ -26,6 +26,7 @@ export const zLogNamespace = z.enum([
   'system',
   'queue',
   'workflows',
+  'video',
 ]);
 export type LogNamespace = z.infer<typeof zLogNamespace>;
 
@@ -93,5 +94,7 @@ export const configureLogging = (
     localStorage.setItem('ROARR_FILTER', filter);
   }
 
-  ROARR.write = createLogWriter();
+  const styleOutput = localStorage.getItem('ROARR_STYLE_OUTPUT') === 'false' ? false : true;
+
+  ROARR.write = createLogWriter({ styleOutput });
 };

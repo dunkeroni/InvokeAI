@@ -15,6 +15,7 @@ from invokeai.backend.flux.modules.autoencoder import AutoEncoder
 from invokeai.backend.model_manager import LoadedModel
 from invokeai.backend.stable_diffusion.diffusers_pipeline import image_resized_to_grid_as_tensor
 from invokeai.backend.util.devices import TorchDevice
+from invokeai.backend.util.vae_working_memory import estimate_vae_working_memory_flux
 
 
 @invocation(
@@ -41,8 +42,12 @@ class FluxVaeEncodeInvocation(BaseInvocation):
         # TODO(ryand): Write a util function for generating random tensors that is consistent across devices / dtypes.
         # There's a starting point in get_noise(...), but it needs to be extracted and generalized. This function
         # should be used for VAE encode sampling.
+        assert isinstance(vae_info.model, AutoEncoder)
+        estimated_working_memory = estimate_vae_working_memory_flux(
+            operation="encode", image_tensor=image_tensor, vae=vae_info.model
+        )
         generator = torch.Generator(device=TorchDevice.choose_torch_device()).manual_seed(0)
-        with vae_info as vae:
+        with vae_info.model_on_device(working_mem_bytes=estimated_working_memory) as (_, vae):
             assert isinstance(vae, AutoEncoder)
             vae_dtype = next(iter(vae.parameters())).dtype
             image_tensor = image_tensor.to(device=TorchDevice.choose_torch_device(), dtype=vae_dtype)

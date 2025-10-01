@@ -1,6 +1,6 @@
 import type { PayloadAction, UnknownAction } from '@reduxjs/toolkit';
 import { createSlice, isAnyOf } from '@reduxjs/toolkit';
-import type { PersistConfig } from 'app/store/store';
+import type { SliceConfig } from 'app/store/types';
 import { moveOneToEnd, moveOneToStart, moveToEnd, moveToStart } from 'common/util/arrayUtils';
 import { deepClone } from 'common/util/deepClone';
 import { roundDownToMultiple, roundToMultiple } from 'common/util/roundDownToMultiple';
@@ -19,12 +19,16 @@ import type {
   CanvasEntityType,
   CanvasInpaintMaskState,
   CanvasMetadata,
+  ChannelName,
+  ChannelPoints,
   ControlLoRAConfig,
   EntityMovedByPayload,
   FillStyle,
   FLUXReduxImageInfluence,
+  RasterLayerAdjustments,
   RegionalGuidanceRefImageState,
   RgbColor,
+  SimpleAdjustmentsConfig,
 } from 'features/controlLayers/store/types';
 import {
   calculateNewSize,
@@ -32,7 +36,6 @@ import {
 } from 'features/controlLayers/util/getScaledBoundingBoxDimensions';
 import { simplifyFlatNumbersArray } from 'features/controlLayers/util/simplify';
 import { isMainModelBase, zModelIdentifierField } from 'features/nodes/types/common';
-import { ASPECT_RATIO_MAP } from 'features/parameters/components/Bbox/constants';
 import { API_BASE_MODELS } from 'features/parameters/types/constants';
 import { getGridSize, getIsSizeOptimal, getOptimalDimension } from 'features/parameters/util/optimalDimension';
 import type { IRect } from 'konva/lib/types';
@@ -69,14 +72,21 @@ import type {
   T2IAdapterConfig,
 } from './types';
 import {
+  ASPECT_RATIO_MAP,
+  CHATGPT_ASPECT_RATIOS,
   DEFAULT_ASPECT_RATIO_CONFIG,
+  FLUX_KONTEXT_ASPECT_RATIOS,
+  GEMINI_2_5_ASPECT_RATIOS,
   getEntityIdentifier,
   getInitialCanvasState,
+  IMAGEN_ASPECT_RATIOS,
   isChatGPT4oAspectRatioID,
   isFluxKontextAspectRatioID,
-  isFLUXReduxConfig,
+  isGemini2_5AspectRatioID,
   isImagenAspectRatioID,
-  isIPAdapterConfig,
+  isRegionalGuidanceFLUXReduxConfig,
+  isRegionalGuidanceIPAdapterConfig,
+  zCanvasState,
 } from './types';
 import {
   converters,
@@ -89,15 +99,107 @@ import {
   initialControlNet,
   initialFLUXRedux,
   initialIPAdapter,
+  initialRegionalGuidanceIPAdapter,
   initialT2IAdapter,
+  makeDefaultRasterLayerAdjustments,
 } from './util';
 
-export const canvasSlice = createSlice({
+const slice = createSlice({
   name: 'canvas',
   initialState: getInitialCanvasState(),
   reducers: {
     // undoable canvas state
     //#region Raster layers
+    rasterLayerAdjustmentsSet: (
+      state,
+      action: PayloadAction<EntityIdentifierPayload<{ adjustments: RasterLayerAdjustments | null }, 'raster_layer'>>
+    ) => {
+      const { entityIdentifier, adjustments } = action.payload;
+      const layer = selectEntity(state, entityIdentifier);
+      if (!layer) {
+        return;
+      }
+      if (adjustments === null) {
+        delete layer.adjustments;
+        return;
+      }
+      if (!layer.adjustments) {
+        layer.adjustments = makeDefaultRasterLayerAdjustments(adjustments.mode ?? 'simple');
+      }
+      layer.adjustments = merge(layer.adjustments, adjustments);
+    },
+    rasterLayerAdjustmentsReset: (state, action: PayloadAction<EntityIdentifierPayload<void, 'raster_layer'>>) => {
+      const { entityIdentifier } = action.payload;
+      const layer = selectEntity(state, entityIdentifier);
+      if (!layer?.adjustments) {
+        return;
+      }
+      layer.adjustments.simple = makeDefaultRasterLayerAdjustments('simple').simple;
+      layer.adjustments.curves = makeDefaultRasterLayerAdjustments('curves').curves;
+    },
+    rasterLayerAdjustmentsCancel: (state, action: PayloadAction<EntityIdentifierPayload<void, 'raster_layer'>>) => {
+      const { entityIdentifier } = action.payload;
+      const layer = selectEntity(state, entityIdentifier);
+      if (!layer) {
+        return;
+      }
+      delete layer.adjustments;
+    },
+    rasterLayerAdjustmentsModeChanged: (
+      state,
+      action: PayloadAction<EntityIdentifierPayload<{ mode: 'simple' | 'curves' }, 'raster_layer'>>
+    ) => {
+      const { entityIdentifier, mode } = action.payload;
+      const layer = selectEntity(state, entityIdentifier);
+      if (!layer?.adjustments) {
+        return;
+      }
+      layer.adjustments.mode = mode;
+    },
+    rasterLayerAdjustmentsSimpleUpdated: (
+      state,
+      action: PayloadAction<EntityIdentifierPayload<{ simple: Partial<SimpleAdjustmentsConfig> }, 'raster_layer'>>
+    ) => {
+      const { entityIdentifier, simple } = action.payload;
+      const layer = selectEntity(state, entityIdentifier);
+      if (!layer?.adjustments) {
+        return;
+      }
+      layer.adjustments.simple = merge(layer.adjustments.simple, simple);
+    },
+    rasterLayerAdjustmentsCurvesUpdated: (
+      state,
+      action: PayloadAction<EntityIdentifierPayload<{ channel: ChannelName; points: ChannelPoints }, 'raster_layer'>>
+    ) => {
+      const { entityIdentifier, channel, points } = action.payload;
+      const layer = selectEntity(state, entityIdentifier);
+      if (!layer?.adjustments) {
+        return;
+      }
+      layer.adjustments.curves[channel] = points;
+    },
+    rasterLayerAdjustmentsEnabledToggled: (
+      state,
+      action: PayloadAction<EntityIdentifierPayload<void, 'raster_layer'>>
+    ) => {
+      const { entityIdentifier } = action.payload;
+      const layer = selectEntity(state, entityIdentifier);
+      if (!layer?.adjustments) {
+        return;
+      }
+      layer.adjustments.enabled = !layer.adjustments.enabled;
+    },
+    rasterLayerAdjustmentsCollapsedToggled: (
+      state,
+      action: PayloadAction<EntityIdentifierPayload<void, 'raster_layer'>>
+    ) => {
+      const { entityIdentifier } = action.payload;
+      const layer = selectEntity(state, entityIdentifier);
+      if (!layer?.adjustments) {
+        return;
+      }
+      layer.adjustments.collapsed = !layer.adjustments.collapsed;
+    },
     rasterLayerAdded: {
       reducer: (
         state,
@@ -107,12 +209,16 @@ export const canvasSlice = createSlice({
           isSelected?: boolean;
           isBookmarked?: boolean;
           mergedEntitiesToDelete?: string[];
+          addAfter?: string;
         }>
       ) => {
-        const { id, overrides, isSelected, isBookmarked, mergedEntitiesToDelete = [] } = action.payload;
+        const { id, overrides, isSelected, isBookmarked, mergedEntitiesToDelete = [], addAfter } = action.payload;
         const entityState = getRasterLayerState(id, overrides);
 
-        state.rasterLayers.entities.push(entityState);
+        const index = addAfter
+          ? state.rasterLayers.entities.findIndex((e) => e.id === addAfter) + 1
+          : state.rasterLayers.entities.length;
+        state.rasterLayers.entities.splice(index, 0, entityState);
 
         if (mergedEntitiesToDelete.length > 0) {
           state.rasterLayers.entities = state.rasterLayers.entities.filter(
@@ -135,6 +241,7 @@ export const canvasSlice = createSlice({
         isSelected?: boolean;
         isBookmarked?: boolean;
         mergedEntitiesToDelete?: string[];
+        addAfter?: string;
       }) => ({
         payload: { ...payload, id: getPrefixedId('raster_layer') },
       }),
@@ -268,13 +375,17 @@ export const canvasSlice = createSlice({
           isSelected?: boolean;
           isBookmarked?: boolean;
           mergedEntitiesToDelete?: string[];
+          addAfter?: string;
         }>
       ) => {
-        const { id, overrides, isSelected, isBookmarked, mergedEntitiesToDelete = [] } = action.payload;
+        const { id, overrides, isSelected, isBookmarked, mergedEntitiesToDelete = [], addAfter } = action.payload;
 
         const entityState = getControlLayerState(id, overrides);
 
-        state.controlLayers.entities.push(entityState);
+        const index = addAfter
+          ? state.controlLayers.entities.findIndex((e) => e.id === addAfter) + 1
+          : state.controlLayers.entities.length;
+        state.controlLayers.entities.splice(index, 0, entityState);
 
         if (mergedEntitiesToDelete.length > 0) {
           state.controlLayers.entities = state.controlLayers.entities.filter(
@@ -296,6 +407,7 @@ export const canvasSlice = createSlice({
         isSelected?: boolean;
         isBookmarked?: boolean;
         mergedEntitiesToDelete?: string[];
+        addAfter?: string;
       }) => ({
         payload: { ...payload, id: getPrefixedId('control_layer') },
       }),
@@ -566,13 +678,17 @@ export const canvasSlice = createSlice({
           isSelected?: boolean;
           isBookmarked?: boolean;
           mergedEntitiesToDelete?: string[];
+          addAfter?: string;
         }>
       ) => {
-        const { id, overrides, isSelected, isBookmarked, mergedEntitiesToDelete = [] } = action.payload;
+        const { id, overrides, isSelected, isBookmarked, mergedEntitiesToDelete = [], addAfter } = action.payload;
 
         const entityState = getRegionalGuidanceState(id, overrides);
 
-        state.regionalGuidance.entities.push(entityState);
+        const index = addAfter
+          ? state.regionalGuidance.entities.findIndex((e) => e.id === addAfter) + 1
+          : state.regionalGuidance.entities.length;
+        state.regionalGuidance.entities.splice(index, 0, entityState);
 
         if (mergedEntitiesToDelete.length > 0) {
           state.regionalGuidance.entities = state.regionalGuidance.entities.filter(
@@ -594,6 +710,7 @@ export const canvasSlice = createSlice({
         isSelected?: boolean;
         isBookmarked?: boolean;
         mergedEntitiesToDelete?: string[];
+        addAfter?: string;
       }) => ({
         payload: { ...payload, id: getPrefixedId('regional_guidance') },
       }),
@@ -688,7 +805,7 @@ export const canvasSlice = createSlice({
         if (!entity) {
           return;
         }
-        const config = { id: referenceImageId, config: deepClone(initialIPAdapter) };
+        const config = { id: referenceImageId, config: deepClone(initialRegionalGuidanceIPAdapter) };
         merge(config, overrides);
         entity.referenceImages.push(config);
       },
@@ -731,7 +848,7 @@ export const canvasSlice = createSlice({
       if (!referenceImage) {
         return;
       }
-      if (!isIPAdapterConfig(referenceImage.config)) {
+      if (!isRegionalGuidanceIPAdapterConfig(referenceImage.config)) {
         return;
       }
 
@@ -748,7 +865,7 @@ export const canvasSlice = createSlice({
       if (!referenceImage) {
         return;
       }
-      if (!isIPAdapterConfig(referenceImage.config)) {
+      if (!isRegionalGuidanceIPAdapterConfig(referenceImage.config)) {
         return;
       }
       referenceImage.config.beginEndStepPct = beginEndStepPct;
@@ -764,7 +881,7 @@ export const canvasSlice = createSlice({
       if (!referenceImage) {
         return;
       }
-      if (!isIPAdapterConfig(referenceImage.config)) {
+      if (!isRegionalGuidanceIPAdapterConfig(referenceImage.config)) {
         return;
       }
       referenceImage.config.method = method;
@@ -783,7 +900,7 @@ export const canvasSlice = createSlice({
       if (!referenceImage) {
         return;
       }
-      if (!isFLUXReduxConfig(referenceImage.config)) {
+      if (!isRegionalGuidanceFLUXReduxConfig(referenceImage.config)) {
         return;
       }
 
@@ -812,7 +929,7 @@ export const canvasSlice = createSlice({
         return;
       }
 
-      if (isIPAdapterConfig(referenceImage.config) && isFluxReduxModelConfig(modelConfig)) {
+      if (isRegionalGuidanceIPAdapterConfig(referenceImage.config) && isFluxReduxModelConfig(modelConfig)) {
         // Switching from ip_adapter to flux_redux
         referenceImage.config = {
           ...initialFLUXRedux,
@@ -822,7 +939,7 @@ export const canvasSlice = createSlice({
         return;
       }
 
-      if (isFLUXReduxConfig(referenceImage.config) && isIPAdapterModelConfig(modelConfig)) {
+      if (isRegionalGuidanceFLUXReduxConfig(referenceImage.config) && isIPAdapterModelConfig(modelConfig)) {
         // Switching from flux_redux to ip_adapter
         referenceImage.config = {
           ...initialIPAdapter,
@@ -832,7 +949,7 @@ export const canvasSlice = createSlice({
         return;
       }
 
-      if (isIPAdapterConfig(referenceImage.config)) {
+      if (isRegionalGuidanceIPAdapterConfig(referenceImage.config)) {
         referenceImage.config.model = zModelIdentifierField.parse(modelConfig);
 
         // Ensure that the IP Adapter model is compatible with the CLIP Vision model
@@ -855,7 +972,7 @@ export const canvasSlice = createSlice({
       if (!referenceImage) {
         return;
       }
-      if (!isIPAdapterConfig(referenceImage.config)) {
+      if (!isRegionalGuidanceIPAdapterConfig(referenceImage.config)) {
         return;
       }
       referenceImage.config.clipVisionModel = clipVisionModel;
@@ -870,13 +987,17 @@ export const canvasSlice = createSlice({
           isSelected?: boolean;
           isBookmarked?: boolean;
           mergedEntitiesToDelete?: string[];
+          addAfter?: string;
         }>
       ) => {
-        const { id, overrides, isSelected, isBookmarked, mergedEntitiesToDelete = [] } = action.payload;
+        const { id, overrides, isSelected, isBookmarked, mergedEntitiesToDelete = [], addAfter } = action.payload;
 
         const entityState = getInpaintMaskState(id, overrides);
 
-        state.inpaintMasks.entities.push(entityState);
+        const index = addAfter
+          ? state.inpaintMasks.entities.findIndex((e) => e.id === addAfter) + 1
+          : state.inpaintMasks.entities.length;
+        state.inpaintMasks.entities.splice(index, 0, entityState);
 
         if (mergedEntitiesToDelete.length > 0) {
           state.inpaintMasks.entities = state.inpaintMasks.entities.filter(
@@ -898,6 +1019,7 @@ export const canvasSlice = createSlice({
         isSelected?: boolean;
         isBookmarked?: boolean;
         mergedEntitiesToDelete?: string[];
+        addAfter?: string;
       }) => ({
         payload: { ...payload, id: getPrefixedId('inpaint_mask') },
       }),
@@ -1087,6 +1209,15 @@ export const canvasSlice = createSlice({
 
       syncScaledSize(state);
     },
+    bboxSizeRecalled: (state, action: PayloadAction<{ width: number; height: number }>) => {
+      const { width, height } = action.payload;
+      const gridSize = getGridSize(state.bbox.modelBase);
+      state.bbox.rect.width = Math.max(roundDownToMultiple(width, gridSize), 64);
+      state.bbox.rect.height = Math.max(roundDownToMultiple(height, gridSize), 64);
+      state.bbox.aspectRatio.value = state.bbox.rect.width / state.bbox.rect.height;
+      state.bbox.aspectRatio.id = 'Free';
+      state.bbox.aspectRatio.isLocked = true;
+    },
     bboxAspectRatioLockToggled: (state) => {
       state.bbox.aspectRatio.isLocked = !state.bbox.aspectRatio.isLocked;
       syncScaledSize(state);
@@ -1100,62 +1231,27 @@ export const canvasSlice = createSlice({
         (state.bbox.modelBase === 'imagen3' || state.bbox.modelBase === 'imagen4') &&
         isImagenAspectRatioID(id)
       ) {
-        // Imagen3 has specific output sizes that are not exactly the same as the aspect ratio. Need special handling.
-        if (id === '16:9') {
-          state.bbox.rect.width = 1408;
-          state.bbox.rect.height = 768;
-        } else if (id === '4:3') {
-          state.bbox.rect.width = 1280;
-          state.bbox.rect.height = 896;
-        } else if (id === '1:1') {
-          state.bbox.rect.width = 1024;
-          state.bbox.rect.height = 1024;
-        } else if (id === '3:4') {
-          state.bbox.rect.width = 896;
-          state.bbox.rect.height = 1280;
-        } else if (id === '9:16') {
-          state.bbox.rect.width = 768;
-          state.bbox.rect.height = 1408;
-        }
+        const { width, height } = IMAGEN_ASPECT_RATIOS[id];
+        state.bbox.rect.width = width;
+        state.bbox.rect.height = height;
         state.bbox.aspectRatio.value = state.bbox.rect.width / state.bbox.rect.height;
         state.bbox.aspectRatio.isLocked = true;
       } else if (state.bbox.modelBase === 'chatgpt-4o' && isChatGPT4oAspectRatioID(id)) {
-        // gpt-image has specific output sizes that are not exactly the same as the aspect ratio. Need special handling.
-        if (id === '3:2') {
-          state.bbox.rect.width = 1536;
-          state.bbox.rect.height = 1024;
-        } else if (id === '1:1') {
-          state.bbox.rect.width = 1024;
-          state.bbox.rect.height = 1024;
-        } else if (id === '2:3') {
-          state.bbox.rect.width = 1024;
-          state.bbox.rect.height = 1536;
-        }
+        const { width, height } = CHATGPT_ASPECT_RATIOS[id];
+        state.bbox.rect.width = width;
+        state.bbox.rect.height = height;
+        state.bbox.aspectRatio.value = state.bbox.rect.width / state.bbox.rect.height;
+        state.bbox.aspectRatio.isLocked = true;
+      } else if (state.bbox.modelBase === 'gemini-2.5' && isGemini2_5AspectRatioID(id)) {
+        const { width, height } = GEMINI_2_5_ASPECT_RATIOS[id];
+        state.bbox.rect.width = width;
+        state.bbox.rect.height = height;
         state.bbox.aspectRatio.value = state.bbox.rect.width / state.bbox.rect.height;
         state.bbox.aspectRatio.isLocked = true;
       } else if (state.bbox.modelBase === 'flux-kontext' && isFluxKontextAspectRatioID(id)) {
-        if (id === '3:4') {
-          state.bbox.rect.width = 880;
-          state.bbox.rect.height = 1184;
-        } else if (id === '4:3') {
-          state.bbox.rect.width = 1184;
-          state.bbox.rect.height = 880;
-        } else if (id === '9:16') {
-          state.bbox.rect.width = 752;
-          state.bbox.rect.height = 1392;
-        } else if (id === '16:9') {
-          state.bbox.rect.width = 1392;
-          state.bbox.rect.height = 752;
-        } else if (id === '21:9') {
-          state.bbox.rect.width = 1568;
-          state.bbox.rect.height = 672;
-        } else if (id === '9:21') {
-          state.bbox.rect.width = 672;
-          state.bbox.rect.height = 1568;
-        } else if (id === '1:1') {
-          state.bbox.rect.width = 1024;
-          state.bbox.rect.height = 1024;
-        }
+        const { width, height } = FLUX_KONTEXT_ASPECT_RATIOS[id];
+        state.bbox.rect.width = width;
+        state.bbox.rect.height = height;
         state.bbox.aspectRatio.value = state.bbox.rect.width / state.bbox.rect.height;
         state.bbox.aspectRatio.isLocked = true;
       } else {
@@ -1277,25 +1373,33 @@ export const canvasSlice = createSlice({
         newEntity.name = `${newEntity.name} (Copy)`;
       }
       switch (newEntity.type) {
-        case 'raster_layer':
+        case 'raster_layer': {
           newEntity.id = getPrefixedId('raster_layer');
-          state.rasterLayers.entities.push(newEntity);
+          const newEntityIndex = state.rasterLayers.entities.findIndex((e) => e.id === entityIdentifier.id) + 1;
+          state.rasterLayers.entities.splice(newEntityIndex, 0, newEntity);
           break;
-        case 'control_layer':
+        }
+        case 'control_layer': {
           newEntity.id = getPrefixedId('control_layer');
-          state.controlLayers.entities.push(newEntity);
+          const newEntityIndex = state.controlLayers.entities.findIndex((e) => e.id === entityIdentifier.id) + 1;
+          state.controlLayers.entities.splice(newEntityIndex, 0, newEntity);
           break;
-        case 'regional_guidance':
+        }
+        case 'regional_guidance': {
           newEntity.id = getPrefixedId('regional_guidance');
           for (const refImage of newEntity.referenceImages) {
             refImage.id = getPrefixedId('regional_guidance_ip_adapter');
           }
-          state.regionalGuidance.entities.push(newEntity);
+          const newEntityIndex = state.regionalGuidance.entities.findIndex((e) => e.id === entityIdentifier.id) + 1;
+          state.regionalGuidance.entities.splice(newEntityIndex, 0, newEntity);
           break;
-        case 'inpaint_mask':
+        }
+        case 'inpaint_mask': {
           newEntity.id = getPrefixedId('inpaint_mask');
-          state.inpaintMasks.entities.push(newEntity);
+          const newEntityIndex = state.inpaintMasks.entities.findIndex((e) => e.id === entityIdentifier.id) + 1;
+          state.inpaintMasks.entities.splice(newEntityIndex, 0, newEntity);
           break;
+        }
       }
 
       state.selectedEntityIdentifier = getEntityIdentifier(newEntity);
@@ -1603,6 +1707,7 @@ export const canvasSlice = createSlice({
           state.bbox.rect.width = 1024;
           state.bbox.rect.height = 1024;
         }
+
         syncScaledSize(state);
       }
     });
@@ -1649,6 +1754,15 @@ export const {
   entityBrushLineAdded,
   entityEraserLineAdded,
   entityRectAdded,
+  // Raster layer adjustments
+  rasterLayerAdjustmentsSet,
+  rasterLayerAdjustmentsCancel,
+  rasterLayerAdjustmentsReset,
+  rasterLayerAdjustmentsModeChanged,
+  rasterLayerAdjustmentsEnabledToggled,
+  rasterLayerAdjustmentsCollapsedToggled,
+  rasterLayerAdjustmentsSimpleUpdated,
+  rasterLayerAdjustmentsCurvesUpdated,
   entityDeleted,
   entityArrangedForwardOne,
   entityArrangedToFront,
@@ -1664,6 +1778,7 @@ export const {
   bboxScaledWidthChanged,
   bboxScaledHeightChanged,
   bboxScaleMethodChanged,
+  bboxSizeRecalled,
   bboxWidthChanged,
   bboxHeightChanged,
   bboxAspectRatioLockToggled,
@@ -1714,19 +1829,7 @@ export const {
   inpaintMaskDenoiseLimitChanged,
   inpaintMaskDenoiseLimitDeleted,
   // inpaintMaskRecalled,
-} = canvasSlice.actions;
-
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-const migrate = (state: any): any => {
-  return state;
-};
-
-export const canvasPersistConfig: PersistConfig<CanvasState> = {
-  name: canvasSlice.name,
-  initialState: getInitialCanvasState(),
-  migrate,
-  persistDenylist: [],
-};
+} = slice.actions;
 
 const syncScaledSize = (state: CanvasState) => {
   if (API_BASE_MODELS.includes(state.bbox.modelBase)) {
@@ -1749,14 +1852,14 @@ const syncScaledSize = (state: CanvasState) => {
 
 let filter = true;
 
-export const canvasUndoableConfig: UndoableOptions<CanvasState, UnknownAction> = {
+const canvasUndoableConfig: UndoableOptions<CanvasState, UnknownAction> = {
   limit: 64,
   undoType: canvasUndo.type,
   redoType: canvasRedo.type,
   clearHistoryType: canvasClearHistory.type,
   filter: (action, _state, _history) => {
     // Ignore all actions from other slices
-    if (!action.type.startsWith(canvasSlice.name)) {
+    if (!action.type.startsWith(slice.name)) {
       return false;
     }
     // Throttle rapid actions of the same type
@@ -1765,6 +1868,18 @@ export const canvasUndoableConfig: UndoableOptions<CanvasState, UnknownAction> =
   },
   // This is pretty spammy, leave commented out unless you need it
   // debug: import.meta.env.MODE === 'development',
+};
+
+export const canvasSliceConfig: SliceConfig<typeof slice> = {
+  slice,
+  getInitialState: getInitialCanvasState,
+  schema: zCanvasState,
+  persistConfig: {
+    migrate: (state) => zCanvasState.parse(state),
+  },
+  undoableConfig: {
+    reduxUndoOptions: canvasUndoableConfig,
+  },
 };
 
 const doNotGroupMatcher = isAnyOf(entityBrushLineAdded, entityEraserLineAdded, entityRectAdded);

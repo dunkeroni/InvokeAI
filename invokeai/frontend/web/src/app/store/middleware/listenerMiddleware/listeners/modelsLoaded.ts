@@ -1,6 +1,5 @@
 import { logger } from 'app/logging/logger';
-import type { AppStartListening } from 'app/store/middleware/listenerMiddleware';
-import type { AppDispatch, RootState } from 'app/store/store';
+import type { AppDispatch, AppStartListening, RootState } from 'app/store/store';
 import { controlLayerModelChanged, rgRefImageModelChanged } from 'features/controlLayers/store/canvasSlice';
 import { loraDeleted } from 'features/controlLayers/store/lorasSlice';
 import {
@@ -13,9 +12,21 @@ import {
 } from 'features/controlLayers/store/paramsSlice';
 import { refImageModelChanged, selectRefImagesSlice } from 'features/controlLayers/store/refImagesSlice';
 import { selectCanvasSlice } from 'features/controlLayers/store/selectors';
-import { getEntityIdentifier, isFLUXReduxConfig, isIPAdapterConfig } from 'features/controlLayers/store/types';
+import {
+  getEntityIdentifier,
+  isFLUXReduxConfig,
+  isIPAdapterConfig,
+  isRegionalGuidanceFLUXReduxConfig,
+  isRegionalGuidanceIPAdapterConfig,
+} from 'features/controlLayers/store/types';
+import { zModelIdentifierField } from 'features/nodes/types/common';
 import { modelSelected } from 'features/parameters/store/actions';
-import { postProcessingModelChanged, upscaleModelChanged } from 'features/parameters/store/upscaleSlice';
+import {
+  postProcessingModelChanged,
+  tileControlnetModelChanged,
+  upscaleModelChanged,
+} from 'features/parameters/store/upscaleSlice';
+import { videoModelChanged } from 'features/parameters/store/videoSlice';
 import {
   zParameterCLIPEmbedModel,
   zParameterSpandrelImageToImageModel,
@@ -28,6 +39,7 @@ import type { AnyModelConfig } from 'services/api/types';
 import {
   isCLIPEmbedModelConfig,
   isControlLayerModelConfig,
+  isControlNetModelConfig,
   isFluxReduxModelConfig,
   isFluxVAEModelConfig,
   isIPAdapterModelConfig,
@@ -37,6 +49,7 @@ import {
   isRefinerMainModelModelConfig,
   isSpandrelImageToImageModelConfig,
   isT5EncoderModelConfig,
+  isVideoModelConfig,
 } from 'services/api/types';
 import type { JsonObject } from 'type-fest';
 
@@ -71,11 +84,13 @@ export const addModelsLoadedListener = (startAppListening: AppStartListening) =>
       handleControlAdapterModels(models, state, dispatch, log);
       handlePostProcessingModel(models, state, dispatch, log);
       handleUpscaleModel(models, state, dispatch, log);
+      handleTileControlNetModel(models, state, dispatch, log);
       handleIPAdapterModels(models, state, dispatch, log);
       handleT5EncoderModels(models, state, dispatch, log);
       handleCLIPEmbedModels(models, state, dispatch, log);
       handleFLUXVAEModels(models, state, dispatch, log);
       handleFLUXReduxModels(models, state, dispatch, log);
+      handleVideoModels(models, state, dispatch, log);
     },
   });
 };
@@ -188,6 +203,22 @@ const handleLoRAModels: ModelHandler = (models, state, dispatch, log) => {
   });
 };
 
+const handleVideoModels: ModelHandler = (models, state, dispatch, log) => {
+  const videoModels = models.filter(isVideoModelConfig);
+  const selectedVideoModel = state.video.videoModel;
+
+  if (selectedVideoModel && videoModels.some((m) => m.key === selectedVideoModel.key)) {
+    return;
+  }
+
+  const firstModel = videoModels[0] || null;
+  if (firstModel) {
+    log.debug({ firstModel }, 'No video model selected, selecting first available video model');
+    dispatch(videoModelChanged({ videoModel: zModelIdentifierField.parse(firstModel) }));
+    return;
+  }
+};
+
 const handleControlAdapterModels: ModelHandler = (models, state, dispatch, log) => {
   const caModels = models.filter(isControlLayerModelConfig);
   selectCanvasSlice(state).controlLayers.entities.forEach((entity) => {
@@ -227,7 +258,7 @@ const handleIPAdapterModels: ModelHandler = (models, state, dispatch, log) => {
 
   selectCanvasSlice(state).regionalGuidance.entities.forEach((entity) => {
     entity.referenceImages.forEach(({ id: referenceImageId, config }) => {
-      if (!isIPAdapterConfig(config)) {
+      if (!isRegionalGuidanceIPAdapterConfig(config)) {
         return;
       }
 
@@ -270,7 +301,7 @@ const handleFLUXReduxModels: ModelHandler = (models, state, dispatch, log) => {
 
   selectCanvasSlice(state).regionalGuidance.entities.forEach((entity) => {
     entity.referenceImages.forEach(({ id: referenceImageId, config }) => {
-      if (!isFLUXReduxConfig(config)) {
+      if (!isRegionalGuidanceFLUXReduxConfig(config)) {
         return;
       }
 
@@ -342,6 +373,46 @@ const handleUpscaleModel: ModelHandler = (models, state, dispatch, log) => {
   if (selectedUpscaleModel) {
     log.debug({ selectedUpscaleModel }, 'Selected upscale model is not available, clearing');
     dispatch(upscaleModelChanged(null));
+  }
+};
+
+const handleTileControlNetModel: ModelHandler = (models, state, dispatch, log) => {
+  const selectedTileControlNetModel = state.upscale.tileControlnetModel;
+  const controlNetModels = models.filter(isControlNetModelConfig);
+
+  // If the currently selected model is available, we don't need to do anything
+  if (selectedTileControlNetModel && controlNetModels.some((m) => m.key === selectedTileControlNetModel.key)) {
+    return;
+  }
+
+  // The only way we have to identify a model as a tile model is by its name containing 'tile' :)
+  const tileModel = controlNetModels.find((m) => m.name.toLowerCase().includes('tile'));
+
+  // If we have a tile model, select it
+  if (tileModel) {
+    log.debug(
+      { selectedTileControlNetModel, tileModel },
+      'No selected tile ControlNet model or selected model is not available, selecting tile model'
+    );
+    dispatch(tileControlnetModelChanged(tileModel));
+    return;
+  }
+
+  // Otherwise, select the first available ControlNet model
+  const firstModel = controlNetModels[0] || null;
+  if (firstModel) {
+    log.debug(
+      { selectedTileControlNetModel, firstModel },
+      'No tile ControlNet model found, selecting first available ControlNet model'
+    );
+    dispatch(tileControlnetModelChanged(firstModel));
+    return;
+  }
+
+  // No available models, we should clear the selected model - but only if we have one selected
+  if (selectedTileControlNetModel) {
+    log.debug({ selectedTileControlNetModel }, 'Selected tile ControlNet model is not available, clearing');
+    dispatch(tileControlnetModelChanged(null));
   }
 };
 

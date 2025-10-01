@@ -1,22 +1,21 @@
 import type { FocusRegionName } from 'common/hooks/focus';
 import type { IDockviewPanelProps, IGridviewPanelProps } from 'dockview';
 import type { TabName } from 'features/ui/store/uiTypes';
-import type { FunctionComponent, PropsWithChildren, RefObject } from 'react';
+import type { FunctionComponent, PropsWithChildren } from 'react';
 import { createContext, memo, useContext, useMemo } from 'react';
 
 import { AutoLayoutPanelContainer } from './AutoLayoutPanelContainer';
 
 type AutoLayoutContextValue = {
   tab: TabName;
-  rootRef: RefObject<HTMLDivElement>;
 };
 
 const AutoLayoutContext = createContext<AutoLayoutContextValue | null>(null);
 
 export const AutoLayoutProvider = (props: PropsWithChildren<AutoLayoutContextValue>) => {
-  const { tab, rootRef, children } = props;
+  const { tab, children } = props;
 
-  const value = useMemo<AutoLayoutContextValue>(() => ({ tab, rootRef }), [tab, rootRef]);
+  const value = useMemo<AutoLayoutContextValue>(() => ({ tab }), [tab]);
   return <AutoLayoutContext.Provider value={value}>{children}</AutoLayoutContext.Provider>;
 };
 
@@ -28,17 +27,33 @@ export const useAutoLayoutContext = () => {
   return value;
 };
 
-export type PanelParameters = {
+export type DockviewPanelParameters = {
+  tab: TabName;
+  focusRegion: FocusRegionName;
+  i18nKey: string;
+};
+
+export type GridviewPanelParameters = {
   tab: TabName;
   focusRegion: FocusRegionName;
 };
 
-export type AutoLayoutGridviewComponents = Record<string, FunctionComponent<IGridviewPanelProps<PanelParameters>>>;
-export type AutoLayoutDockviewComponents = Record<string, FunctionComponent<IDockviewPanelProps<PanelParameters>>>;
-export type RootLayoutGridviewComponents = Record<string, FunctionComponent<IGridviewPanelProps<PanelParameters>>>;
-type PanelProps = IDockviewPanelProps<PanelParameters> | IGridviewPanelProps<PanelParameters>;
+export type AutoLayoutGridviewComponents = Record<
+  string,
+  FunctionComponent<IGridviewPanelProps<GridviewPanelParameters>>
+>;
+export type AutoLayoutDockviewComponents = Record<
+  string,
+  FunctionComponent<IDockviewPanelProps<DockviewPanelParameters>>
+>;
+export type RootLayoutGridviewComponents = Record<
+  string,
+  FunctionComponent<IGridviewPanelProps<GridviewPanelParameters>>
+>;
+type PanelProps = IDockviewPanelProps<DockviewPanelParameters> | IGridviewPanelProps<GridviewPanelParameters>;
 
 export const withPanelContainer = (Component: FunctionComponent) =>
+  /* eslint-disable-next-line  react/display-name */
   memo((props: PanelProps) => {
     return (
       <AutoLayoutPanelContainer {...props}>

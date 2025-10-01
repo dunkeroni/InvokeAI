@@ -38,10 +38,13 @@
         "deletedImagesCannotBeRestored": "Deleted images cannot be restored.",
         "hideBoards": "Hide Boards",
         "loading": "Loading...",
+        "locateInGalery": "Locate in Gallery",
         "menuItemAutoAdd": "Auto-add to this Board",
         "move": "Move",
         "movingImagesToBoard_one": "Moving {{count}} image to board:",
         "movingImagesToBoard_other": "Moving {{count}} images to board:",
+        "movingVideosToBoard_one": "Moving {{count}} video to board:",
+        "movingVideosToBoard_other": "Moving {{count}} videos to board:",
         "myBoard": "My Board",
         "noBoards": "No {{boardType}} Boards",
         "noMatching": "No matching Boards",
@@ -58,6 +61,8 @@
         "imagesWithCount_other": "{{count}} images",
         "assetsWithCount_one": "{{count}} asset",
         "assetsWithCount_other": "{{count}} assets",
+        "videosWithCount_one": "{{count}} video",
+        "videosWithCount_other": "{{count}} videos",
         "updateBoardError": "Error updating board"
     },
     "accordions": {
@@ -99,6 +104,7 @@
         "copy": "Copy",
         "copyError": "$t(gallery.copy) Error",
         "clipboard": "Clipboard",
+        "crop": "Crop",
         "on": "On",
         "off": "Off",
         "or": "or",
@@ -114,6 +120,9 @@
         "t2iAdapter": "T2I Adapter",
         "positivePrompt": "Positive Prompt",
         "negativePrompt": "Negative Prompt",
+        "removeNegativePrompt": "Remove Negative Prompt",
+        "addNegativePrompt": "Add Negative Prompt",
+        "selectYourModel": "Select Your Model",
         "discordLabel": "Discord",
         "dontAskMeAgain": "Don't ask me again",
         "dontShowMeThese": "Don't show me these",
@@ -234,7 +243,10 @@
         "resultSubtitle": "Choose how to handle the expanded prompt:",
         "replace": "Replace",
         "insert": "Insert",
-        "discard": "Discard"
+        "discard": "Discard",
+        "noPromptHistory": "No prompt history recorded.",
+        "noMatchingPrompts": "No matching prompts in history.",
+        "toSwitchBetweenPrompts": "to switch between prompts."
     },
     "queue": {
         "queue": "Queue",
@@ -253,6 +265,7 @@
         "cancel": "Cancel",
         "cancelAllExceptCurrentQueueItemAlertDialog": "Canceling all queue items except the current one will stop pending items but allow the in-progress one to finish.",
         "cancelAllExceptCurrentQueueItemAlertDialog2": "Are you sure you want to cancel all pending queue items?",
+        "cancelAllExceptCurrent": "Cancel All Except Current",
         "cancelAllExceptCurrentTooltip": "Cancel All Except Current Item",
         "cancelTooltip": "Cancel Current Item",
         "cancelSucceeded": "Item Canceled",
@@ -273,7 +286,7 @@
         "retryItem": "Retry Item",
         "cancelBatchSucceeded": "Batch Canceled",
         "cancelBatchFailed": "Problem Canceling Batch",
-        "clearQueueAlertDialog": "Clearing the queue immediately cancels any processing items and clears the queue entirely. Pending filters will be canceled.",
+        "clearQueueAlertDialog": "Clearing the queue immediately cancels any processing items and clears the queue entirely. Pending filters will be canceled and the Canvas Staging Area will be reset.",
         "clearQueueAlertDialog2": "Are you sure you want to clear the queue?",
         "current": "Current",
         "next": "Next",
@@ -289,7 +302,7 @@
         "completedIn": "Completed in",
         "batch": "Batch",
         "origin": "Origin",
-        "destination": "Destination",
+        "destination": "Dest",
         "upscaling": "Upscaling",
         "canvas": "Canvas",
         "generation": "Generation",
@@ -315,7 +328,13 @@
         "iterations_other": "Iterations",
         "generations_one": "Generation",
         "generations_other": "Generations",
-        "batchSize": "Batch Size"
+        "batchSize": "Batch Size",
+        "createdAt": "Created At",
+        "completedAt": "Completed At",
+        "sortColumn": "Sort Column",
+        "sortBy": "Sort by {{column}}",
+        "sortOrderAscending": "Ascending",
+        "sortOrderDescending": "Descending"
     },
     "invocationCache": {
         "invocationCache": "Invocation Cache",
@@ -356,6 +375,9 @@
         "deleteImage_one": "Delete Image",
         "deleteImage_other": "Delete {{count}} Images",
         "deleteImagePermanent": "Deleted images cannot be restored.",
+        "deleteVideo_one": "Delete Video",
+        "deleteVideo_other": "Delete {{count}} Videos",
+        "deleteVideoPermanent": "Deleted videos cannot be restored.",
         "displayBoardSearch": "Board Search",
         "displaySearch": "Image Search",
         "download": "Download",
@@ -375,9 +397,10 @@
         "sortDirection": "Sort Direction",
         "showStarredImagesFirst": "Show Starred Images First",
         "noImageSelected": "No Image Selected",
+        "noVideoSelected": "No Video Selected",
         "noImagesInGallery": "No Images to Display",
-        "starImage": "Star Image",
-        "unstarImage": "Unstar Image",
+        "starImage": "Star",
+        "unstarImage": "Unstar",
         "unableToLoad": "Unable to load Gallery",
         "deleteSelection": "Delete Selection",
         "downloadSelection": "Download Selection",
@@ -406,7 +429,9 @@
         "openViewer": "Open Viewer",
         "closeViewer": "Close Viewer",
         "move": "Move",
-        "useForPromptGeneration": "Use for Prompt Generation"
+        "useForPromptGeneration": "Use for Prompt Generation",
+        "videos": "Videos",
+        "videosTab": "Videos you've created and saved within Invoke."
     },
     "hotkeys": {
         "hotkeys": "Hotkeys",
@@ -451,9 +476,21 @@
                 "title": "Select the Queue Tab",
                 "desc": "Selects the Queue tab."
             },
+            "selectVideoTab": {
+                "title": "Select the Video Tab",
+                "desc": "Selects the Video tab."
+            },
             "focusPrompt": {
                 "title": "Focus Prompt",
                 "desc": "Move cursor focus to the positive prompt."
+            },
+            "promptHistoryPrev": {
+                "title": "Previous Prompt in History",
+                "desc": "When the prompt is focused, move to the previous (older) prompt in your history."
+            },
+            "promptHistoryNext": {
+                "title": "Next Prompt in History",
+                "desc": "When the prompt is focused, move to the next (newer) prompt in your history."
             },
             "toggleLeftPanel": {
                 "title": "Toggle Left Panel",
@@ -470,7 +507,15 @@
             "togglePanels": {
                 "title": "Toggle Panels",
                 "desc": "Show or hide both left and right panels at once."
+            },
+            "selectGenerateTab": {
+                "title": "Select the Generate Tab",
+                "desc": "Selects the Generate tab.",
+                "key": "1"
             }
+        },
+        "video": {
+            "title": "Video"
         },
         "canvas": {
             "title": "Canvas",
@@ -562,9 +607,13 @@
                 "title": "Prev Layer",
                 "desc": "Select the previous layer in the list."
             },
-            "setFillToWhite": {
-                "title": "Set Color to White",
-                "desc": "Set the current tool color to white."
+            "setFillColorsToDefault": {
+                "title": "Set Colors to Default",
+                "desc": "Set the current tool colors to default."
+            },
+            "toggleFillColor": {
+                "title": "Toggle Fill Color",
+                "desc": "Toggle the current tool fill color."
             },
             "filterSelected": {
                 "title": "Filter",
@@ -573,6 +622,10 @@
             "transformSelected": {
                 "title": "Transform",
                 "desc": "Transform the selected layer."
+            },
+            "invertMask": {
+                "title": "Invert Mask",
+                "desc": "Invert the selected inpaint mask, creating a new mask with opposite transparency."
             },
             "applyFilter": {
                 "title": "Apply Filter",
@@ -599,6 +652,28 @@
             "toggleNonRasterLayers": {
                 "title": "Toggle Non-Raster Layers",
                 "desc": "Show or hide all non-raster layer categories (Control Layers, Inpaint Masks, Regional Guidance)."
+            },
+            "fitBboxToLayers": {
+                "title": "Fit Bbox To Layers",
+                "desc": "Automatically adjust the generation bounding box to fit visible layers"
+            },
+            "fitBboxToMasks": {
+                "title": "Fit Bbox To Masks",
+                "desc": "Automatically adjust the generation bounding box to fit visible inpaint masks"
+            },
+            "toggleBbox": {
+                "title": "Toggle Bbox Visibility",
+                "desc": "Hide or show the generation bounding box"
+            },
+            "applySegmentAnything": {
+                "title": "Apply Segment Anything",
+                "desc": "Apply the current Segment Anything mask.",
+                "key": "enter"
+            },
+            "cancelSegmentAnything": {
+                "title": "Cancel Segment Anything",
+                "desc": "Cancel the current Segment Anything operation.",
+                "key": "esc"
             }
         },
         "workflows": {
@@ -728,23 +803,33 @@
             "deleteSelection": {
                 "title": "Delete",
                 "desc": "Delete all selected images. By default, you will be prompted to confirm deletion. If the images are currently in use in the app, you will be warned."
+            },
+            "starImage": {
+                "title": "Star/Unstar Image",
+                "desc": "Star or unstar the selected image."
             }
         }
+    },
+    "lora": {
+        "weight": "Weight"
     },
     "metadata": {
         "allPrompts": "All Prompts",
         "cfgScale": "CFG scale",
         "cfgRescaleMultiplier": "$t(parameters.cfgRescaleMultiplier)",
+        "clipSkip": "$t(parameters.clipSkip)",
         "createdBy": "Created By",
         "generationMode": "Generation Mode",
         "guidance": "Guidance",
         "height": "Height",
         "imageDetails": "Image Details",
+        "videoDetails": "Video Details",
         "imageDimensions": "Image Dimensions",
         "metadata": "Metadata",
         "model": "Model",
         "negativePrompt": "Negative Prompt",
         "noImageDetails": "No image details found",
+        "noVideoDetails": "No video details found",
         "noMetaData": "No metadata found",
         "noRecallParameters": "No parameters to recall found",
         "parameterSet": "Parameter {{parameter}} set",
@@ -762,7 +847,11 @@
         "vae": "VAE",
         "width": "Width",
         "workflow": "Workflow",
-        "canvasV2Metadata": "Canvas Layers"
+        "canvasV2Metadata": "Canvas Layers",
+        "videoModel": "Model",
+        "videoDuration": "Duration",
+        "videoAspectRatio": "Aspect Ratio",
+        "videoResolution": "Resolution"
     },
     "modelManager": {
         "active": "active",
@@ -833,10 +922,13 @@
         "nAlreadyInstalled": "{{count}} already installed",
         "installQueue": "Install Queue",
         "inplaceInstall": "In-place install",
-        "inplaceInstallDesc": "Install models without copying the files. When using the model, it will be loaded from its this location. If disabled, the model file(s) will be copied into the Invoke-managed models directory during installation.",
+        "inplaceInstallDesc": "Install models without moving the files. When using the model, it will be loaded from its original location. If disabled, the model file(s) will be moved into the Invoke-managed models directory during installation.",
         "install": "Install",
         "installAll": "Install All",
         "installRepo": "Install Repo",
+        "installBundle": "Install Bundle",
+        "installBundleMsg1": "Are you sure you want to install the {{bundleName}} bundle?",
+        "installBundleMsg2": "This bundle will install the following {{count}} models:",
         "ipAdapters": "IP Adapters",
         "learnMoreAboutSupportedModels": "Learn more about the models we support",
         "load": "Load",
@@ -1125,10 +1217,27 @@
         "addItem": "Add Item",
         "generateValues": "Generate Values",
         "floatRangeGenerator": "Float Range Generator",
-        "integerRangeGenerator": "Integer Range Generator"
+        "integerRangeGenerator": "Integer Range Generator",
+        "layout": {
+            "autoLayout": "Auto Layout",
+            "layeringStrategy": "Layering Strategy",
+            "networkSimplex": "Network Simplex",
+            "longestPath": "Longest Path",
+            "nodeSpacing": "Node Spacing",
+            "layerSpacing": "Layer Spacing",
+            "layoutDirection": "Layout Direction",
+            "layoutDirectionRight": "Right",
+            "layoutDirectionDown": "Down",
+            "alignment": "Node Alignment",
+            "alignmentUL": "Top Left",
+            "alignmentDL": "Bottom Left",
+            "alignmentUR": "Top Right",
+            "alignmentDR": "Bottom Right"
+        }
     },
     "parameters": {
         "aspect": "Aspect",
+        "duration": "Duration",
         "lockAspectRatio": "Lock Aspect Ratio",
         "swapDimensions": "Swap Dimensions",
         "setToOptimalSize": "Optimize size for model",
@@ -1153,9 +1262,15 @@
         "height": "Height",
         "imageFit": "Fit Initial Image To Output Size",
         "images": "Images",
+        "images_withCount_one": "Image",
+        "images_withCount_other": "Images",
+        "videos_withCount_one": "Video",
+        "videos_withCount_other": "Videos",
         "infillMethod": "Infill Method",
         "infillColorValue": "Fill Color",
         "info": "Info",
+        "startingFrameImage": "Start Frame",
+        "startingFrameImageAspectRatioWarning": "Image aspect ratio does not match the video aspect ratio ({{videoAspectRatio}}). This could lead to unexpected cropping during video generation.",
         "invoke": {
             "addingImagesTo": "Adding images to",
             "modelDisabledForTrial": "Generating with {{modelName}} is not available on trial accounts. Visit your account settings to upgrade.",
@@ -1179,6 +1294,7 @@
             "batchNodeCollectionSizeMismatchNoGroupId": "Batch group collection size mismatch",
             "batchNodeCollectionSizeMismatch": "Collection size mismatch on Batch {{batchGroupId}}",
             "noModelSelected": "No model selected",
+            "noStartingFrameImage": "No starting frame image",
             "noT5EncoderModelSelected": "No T5 Encoder model selected for FLUX generation",
             "noFLUXVAEModelSelected": "No VAE model selected for FLUX generation",
             "noCLIPEmbedModelSelected": "No CLIP Embed model selected for FLUX generation",
@@ -1191,7 +1307,7 @@
             "modelIncompatibleScaledBboxWidth": "Scaled bbox width is {{width}} but {{model}} requires multiple of {{multiple}}",
             "modelIncompatibleScaledBboxHeight": "Scaled bbox height is {{height}} but {{model}} requires multiple of {{multiple}}",
             "fluxModelMultipleControlLoRAs": "Can only use 1 Control LoRA at a time",
-            "fluxKontextMultipleReferenceImages": "Can only use 1 Reference Image at a time with Flux Kontext",
+            "incompatibleLoRAs": "Incompatible LoRA(s) added",
             "canvasIsFiltering": "Canvas is busy (filtering)",
             "canvasIsTransforming": "Canvas is busy (transforming)",
             "canvasIsRasterizing": "Canvas is busy (rasterizing)",
@@ -1201,7 +1317,8 @@
             "noNodesInGraph": "No nodes in graph",
             "systemDisconnected": "System disconnected",
             "promptExpansionPending": "Prompt expansion in progress",
-            "promptExpansionResultPending": "Please accept or discard your prompt expansion result"
+            "promptExpansionResultPending": "Please accept or discard your prompt expansion result",
+            "videoIsDisabled": "Video generation is not enabled for {{accountType}} accounts."
         },
         "maskBlur": "Mask Blur",
         "negativePromptPlaceholder": "Negative Prompt",
@@ -1219,9 +1336,11 @@
         "seamlessXAxis": "Seamless X Axis",
         "seamlessYAxis": "Seamless Y Axis",
         "seed": "Seed",
+        "videoActions": "Video Actions",
         "imageActions": "Image Actions",
         "sendToCanvas": "Send To Canvas",
         "sendToUpscale": "Send To Upscale",
+        "sendToVideo": "Send To Video",
         "showOptionsPanel": "Show Side Panel (O or T)",
         "shuffle": "Shuffle Seed",
         "steps": "Steps",
@@ -1233,16 +1352,19 @@
         "postProcessing": "Post-Processing (Shift + U)",
         "processImage": "Process Image",
         "upscaling": "Upscaling",
+        "video": "Video",
         "useAll": "Use All",
         "useSize": "Use Size",
         "useCpuNoise": "Use CPU Noise",
         "remixImage": "Remix Image",
         "usePrompt": "Use Prompt",
         "useSeed": "Use Seed",
+        "useClipSkip": "Use CLIP Skip",
         "width": "Width",
         "gaussianBlur": "Gaussian Blur",
         "boxBlur": "Box Blur",
         "staged": "Staged",
+        "resolution": "Resolution",
         "modelDisabledForTrial": "Generating with {{modelName}} is not available on trial accounts. Visit your <LinkComponent>account settings</LinkComponent> to upgrade."
     },
     "dynamicPrompts": {
@@ -1320,8 +1442,8 @@
         "addedToBoard": "Added to board {{name}}'s assets",
         "addedToUncategorized": "Added to board $t(boards.uncategorized)'s assets",
         "baseModelChanged": "Base Model Changed",
-        "baseModelChangedCleared_one": "Cleared or disabled {{count}} incompatible submodel",
-        "baseModelChangedCleared_other": "Cleared or disabled {{count}} incompatible submodels",
+        "baseModelChangedCleared_one": "Updated, cleared or disabled {{count}} incompatible submodel",
+        "baseModelChangedCleared_other": "Updated, cleared or disabled {{count}} incompatible submodels",
         "canceled": "Processing Canceled",
         "connected": "Connected to Server",
         "imageCopied": "Image Copied",
@@ -1399,7 +1521,7 @@
         "fluxFillIncompatibleWithT2IAndI2I": "FLUX Fill is not compatible with Text to Image or Image to Image. Use other FLUX models for these tasks.",
         "imagenIncompatibleGenerationMode": "Google {{model}} supports Text to Image only. Use other models for Image to Image, Inpainting and Outpainting tasks.",
         "chatGPT4oIncompatibleGenerationMode": "ChatGPT 4o supports Text to Image and Image to Image only. Use other models Inpainting and Outpainting tasks.",
-        "fluxKontextIncompatibleGenerationMode": "FLUX Kontext supports Text to Image only. Use other models for Image to Image, Inpainting and Outpainting tasks.",
+        "fluxKontextIncompatibleGenerationMode": "FLUX Kontext does not support generation from images placed on the canvas. Re-try using the Reference Image section and disable any Raster Layers.",
         "problemUnpublishingWorkflow": "Problem Unpublishing Workflow",
         "problemUnpublishingWorkflowDescription": "There was a problem unpublishing the workflow. Please try again.",
         "workflowUnpublished": "Workflow Unpublished",
@@ -1407,7 +1529,15 @@
         "sentToUpscale": "Sent to Upscale",
         "promptGenerationStarted": "Prompt generation started",
         "uploadAndPromptGenerationFailed": "Failed to upload image and generate prompt",
-        "promptExpansionFailed": "Prompt expansion failed"
+        "promptExpansionFailed": "We ran into an issue. Please try prompt expansion again.",
+        "maskInverted": "Mask Inverted",
+        "maskInvertFailed": "Failed to Invert Mask",
+        "noVisibleMasks": "No Visible Masks",
+        "noVisibleMasksDesc": "Create or enable at least one inpaint mask to invert",
+        "noInpaintMaskSelected": "No Inpaint Mask Selected",
+        "noInpaintMaskSelectedDesc": "Select an inpaint mask to invert",
+        "invalidBbox": "Invalid Bounding Box",
+        "invalidBboxDesc": "The bounding box has no valid dimensions"
     },
     "popovers": {
         "clipSkip": {
@@ -1775,6 +1905,20 @@
                 "Structure controls how closely the output image will keep to the layout of the original. Low structure allows major changes, while high structure strictly maintains the original composition and layout."
             ]
         },
+        "tileSize": {
+            "heading": "Tile Size",
+            "paragraphs": [
+                "Controls the size of tiles used during the upscaling process. Larger tiles use more memory but may produce better results.",
+                "SD1.5 models default to 768, while SDXL models default to 1024. Reduce tile size if you encounter memory issues."
+            ]
+        },
+        "tileOverlap": {
+            "heading": "Tile Overlap",
+            "paragraphs": [
+                "Controls the overlap between adjacent tiles during upscaling. Higher overlap values help reduce visible seams between tiles but use more memory.",
+                "The default value of 128 works well for most cases, but you can adjust based on your specific needs and memory constraints."
+            ]
+        },
         "fluxDevLicense": {
             "heading": "Non-Commercial License",
             "paragraphs": [
@@ -1867,8 +2011,11 @@
             "zoomToNode": "Zoom to Node",
             "nodeFieldTooltip": "To add a node field, click the small plus sign button on the field in the Workflow Editor, or drag the field by its name into the form.",
             "addToForm": "Add to Form",
+            "removeFromForm": "Remove from Form",
             "label": "Label",
             "showDescription": "Show Description",
+            "showShuffle": "Show Shuffle",
+            "shuffle": "Shuffle",
             "component": "Component",
             "numberInput": "Number Input",
             "singleLine": "Single Line",
@@ -1926,6 +2073,7 @@
         "canvas": "Canvas",
         "bookmark": "Bookmark for Quick Switch",
         "fitBboxToLayers": "Fit Bbox To Layers",
+        "fitBboxToMasks": "Fit Bbox To Masks",
         "removeBookmark": "Remove Bookmark",
         "saveCanvasToGallery": "Save Canvas to Gallery",
         "saveBboxToGallery": "Save Bbox to Gallery",
@@ -1948,6 +2096,24 @@
         "pullBboxIntoLayerError": "Problem Pulling BBox Into Layer",
         "pullBboxIntoReferenceImageOk": "Bbox Pulled Into ReferenceImage",
         "pullBboxIntoReferenceImageError": "Problem Pulling BBox Into ReferenceImage",
+        "addAdjustments": "Add Adjustments",
+        "removeAdjustments": "Remove Adjustments",
+        "adjustments": {
+            "simple": "Simple",
+            "curves": "Curves",
+            "heading": "Adjustments",
+            "expand": "Expand adjustments",
+            "collapse": "Collapse adjustments",
+            "brightness": "Brightness",
+            "contrast": "Contrast",
+            "saturation": "Saturation",
+            "temperature": "Temperature",
+            "tint": "Tint",
+            "sharpness": "Sharpness",
+            "finish": "Finish",
+            "reset": "Reset",
+            "master": "Master"
+        },
         "regionIsEmpty": "Selected region is empty",
         "mergeVisible": "Merge Visible",
         "mergeDown": "Merge Down",
@@ -1990,6 +2156,7 @@
         "rasterLayer": "Raster Layer",
         "controlLayer": "Control Layer",
         "inpaintMask": "Inpaint Mask",
+        "invertMask": "Invert Mask",
         "regionalGuidance": "Regional Guidance",
         "referenceImageRegional": "Reference Image (Regional)",
         "referenceImageGlobal": "Reference Image (Global)",
@@ -1998,6 +2165,8 @@
         "asControlLayer": "As $t(controlLayers.controlLayer)",
         "asControlLayerResize": "As $t(controlLayers.controlLayer) (Resize)",
         "referenceImage": "Reference Image",
+        "maxRefImages": "Max Ref Images",
+        "useAsReferenceImage": "Use as Reference Image",
         "regionalReferenceImage": "Regional Reference Image",
         "globalReferenceImage": "Global Reference Image",
         "sendingToCanvas": "Staging Generations on Canvas",
@@ -2086,9 +2255,9 @@
         "resetCanvasLayers": "Reset Canvas Layers",
         "resetGenerationSettings": "Reset Generation Settings",
         "replaceCurrent": "Replace Current",
-        "controlLayerEmptyState": "<UploadButton>Upload an image</UploadButton>, drag an image from the <GalleryButton>gallery</GalleryButton> onto this layer, <PullBboxButton>pull the bounding box into this layer</PullBboxButton>, or draw on the canvas to get started.",
-        "referenceImageEmptyStateWithCanvasOptions": "<UploadButton>Upload an image</UploadButton>, drag an image from the <GalleryButton>gallery</GalleryButton> onto this Reference Image or <PullBboxButton>pull the bounding box into this Reference Image</PullBboxButton> to get started.",
-        "referenceImageEmptyState": "<UploadButton>Upload an image</UploadButton> or drag an image from the <GalleryButton>gallery</GalleryButton> onto this Reference Image to get started.",
+        "controlLayerEmptyState": "<UploadButton>Upload an image</UploadButton>, drag an image from the gallery onto this layer, <PullBboxButton>pull the bounding box into this layer</PullBboxButton>, or draw on the canvas to get started.",
+        "referenceImageEmptyStateWithCanvasOptions": "<UploadButton>Upload an image</UploadButton>, drag an image from the gallery onto this Reference Image or <PullBboxButton>pull the bounding box into this Reference Image</PullBboxButton> to get started.",
+        "referenceImageEmptyState": "<UploadButton>Upload an image</UploadButton> or drag an image from the gallery onto this Reference Image to get started.",
         "uploadOrDragAnImage": "Drag an image from the gallery or <UploadButton>upload an image</UploadButton>.",
         "imageNoise": "Image Noise",
         "denoiseLimit": "Denoise Limit",
@@ -2106,7 +2275,8 @@
             "rgReferenceImagesNotSupported": "regional Reference Images not supported for selected base model",
             "rgAutoNegativeNotSupported": "Auto-Negative not supported for selected base model",
             "rgNoRegion": "no region drawn",
-            "fluxFillIncompatibleWithControlLoRA": "Control LoRA is not compatible with FLUX Fill"
+            "fluxFillIncompatibleWithControlLoRA": "Control LoRA is not compatible with FLUX Fill",
+            "bboxHidden": "Bounding box is hidden (shift+o to toggle)"
         },
         "errors": {
             "unableToFindImage": "Unable to find image",
@@ -2142,6 +2312,8 @@
         },
         "fill": {
             "fillColor": "Fill Color",
+            "bgFillColor": "Background Color",
+            "fgFillColor": "Foreground Color",
             "fillStyle": "Fill Style",
             "solid": "Solid",
             "grid": "Grid",
@@ -2313,12 +2485,21 @@
             "saveAs": "Save As",
             "cancel": "Cancel",
             "process": "Process",
-            "help1": "Select a single target object. Add <Bold>Include</Bold> and <Bold>Exclude</Bold> points to indicate which parts of the layer are part of the target object.",
-            "help2": "Start with one <Bold>Include</Bold> point within the target object. Add more points to refine the selection. Fewer points typically produce better results.",
-            "help3": "Invert the selection to select everything except the target object.",
+            "desc": "Select a single target object. After selection is complete, click <Bold>Apply</Bold> to discard everything outside the selected area, or save the selection as a new layer.",
+            "visualModeDesc": "Visual mode uses box and point inputs to select an object.",
+            "visualMode1": "Click and drag to draw a box around the object you want to select. You may get better results by drawing the box a bit larger or smaller than the object.",
+            "visualMode2": "Click to add a green <Bold>include</Bold> point, or shift-click to add a red <Bold>exclude</Bold> point to tell the model what to include or exclude.",
+            "visualMode3": "Points can be used to refine a box selection or used independently.",
+            "promptModeDesc": "Prompt mode uses text input to select an object.",
+            "promptMode1": "Type a brief description of the object you want to select.",
+            "promptMode2": "Use simple language, avoiding complex descriptions or multiple objects.",
             "clickToAdd": "Click on the layer to add a point",
             "dragToMove": "Drag a point to move it",
-            "clickToRemove": "Click on a point to remove it"
+            "clickToRemove": "Click on a point to remove it",
+            "model": "Model",
+            "segmentAnything1": "Segment Anything 1",
+            "segmentAnything2": "Segment Anything 2",
+            "prompt": "Selection Prompt"
         },
         "settings": {
             "snapToGrid": {
@@ -2329,6 +2510,10 @@
             "preserveMask": {
                 "label": "Preserve Masked Region",
                 "alert": "Preserving Masked Region"
+            },
+            "saveAllImagesToGallery": {
+                "label": "Send New Generations to Gallery",
+                "alert": "Sending new generations to Gallery, bypassing Canvas"
             },
             "isolatedStagingPreview": "Isolated Staging Preview",
             "isolatedPreview": "Isolated Preview",
@@ -2376,6 +2561,11 @@
             "saveToGallery": "Save To Gallery",
             "showResultsOn": "Showing Results",
             "showResultsOff": "Hiding Results"
+        },
+        "autoSwitch": {
+            "off": "Off",
+            "switchOnStart": "On Start",
+            "switchOnFinish": "On Finish"
         }
     },
     "upscaling": {
@@ -2387,6 +2577,9 @@
         "upscaleModel": "Upscale Model",
         "postProcessingModel": "Post-Processing Model",
         "scale": "Scale",
+        "tileControl": "Tile Control",
+        "tileSize": "Tile Size",
+        "tileOverlap": "Tile Overlap",
         "postProcessingMissingModelWarning": "Visit the <LinkComponent>Model Manager</LinkComponent> to install a post-processing (image to image) model.",
         "missingModelsWarning": "Visit the <LinkComponent>Model Manager</LinkComponent> to install the required models:",
         "mainModelDesc": "Main model (SD1.5 or SDXL architecture)",
@@ -2453,7 +2646,7 @@
     },
     "ui": {
         "tabs": {
-            "generation": "Generation",
+            "generate": "Generate",
             "canvas": "Canvas",
             "workflows": "Workflows",
             "workflowsTab": "$t(ui.tabs.workflows) $t(common.tab)",
@@ -2462,15 +2655,54 @@
             "queue": "Queue",
             "upscaling": "Upscaling",
             "upscalingTab": "$t(ui.tabs.upscaling) $t(common.tab)",
+            "video": "Video",
             "gallery": "Gallery"
+        },
+        "panels": {
+            "launchpad": "Launchpad",
+            "workflowEditor": "Workflow Editor",
+            "imageViewer": "Viewer",
+            "canvas": "Canvas",
+            "video": "Video"
         },
         "launchpad": {
             "workflowsTitle": "Go deep with Workflows.",
             "upscalingTitle": "Upscale and add detail.",
             "canvasTitle": "Edit and refine on Canvas.",
             "generateTitle": "Generate images from text prompts.",
+            "videoTitle": "Generate videos from text prompts.",
+            "video": {
+                "startingFrameCalloutTitle": "Add a Starting Frame",
+                "startingFrameCalloutDesc": "Add an image to control the first frame of your video."
+            },
+            "addStartingFrame": {
+                "title": "Add a Starting Frame",
+                "description": "Add an image to control the first frame of your video."
+            },
             "modelGuideText": "Want to learn what prompts work best for each model?",
             "modelGuideLink": "Check out our Model Guide.",
+            "createNewWorkflowFromScratch": "Create a new Workflow from scratch",
+            "browseAndLoadWorkflows": "Browse and load existing workflows",
+            "addStyleRef": {
+                "title": "Add a Style Reference",
+                "description": "Add an image to transfer its look."
+            },
+            "editImage": {
+                "title": "Edit Image",
+                "description": "Add an image to refine."
+            },
+            "generateFromText": {
+                "title": "Generate from Text",
+                "description": "Enter a prompt and Invoke."
+            },
+            "useALayoutImage": {
+                "title": "Use a Layout Image",
+                "description": "Add an image to control composition."
+            },
+            "generate": {
+                "canvasCalloutTitle": "Looking to get more control, edit, and iterate on your images?",
+                "canvasCalloutLink": "Navigate to Canvas for more capabilities."
+            },
             "workflows": {
                 "description": "Workflows are reusable templates that automate image generation tasks, allowing you to quickly perform complex operations and get consistent results.",
                 "learnMoreLink": "Learn more about creating workflows",
@@ -2507,12 +2739,23 @@
                 "upscaleModel": "Upscale Model",
                 "model": "Model",
                 "scale": "Scale",
+                "creativityAndStructure": {
+                    "title": "Creativity & Structure Defaults",
+                    "conservative": "Conservative",
+                    "balanced": "Balanced",
+                    "creative": "Creative",
+                    "artistic": "Artistic"
+                },
                 "helpText": {
                     "promptAdvice": "When upscaling, use a prompt that describes the medium and style. Avoid describing specific content details in the image.",
                     "styleAdvice": "Upscaling works best with the general style of your image."
                 }
             }
         }
+    },
+    "video": {
+        "noVideoSelected": "No video selected",
+        "selectFromGallery": "Select a video from the gallery to play"
     },
     "system": {
         "enableLogging": "Enable Logging",
@@ -2551,8 +2794,9 @@
     "whatsNew": {
         "whatsNewInInvoke": "What's New in Invoke",
         "items": [
-            "Inpainting: Per-mask noise levels and denoise limits.",
-            "Canvas: Smarter aspect ratios for SDXL and improved scroll-to-zoom."
+            "Select Object v2: Improved object selection with point and box inputs or text prompts.",
+            "Raster Layer Adjustments: Easily adjust layer brightness, contrast, saturation, curves and more.",
+            "Prompt History: Review and quickly recall your last 100 prompts."
         ],
         "readReleaseNotes": "Read Release Notes",
         "watchRecentReleaseVideos": "Watch Recent Release Videos",
@@ -2561,62 +2805,16 @@
     "supportVideos": {
         "supportVideos": "Support Videos",
         "gettingStarted": "Getting Started",
-        "controlCanvas": "Control Canvas",
         "watch": "Watch",
-        "studioSessionsDesc1": "Check out the <StudioSessionsPlaylistLink /> for Invoke deep dives.",
-        "studioSessionsDesc2": "Join our <DiscordLink /> to participate in the live sessions and ask questions. Sessions are uploaded to the playlist the following week.",
+        "studioSessionsDesc": "Join our <DiscordLink /> to participate in the live sessions and ask questions. Sessions are uploaded to the playlist the following week.",
         "videos": {
-            "creatingYourFirstImage": {
-                "title": "Creating Your First Image",
-                "description": "Introduction to creating an image from scratch using Invoke's tools."
+            "gettingStarted": {
+                "title": "Getting Started with Invoke",
+                "description": "Complete video series covering everything you need to know to get started with Invoke, from creating your first image to advanced techniques."
             },
-            "usingControlLayersAndReferenceGuides": {
-                "title": "Using Control Layers and Reference Guides",
-                "description": "Learn how to guide your image creation with control layers and reference images."
-            },
-            "understandingImageToImageAndDenoising": {
-                "title": "Understanding Image-to-Image and Denoising",
-                "description": "Overview of image-to-image transformations and denoising in Invoke."
-            },
-            "exploringAIModelsAndConceptAdapters": {
-                "title": "Exploring AI Models and Concept Adapters",
-                "description": "Dive into AI models and how to use concept adapters for creative control."
-            },
-            "creatingAndComposingOnInvokesControlCanvas": {
-                "title": "Creating and Composing on Invoke's Control Canvas",
-                "description": "Learn to compose images using Invoke's control canvas."
-            },
-            "upscaling": {
-                "title": "Upscaling",
-                "description": "How to upscale images with Invoke's tools to enhance resolution."
-            },
-            "howDoIGenerateAndSaveToTheGallery": {
-                "title": "How Do I Generate and Save to the Gallery?",
-                "description": "Steps to generate and save images to the gallery."
-            },
-            "howDoIEditOnTheCanvas": {
-                "title": "How Do I Edit on the Canvas?",
-                "description": "Guide to editing images directly on the canvas."
-            },
-            "howDoIDoImageToImageTransformation": {
-                "title": "How Do I Do Image-to-Image Transformation?",
-                "description": "Tutorial on performing image-to-image transformations in Invoke."
-            },
-            "howDoIUseControlNetsAndControlLayers": {
-                "title": "How Do I Use Control Nets and Control Layers?",
-                "description": "Learn to apply control layers and controlnets to your images."
-            },
-            "howDoIUseGlobalIPAdaptersAndReferenceImages": {
-                "title": "How Do I Use Global IP Adapters and Reference Images?",
-                "description": "Introduction to adding reference images and global IP adapters."
-            },
-            "howDoIUseInpaintMasks": {
-                "title": "How Do I Use Inpaint Masks?",
-                "description": "How to apply inpaint masks for image correction and variation."
-            },
-            "howDoIOutpaint": {
-                "title": "How Do I Outpaint?",
-                "description": "Guide to outpainting beyond the original image borders."
+            "studioSessions": {
+                "title": "Studio Sessions",
+                "description": "Deep dive sessions exploring advanced Invoke features, creative workflows, and community discussions."
             }
         }
     }

@@ -1,26 +1,39 @@
-import { deepClone } from 'common/util/deepClone';
-import { z } from 'zod/v4';
+import { isPlainObject } from 'es-toolkit';
+import { z } from 'zod';
 
-const zTabName = z.enum(['generate', 'canvas', 'upscaling', 'workflows', 'models', 'queue']);
+export const zTabName = z.enum(['generate', 'canvas', 'upscaling', 'workflows', 'models', 'queue', 'video']);
 export type TabName = z.infer<typeof zTabName>;
-const zCanvasRightPanelTabName = z.enum(['layers', 'gallery']);
 
 const zPartialDimensions = z.object({
   width: z.number().optional(),
   height: z.number().optional(),
 });
 
-const zUIState = z.object({
-  _version: z.literal(3).default(3),
-  activeTab: zTabName.default('canvas'),
-  activeTabCanvasRightPanel: zCanvasRightPanelTabName.default('gallery'),
-  shouldShowImageDetails: z.boolean().default(false),
-  shouldShowProgressInViewer: z.boolean().default(true),
-  accordions: z.record(z.string(), z.boolean()).default(() => ({})),
-  expanders: z.record(z.string(), z.boolean()).default(() => ({})),
-  textAreaSizes: z.record(z.string(), zPartialDimensions).default({}),
-  shouldShowNotificationV2: z.boolean().default(true),
+const zSerializable = z.any().refine(isPlainObject);
+export type Serializable = z.infer<typeof zSerializable>;
+
+export const zUIState = z.object({
+  _version: z.literal(4),
+  activeTab: zTabName,
+  shouldShowItemDetails: z.boolean(),
+  shouldShowProgressInViewer: z.boolean(),
+  accordions: z.record(z.string(), z.boolean()),
+  expanders: z.record(z.string(), z.boolean()),
+  textAreaSizes: z.record(z.string(), zPartialDimensions),
+  panels: z.record(z.string(), zSerializable),
+  shouldShowNotificationV2: z.boolean(),
+  pickerCompactViewStates: z.record(z.string(), z.boolean()),
 });
-const INITIAL_STATE = zUIState.parse({});
 export type UIState = z.infer<typeof zUIState>;
-export const getInitialUIState = (): UIState => deepClone(INITIAL_STATE);
+export const getInitialUIState = (): UIState => ({
+  _version: 4 as const,
+  activeTab: 'generate' as const,
+  shouldShowItemDetails: false,
+  shouldShowProgressInViewer: true,
+  accordions: {},
+  expanders: {},
+  textAreaSizes: {},
+  panels: {},
+  shouldShowNotificationV2: true,
+  pickerCompactViewStates: {},
+});

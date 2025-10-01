@@ -1,38 +1,29 @@
 import { IconButton } from '@invoke-ai/ui-library';
-import { useAppDispatch } from 'app/store/storeHooks';
-import { useCanvasSessionContext } from 'features/controlLayers/components/SimpleSession/context';
-import { canvasSessionReset, generateSessionReset } from 'features/controlLayers/store/canvasStagingAreaSlice';
-import { useDeleteQueueItemsByDestination } from 'features/queue/hooks/useDeleteQueueItemsByDestination';
-import { memo, useCallback } from 'react';
+import { useStore } from '@nanostores/react';
+import { useStagingAreaContext } from 'features/controlLayers/components/StagingArea/context';
+import { useCanvasManager } from 'features/controlLayers/contexts/CanvasManagerProviderGate';
+import { useCancelQueueItemsByDestination } from 'features/queue/hooks/useCancelQueueItemsByDestination';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PiTrashSimpleBold } from 'react-icons/pi';
 
-export const StagingAreaToolbarDiscardAllButton = memo(({ isDisabled }: { isDisabled?: boolean }) => {
-  const ctx = useCanvasSessionContext();
-  const dispatch = useAppDispatch();
-  const { t } = useTranslation();
-  const deleteQueueItemsByDestination = useDeleteQueueItemsByDestination();
+export const StagingAreaToolbarDiscardAllButton = memo(() => {
+  const canvasManager = useCanvasManager();
+  const shouldShowStagedImage = useStore(canvasManager.stagingArea.$shouldShowStagedImage);
 
-  const discardAll = useCallback(() => {
-    deleteQueueItemsByDestination.trigger(ctx.session.id);
-    if (ctx.session.type === 'advanced') {
-      dispatch(canvasSessionReset());
-    } else {
-      // ctx.session.type === 'simple'
-      dispatch(generateSessionReset());
-    }
-  }, [deleteQueueItemsByDestination, ctx.session.id, ctx.session.type, dispatch]);
+  const ctx = useStagingAreaContext();
+  const { t } = useTranslation();
+  const cancelQueueItemsByDestination = useCancelQueueItemsByDestination();
 
   return (
     <IconButton
       tooltip={`${t('controlLayers.stagingArea.discardAll')} (Esc)`}
       aria-label={t('controlLayers.stagingArea.discardAll')}
       icon={<PiTrashSimpleBold />}
-      onClick={discardAll}
+      onClick={ctx.discardAll}
       colorScheme="error"
-      fontSize={16}
-      isDisabled={isDisabled || deleteQueueItemsByDestination.isDisabled}
-      isLoading={deleteQueueItemsByDestination.isLoading}
+      isDisabled={cancelQueueItemsByDestination.isDisabled || !shouldShowStagedImage}
+      isLoading={cancelQueueItemsByDestination.isLoading}
     />
   );
 });

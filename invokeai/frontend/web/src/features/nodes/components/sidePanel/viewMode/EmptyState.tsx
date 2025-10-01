@@ -1,9 +1,9 @@
 import { Flex, Heading, Icon, Link, Text } from '@invoke-ai/ui-library';
 import { useAppDispatch } from 'app/store/storeHooks';
-import { LaunchpadButton } from 'features/controlLayers/components/SimpleSession/LaunchpadButton';
 import { useIsWorkflowUntouched } from 'features/nodes/components/sidePanel/workflow/IsolatedWorkflowBuilderWatcher';
 import { useWorkflowLibraryModal } from 'features/nodes/store/workflowLibraryModal';
 import { workflowModeChanged } from 'features/nodes/store/workflowLibrarySlice';
+import { LaunchpadButton } from 'features/ui/layouts/LaunchpadButton';
 import { useCallback } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { PiFolderOpenBold, PiPlusBold } from 'react-icons/pi';
@@ -35,7 +35,7 @@ const CleanEditorContent = () => {
           <Flex flexDir="column" alignItems="flex-start" gap={2}>
             <Heading size="sm">{t('nodes.newWorkflow')}</Heading>
             <Text color="base.300" fontSize="sm">
-              Create a new workflow from scratch
+              {t('ui.launchpad.createNewWorkflowFromScratch')}
             </Text>
           </Flex>
         </LaunchpadButton>
@@ -44,7 +44,7 @@ const CleanEditorContent = () => {
           <Flex flexDir="column" alignItems="flex-start" gap={2}>
             <Heading size="sm">{t('nodes.loadWorkflow')}</Heading>
             <Text color="base.300" fontSize="sm">
-              Browse and load existing workflows
+              {t('ui.launchpad.browseAndLoadWorkflows')}
             </Text>
           </Flex>
         </LaunchpadButton>

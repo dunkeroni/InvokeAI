@@ -5,13 +5,13 @@ import type { AppStore } from 'app/store/store';
 import { useAppStore } from 'app/store/storeHooks';
 import { extractMessageFromAssertionError } from 'common/util/extractMessageFromAssertionError';
 import { withResult, withResultAsync } from 'common/util/result';
-import { getPrefixedId } from 'features/controlLayers/konva/util';
-import { generateSessionIdChanged, selectGenerateSessionId } from 'features/controlLayers/store/canvasStagingAreaSlice';
+import { positivePromptAddedToHistory, selectPositivePrompt } from 'features/controlLayers/store/paramsSlice';
 import { prepareLinearUIBatch } from 'features/nodes/util/graph/buildLinearBatchConfig';
 import { buildChatGPT4oGraph } from 'features/nodes/util/graph/generation/buildChatGPT4oGraph';
 import { buildCogView4Graph } from 'features/nodes/util/graph/generation/buildCogView4Graph';
 import { buildFLUXGraph } from 'features/nodes/util/graph/generation/buildFLUXGraph';
 import { buildFluxKontextGraph } from 'features/nodes/util/graph/generation/buildFluxKontextGraph';
+import { buildGemini2_5Graph } from 'features/nodes/util/graph/generation/buildGemini2_5Graph';
 import { buildImagen3Graph } from 'features/nodes/util/graph/generation/buildImagen3Graph';
 import { buildImagen4Graph } from 'features/nodes/util/graph/generation/buildImagen4Graph';
 import { buildSD1Graph } from 'features/nodes/util/graph/generation/buildSD1Graph';
@@ -27,7 +27,7 @@ import { assert, AssertionError } from 'tsafe';
 
 const log = logger('generation');
 
-const enqueueRequestedGenerate = createAction('app/enqueueRequestedGenerate');
+export const enqueueRequestedGenerate = createAction('app/enqueueRequestedGenerate');
 
 const enqueueGenerate = async (store: AppStore, prepend: boolean) => {
   const { dispatch, getState } = store;
@@ -36,17 +36,14 @@ const enqueueGenerate = async (store: AppStore, prepend: boolean) => {
 
   const state = getState();
 
-  let destination = selectGenerateSessionId(state);
-  if (destination === null) {
-    destination = getPrefixedId('generate');
-    dispatch(generateSessionIdChanged({ id: destination }));
+  const model = state.params.model;
+  if (!model) {
+    log.error('No model found in state');
+    return;
   }
+  const base = model.base;
 
   const buildGraphResult = await withResultAsync(async () => {
-    const model = state.params.model;
-    assert(model, 'No model found in state');
-    const base = model.base;
-
     const graphBuilderArg: GraphBuilderArg = { generationMode: 'txt2img', state, manager: null };
 
     switch (base) {
@@ -69,6 +66,8 @@ const enqueueGenerate = async (store: AppStore, prepend: boolean) => {
         return await buildChatGPT4oGraph(graphBuilderArg);
       case 'flux-kontext':
         return buildFluxKontextGraph(graphBuilderArg);
+      case 'gemini-2.5':
+        return buildGemini2_5Graph(graphBuilderArg);
       default:
         assert(false, `No graph builders for base ${base}`);
     }
@@ -95,17 +94,18 @@ const enqueueGenerate = async (store: AppStore, prepend: boolean) => {
     return;
   }
 
-  const { g, seedFieldIdentifier, positivePromptFieldIdentifier } = buildGraphResult.value;
+  const { g, seed, positivePrompt } = buildGraphResult.value;
 
   const prepareBatchResult = withResult(() =>
     prepareLinearUIBatch({
       state,
       g,
+      base,
       prepend,
-      seedFieldIdentifier,
-      positivePromptFieldIdentifier,
-      origin: 'canvas',
-      destination,
+      seedNode: seed,
+      positivePromptNode: positivePrompt,
+      origin: 'generate',
+      destination: 'generate',
     })
   );
 
@@ -124,6 +124,9 @@ const enqueueGenerate = async (store: AppStore, prepend: boolean) => {
   );
 
   const enqueueResult = await req.unwrap();
+
+  // Push to prompt history on successful enqueue
+  dispatch(positivePromptAddedToHistory(selectPositivePrompt(state)));
 
   return { batchConfig, enqueueResult };
 };

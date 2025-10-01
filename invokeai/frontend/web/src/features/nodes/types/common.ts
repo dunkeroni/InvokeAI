@@ -1,4 +1,7 @@
-import { z } from 'zod/v4';
+import type { S } from 'services/api/types';
+import type { Equals } from 'tsafe';
+import { assert } from 'tsafe';
+import { z } from 'zod';
 
 // #region Field data schemas
 export const zImageField = z.object({
@@ -10,6 +13,13 @@ const zImageFieldCollection = z.array(zImageField);
 type ImageFieldCollection = z.infer<typeof zImageFieldCollection>;
 export const isImageFieldCollection = (field: unknown): field is ImageFieldCollection =>
   zImageFieldCollection.safeParse(field).success;
+
+const zVideoField = z.object({
+  video_id: z.string().trim().min(1),
+});
+type VideoField = z.infer<typeof zVideoField>;
+export const isVideoField = (field: unknown): field is VideoField => zVideoField.safeParse(field).success;
+assert<Equals<VideoField, S['VideoField']>>();
 
 export const zBoardField = z.object({
   board_id: z.string().trim().min(1),
@@ -63,7 +73,7 @@ export type SchedulerField = z.infer<typeof zSchedulerField>;
 // #endregion
 
 // #region Model-related schemas
-const zBaseModel = z.enum([
+export const zBaseModelType = z.enum([
   'any',
   'sd-1',
   'sd-2',
@@ -76,8 +86,11 @@ const zBaseModel = z.enum([
   'imagen4',
   'chatgpt-4o',
   'flux-kontext',
+  'gemini-2.5',
+  'veo3',
+  'runway',
 ]);
-export type BaseModelType = z.infer<typeof zBaseModel>;
+export type BaseModelType = z.infer<typeof zBaseModelType>;
 export const zMainModelBase = z.enum([
   'sd-1',
   'sd-2',
@@ -89,10 +102,13 @@ export const zMainModelBase = z.enum([
   'imagen4',
   'chatgpt-4o',
   'flux-kontext',
+  'gemini-2.5',
+  'veo3',
+  'runway',
 ]);
 type MainModelBase = z.infer<typeof zMainModelBase>;
 export const isMainModelBase = (base: unknown): base is MainModelBase => zMainModelBase.safeParse(base).success;
-const zModelType = z.enum([
+export const zModelType = z.enum([
   'main',
   'vae',
   'lora',
@@ -109,6 +125,7 @@ const zModelType = z.enum([
   'clip_embed',
   'siglip',
   'flux_redux',
+  'video',
 ]);
 const zSubModelType = z.enum([
   'unet',
@@ -126,11 +143,31 @@ const zSubModelType = z.enum([
   'safety_checker',
 ]);
 export type SubModelType = z.infer<typeof zSubModelType>;
+
+export const zClipVariantType = z.enum(['large', 'gigantic']);
+export const zModelVariantType = z.enum(['normal', 'inpaint', 'depth']);
+export const zModelFormat = z.enum([
+  'omi',
+  'diffusers',
+  'checkpoint',
+  'lycoris',
+  'onnx',
+  'olive',
+  'embedding_file',
+  'embedding_folder',
+  'invokeai',
+  't5_encoder',
+  'bnb_quantized_int8b',
+  'bnb_quantized_nf4b',
+  'gguf_quantized',
+  'api',
+]);
+
 export const zModelIdentifierField = z.object({
   key: z.string().min(1),
   hash: z.string().min(1),
   name: z.string().min(1),
-  base: zBaseModel,
+  base: zBaseModelType,
   type: zModelType,
   submodel_type: zSubModelType.nullish(),
 });
@@ -138,7 +175,7 @@ export type ModelIdentifierField = z.infer<typeof zModelIdentifierField>;
 // #endregion
 
 // #region Control Adapters
-const zControlField = z.object({
+const _zControlField = z.object({
   image: zImageField,
   control_model: zModelIdentifierField,
   control_weight: z.union([z.number(), z.array(z.number())]).optional(),
@@ -147,9 +184,9 @@ const zControlField = z.object({
   control_mode: z.enum(['balanced', 'more_prompt', 'more_control', 'unbalanced']).optional(),
   resize_mode: z.enum(['just_resize', 'crop_resize', 'fill_resize', 'just_resize_simple']).optional(),
 });
-export type ControlField = z.infer<typeof zControlField>;
+export type ControlField = z.infer<typeof _zControlField>;
 
-const zIPAdapterField = z.object({
+const _zIPAdapterField = z.object({
   image: zImageField,
   ip_adapter_model: zModelIdentifierField,
   weight: z.number(),
@@ -157,9 +194,9 @@ const zIPAdapterField = z.object({
   begin_step_percent: z.number().optional(),
   end_step_percent: z.number().optional(),
 });
-export type IPAdapterField = z.infer<typeof zIPAdapterField>;
+export type IPAdapterField = z.infer<typeof _zIPAdapterField>;
 
-const zT2IAdapterField = z.object({
+const _zT2IAdapterField = z.object({
   image: zImageField,
   t2i_adapter_model: zModelIdentifierField,
   weight: z.union([z.number(), z.array(z.number())]).optional(),
@@ -167,7 +204,7 @@ const zT2IAdapterField = z.object({
   end_step_percent: z.number().optional(),
   resize_mode: z.enum(['just_resize', 'crop_resize', 'fill_resize', 'just_resize_simple']).optional(),
 });
-export type T2IAdapterField = z.infer<typeof zT2IAdapterField>;
+export type T2IAdapterField = z.infer<typeof _zT2IAdapterField>;
 // #endregion
 
 // #region ProgressImage

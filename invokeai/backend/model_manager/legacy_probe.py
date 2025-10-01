@@ -9,6 +9,7 @@ import spandrel
 import torch
 
 import invokeai.backend.util.logging as logger
+from invokeai.app.services.config.config_default import get_config
 from invokeai.app.util.misc import uuid_string
 from invokeai.backend.flux.controlnet.state_dict_utils import (
     is_state_dict_instantx_controlnet,
@@ -22,6 +23,7 @@ from invokeai.backend.model_manager.config import (
     AnyModelConfig,
     ControlAdapterDefaultSettings,
     InvalidModelConfigException,
+    LoraModelDefaultSettings,
     MainModelDefaultSettings,
     ModelConfigFactory,
     SubmodelDefinition,
@@ -216,6 +218,8 @@ class ModelProbe(object):
         if not fields["default_settings"]:
             if fields["type"] in {ModelType.ControlNet, ModelType.T2IAdapter, ModelType.ControlLoRa}:
                 fields["default_settings"] = get_default_settings_control_adapters(fields["name"])
+            if fields["type"] in {ModelType.LoRA}:
+                fields["default_settings"] = get_default_settings_lora()
             elif fields["type"] is ModelType.Main:
                 fields["default_settings"] = get_default_settings_main(fields["base"])
 
@@ -493,9 +497,21 @@ class ModelProbe(object):
         # scan model
         scan_result = pscan.scan_file_path(checkpoint)
         if scan_result.infected_files != 0:
-            raise Exception(f"The model {model_name} is potentially infected by malware. Aborting import.")
+            if get_config().unsafe_disable_picklescan:
+                logger.warning(
+                    f"The model {model_name} is potentially infected by malware, but picklescan is disabled. "
+                    "Proceeding with caution."
+                )
+            else:
+                raise RuntimeError(f"The model {model_name} is potentially infected by malware. Aborting import.")
         if scan_result.scan_err:
-            raise Exception(f"Error scanning model {model_name} for malware. Aborting import.")
+            if get_config().unsafe_disable_picklescan:
+                logger.warning(
+                    f"Error scanning the model at {model_name} for malware, but picklescan is disabled. "
+                    "Proceeding with caution."
+                )
+            else:
+                raise RuntimeError(f"Error scanning the model at {model_name} for malware. Aborting import.")
 
 
 # Probing utilities
@@ -528,6 +544,10 @@ def get_default_settings_control_adapters(model_name: str) -> Optional[ControlAd
         if k in model_name_lower:
             return ControlAdapterDefaultSettings(preprocessor=v)
     return None
+
+
+def get_default_settings_lora() -> LoraModelDefaultSettings:
+    return LoraModelDefaultSettings()
 
 
 def get_default_settings_main(model_base: BaseModelType) -> Optional[MainModelDefaultSettings]:

@@ -1,7 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit';
 import { createMemoizedSelector } from 'app/store/createMemoizedSelector';
 import type { AppGetState } from 'app/store/store';
-import { useAppDispatch, useAppStore } from 'app/store/storeHooks';
+import { useAppDispatch, useAppSelector, useAppStore } from 'app/store/storeHooks';
 import { deepClone } from 'common/util/deepClone';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
 import {
@@ -16,7 +16,11 @@ import {
   rgRefImageAdded,
 } from 'features/controlLayers/store/canvasSlice';
 import { selectBase, selectMainModelConfig } from 'features/controlLayers/store/paramsSlice';
-import { selectCanvasSlice, selectEntity } from 'features/controlLayers/store/selectors';
+import {
+  selectCanvasSlice,
+  selectEntity,
+  selectSelectedEntityIdentifier,
+} from 'features/controlLayers/store/selectors';
 import type {
   CanvasEntityIdentifier,
   CanvasRegionalGuidanceState,
@@ -24,14 +28,18 @@ import type {
   ControlLoRAConfig,
   ControlNetConfig,
   FluxKontextReferenceImageConfig,
+  Gemini2_5ReferenceImageConfig,
   IPAdapterConfig,
+  RegionalGuidanceIPAdapterConfig,
   T2IAdapterConfig,
 } from 'features/controlLayers/store/types';
 import {
   initialChatGPT4oReferenceImage,
   initialControlNet,
   initialFluxKontextReferenceImage,
+  initialGemini2_5ReferenceImage,
   initialIPAdapter,
+  initialRegionalGuidanceIPAdapter,
   initialT2IAdapter,
 } from 'features/controlLayers/store/util';
 import { zModelIdentifierField } from 'features/nodes/types/common';
@@ -72,7 +80,11 @@ export const selectDefaultControlAdapter = createSelector(
 
 export const getDefaultRefImageConfig = (
   getState: AppGetState
-): IPAdapterConfig | ChatGPT4oReferenceImageConfig | FluxKontextReferenceImageConfig => {
+):
+  | IPAdapterConfig
+  | ChatGPT4oReferenceImageConfig
+  | FluxKontextReferenceImageConfig
+  | Gemini2_5ReferenceImageConfig => {
   const state = getState();
 
   const mainModelConfig = selectMainModelConfig(state);
@@ -93,6 +105,12 @@ export const getDefaultRefImageConfig = (
     return config;
   }
 
+  if (base === 'gemini-2.5') {
+    const config = deepClone(initialGemini2_5ReferenceImage);
+    config.model = zModelIdentifierField.parse(mainModelConfig);
+    return config;
+  }
+
   // Otherwise, find the first compatible IP Adapter model.
   const modelConfig = ipAdapterModelConfigs.find((m) => m.base === base);
 
@@ -109,7 +127,7 @@ export const getDefaultRefImageConfig = (
   return config;
 };
 
-export const getDefaultRegionalGuidanceRefImageConfig = (getState: AppGetState): IPAdapterConfig => {
+export const getDefaultRegionalGuidanceRefImageConfig = (getState: AppGetState): RegionalGuidanceIPAdapterConfig => {
   // Regional guidance ref images do not support ChatGPT-4o, so we always return the IP Adapter config.
   const state = getState();
 
@@ -122,7 +140,7 @@ export const getDefaultRegionalGuidanceRefImageConfig = (getState: AppGetState):
   const modelConfig = ipAdapterModelConfigs.find((m) => m.base === base);
 
   // Clone the initial IP Adapter config and set the model if available.
-  const config = deepClone(initialIPAdapter);
+  const config = deepClone(initialRegionalGuidanceIPAdapter);
 
   if (modelConfig) {
     config.model = zModelIdentifierField.parse(modelConfig);
@@ -136,37 +154,49 @@ export const getDefaultRegionalGuidanceRefImageConfig = (getState: AppGetState):
 
 export const useAddControlLayer = () => {
   const dispatch = useAppDispatch();
+  const selectedEntityIdentifier = useAppSelector(selectSelectedEntityIdentifier);
+  const selectedControlLayer =
+    selectedEntityIdentifier?.type === 'control_layer' ? selectedEntityIdentifier.id : undefined;
   const func = useCallback(() => {
     const overrides = { controlAdapter: deepClone(initialControlNet) };
-    dispatch(controlLayerAdded({ isSelected: true, overrides }));
-  }, [dispatch]);
+    dispatch(controlLayerAdded({ isSelected: true, overrides, addAfter: selectedControlLayer }));
+  }, [dispatch, selectedControlLayer]);
 
   return func;
 };
 
 export const useAddRasterLayer = () => {
   const dispatch = useAppDispatch();
+  const selectedEntityIdentifier = useAppSelector(selectSelectedEntityIdentifier);
+  const selectedRasterLayer =
+    selectedEntityIdentifier?.type === 'raster_layer' ? selectedEntityIdentifier.id : undefined;
   const func = useCallback(() => {
-    dispatch(rasterLayerAdded({ isSelected: true }));
-  }, [dispatch]);
+    dispatch(rasterLayerAdded({ isSelected: true, addAfter: selectedRasterLayer }));
+  }, [dispatch, selectedRasterLayer]);
 
   return func;
 };
 
 export const useAddInpaintMask = () => {
   const dispatch = useAppDispatch();
+  const selectedEntityIdentifier = useAppSelector(selectSelectedEntityIdentifier);
+  const selectedInpaintMask =
+    selectedEntityIdentifier?.type === 'inpaint_mask' ? selectedEntityIdentifier.id : undefined;
   const func = useCallback(() => {
-    dispatch(inpaintMaskAdded({ isSelected: true }));
-  }, [dispatch]);
+    dispatch(inpaintMaskAdded({ isSelected: true, addAfter: selectedInpaintMask }));
+  }, [dispatch, selectedInpaintMask]);
 
   return func;
 };
 
 export const useAddRegionalGuidance = () => {
   const dispatch = useAppDispatch();
+  const selectedEntityIdentifier = useAppSelector(selectSelectedEntityIdentifier);
+  const selectedRegionalGuidance =
+    selectedEntityIdentifier?.type === 'regional_guidance' ? selectedEntityIdentifier.id : undefined;
   const func = useCallback(() => {
-    dispatch(rgAdded({ isSelected: true }));
-  }, [dispatch]);
+    dispatch(rgAdded({ isSelected: true, addAfter: selectedRegionalGuidance }));
+  }, [dispatch, selectedRegionalGuidance]);
 
   return func;
 };

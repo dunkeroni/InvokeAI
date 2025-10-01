@@ -33,6 +33,7 @@ const formatKeysForPlatform = (keys: string[], isMacOS: boolean): string[][] => 
 export const useHotkeyData = (): HotkeysData => {
   const { t } = useTranslation();
   const isModelManagerEnabled = useFeatureStatus('modelManager');
+  const isVideoEnabled = useFeatureStatus('video');
   const isMacOS = useMemo(() => {
     return navigator.userAgent.toLowerCase().includes('mac');
   }, []);
@@ -73,7 +74,6 @@ export const useHotkeyData = (): HotkeysData => {
       };
     };
 
-    // App
     addHotkey('app', 'invoke', ['mod+enter']);
     addHotkey('app', 'invokeFront', ['mod+shift+enter']);
     addHotkey('app', 'cancelQueueItem', ['shift+x']);
@@ -81,9 +81,31 @@ export const useHotkeyData = (): HotkeysData => {
     addHotkey('app', 'selectGenerateTab', ['1']);
     addHotkey('app', 'selectCanvasTab', ['2']);
     addHotkey('app', 'selectUpscalingTab', ['3']);
-    addHotkey('app', 'selectWorkflowsTab', ['4']);
-    addHotkey('app', 'selectModelsTab', ['5'], isModelManagerEnabled);
-    addHotkey('app', 'selectQueueTab', isModelManagerEnabled ? ['6'] : ['5']);
+    // Prompt/history navigation (when prompt textarea is focused)
+    addHotkey('app', 'promptHistoryPrev', ['alt+up']);
+    addHotkey('app', 'promptHistoryNext', ['alt+down']);
+
+    if (isVideoEnabled) {
+      addHotkey('app', 'selectVideoTab', ['4']);
+      addHotkey('app', 'selectWorkflowsTab', ['5']);
+      if (isModelManagerEnabled) {
+        addHotkey('app', 'selectModelsTab', ['6']);
+        addHotkey('app', 'selectQueueTab', ['7']);
+      } else {
+        addHotkey('app', 'selectModelsTab', ['DISABLED'], false);
+        addHotkey('app', 'selectQueueTab', ['6']);
+      }
+    } else {
+      addHotkey('app', 'selectVideoTab', ['DISABLED'], false);
+      addHotkey('app', 'selectWorkflowsTab', ['4']);
+      if (isModelManagerEnabled) {
+        addHotkey('app', 'selectModelsTab', ['5']);
+        addHotkey('app', 'selectQueueTab', ['6']);
+      } else {
+        addHotkey('app', 'selectModelsTab', ['DISABLED'], false);
+        addHotkey('app', 'selectQueueTab', ['5']);
+      }
+    }
     addHotkey('app', 'focusPrompt', ['alt+a']);
     addHotkey('app', 'toggleLeftPanel', ['t', 'o']);
     addHotkey('app', 'toggleRightPanel', ['g']);
@@ -100,9 +122,11 @@ export const useHotkeyData = (): HotkeysData => {
     addHotkey('canvas', 'selectRectTool', ['u']);
     addHotkey('canvas', 'selectViewTool', ['h']);
     addHotkey('canvas', 'selectColorPickerTool', ['i']);
-    addHotkey('canvas', 'setFillToWhite', ['d']);
+    addHotkey('canvas', 'setFillColorsToDefault', ['d']);
+    addHotkey('canvas', 'toggleFillColor', ['x']);
     addHotkey('canvas', 'fitLayersToCanvas', ['mod+0']);
     addHotkey('canvas', 'fitBboxToCanvas', ['mod+shift+0']);
+    addHotkey('canvas', 'fitBboxToLayers', ['shift+n']);
     addHotkey('canvas', 'setZoomTo100Percent', ['mod+1']);
     addHotkey('canvas', 'setZoomTo200Percent', ['mod+2']);
     addHotkey('canvas', 'setZoomTo400Percent', ['mod+3']);
@@ -112,6 +136,7 @@ export const useHotkeyData = (): HotkeysData => {
     addHotkey('canvas', 'resetSelected', ['shift+c']);
     addHotkey('canvas', 'transformSelected', ['shift+t']);
     addHotkey('canvas', 'filterSelected', ['shift+f']);
+    addHotkey('canvas', 'invertMask', ['shift+v']);
     addHotkey('canvas', 'undo', ['mod+z']);
     addHotkey('canvas', 'redo', ['mod+shift+z', 'mod+y']);
     addHotkey('canvas', 'nextEntity', ['alt+]']);
@@ -123,6 +148,8 @@ export const useHotkeyData = (): HotkeysData => {
     addHotkey('canvas', 'applySegmentAnything', ['enter']);
     addHotkey('canvas', 'cancelSegmentAnything', ['esc']);
     addHotkey('canvas', 'toggleNonRasterLayers', ['shift+h']);
+    addHotkey('canvas', 'fitBboxToMasks', ['shift+b']);
+    addHotkey('canvas', 'toggleBbox', ['shift+o']);
 
     // Workflows
     addHotkey('workflows', 'addNode', ['shift+a', 'space']);
@@ -144,7 +171,6 @@ export const useHotkeyData = (): HotkeysData => {
     addHotkey('viewer', 'recallPrompts', ['p']);
     addHotkey('viewer', 'remix', ['r']);
     addHotkey('viewer', 'useSize', ['d']);
-    addHotkey('viewer', 'runPostprocessing', ['shift+u']);
     addHotkey('viewer', 'toggleMetadata', ['i']);
 
     // Gallery
@@ -159,9 +185,10 @@ export const useHotkeyData = (): HotkeysData => {
     addHotkey('gallery', 'galleryNavDownAlt', ['alt+down']);
     addHotkey('gallery', 'galleryNavLeftAlt', ['alt+left']);
     addHotkey('gallery', 'deleteSelection', ['delete', 'backspace']);
+    addHotkey('gallery', 'starImage', ['.']);
 
     return data;
-  }, [isMacOS, isModelManagerEnabled, t]);
+  }, [isMacOS, isVideoEnabled, isModelManagerEnabled, t]);
 
   return hotkeysData;
 };

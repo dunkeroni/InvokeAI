@@ -1,26 +1,29 @@
 import { skipToken } from '@reduxjs/toolkit/query';
 import { $authToken } from 'app/store/nanostores/authToken';
 import { getStore } from 'app/store/nanostores/store';
+import type { CroppableImageWithDims } from 'features/controlLayers/store/types';
 import { ASSETS_CATEGORIES, IMAGE_CATEGORIES } from 'features/gallery/store/types';
 import type { components, paths } from 'services/api/schema';
 import type {
+  GetImageNamesArgs,
+  GetImageNamesResult,
   GraphAndWorkflowResponse,
-  ImageCategory,
   ImageDTO,
-  ImageNamesResult,
   ImageUploadEntryRequest,
   ImageUploadEntryResponse,
   ListImagesArgs,
   ListImagesResponse,
-  SQLiteDirection,
   UploadImageArg,
 } from 'services/api/types';
 import { getListImagesUrl } from 'services/api/util';
+import {
+  getTagsToInvalidateForBoardAffectingMutation,
+  getTagsToInvalidateForImageMutation,
+} from 'services/api/util/tagInvalidation';
 import stableHash from 'stable-hash';
 import type { Param0 } from 'tsafe';
 import type { JsonObject } from 'type-fest';
 
-import type { ApiTagDescription } from '..';
 import { api, buildV1Url, LIST_TAG } from '..';
 import { buildBoardsUrl } from './boards';
 
@@ -264,7 +267,6 @@ export const imagesApi = api.injectEndpoints({
           },
         };
       },
-
       invalidatesTags: (result) => {
         if (!result || result.is_intermediate) {
           // Don't add it to anything
@@ -277,6 +279,7 @@ export const imagesApi = api.injectEndpoints({
           ...getTagsToInvalidateForBoardAffectingMutation([boardId]),
           'ImageCollectionCounts',
           { type: 'ImageCollection', id: LIST_TAG },
+          'ImageNameList',
         ];
       },
     }),
@@ -419,16 +422,7 @@ export const imagesApi = api.injectEndpoints({
     /**
      * Get ordered list of image names for selection operations
      */
-    getImageNames: build.query<
-      ImageNamesResult,
-      {
-        categories?: ImageCategory[] | null;
-        is_intermediate?: boolean | null;
-        board_id?: string | null;
-        search_term?: string | null;
-        order_dir?: SQLiteDirection;
-      }
-    >({
+    getImageNames: build.query<GetImageNamesResult, GetImageNamesArgs>({
       query: (queryArgs) => ({
         url: buildImagesUrl('names', queryArgs),
         method: 'GET',
@@ -601,57 +595,9 @@ export const useImageDTO = (imageName: string | null | undefined) => {
   return imageDTO ?? null;
 };
 
-const getTagsToInvalidateForImageMutation = (image_names: string[]): ApiTagDescription[] => {
-  const tags: ApiTagDescription[] = [];
-
-  for (const image_name of image_names) {
-    tags.push({
-      type: 'Image',
-      id: image_name,
-    });
-    tags.push({
-      type: 'ImageMetadata',
-      id: image_name,
-    });
-    tags.push({
-      type: 'ImageWorkflow',
-      id: image_name,
-    });
-  }
-
-  return tags;
-};
-
-const getTagsToInvalidateForBoardAffectingMutation = (affected_boards: string[]): ApiTagDescription[] => {
-  const tags: ApiTagDescription[] = ['ImageNameList'];
-
-  for (const board_id of affected_boards) {
-    tags.push({
-      type: 'ImageList',
-      id: getListImagesUrl({
-        board_id,
-        categories: IMAGE_CATEGORIES,
-      }),
-    });
-
-    tags.push({
-      type: 'ImageList',
-      id: getListImagesUrl({
-        board_id,
-        categories: ASSETS_CATEGORIES,
-      }),
-    });
-
-    tags.push({
-      type: 'Board',
-      id: board_id,
-    });
-
-    tags.push({
-      type: 'BoardImagesTotal',
-      id: board_id,
-    });
-  }
-
-  return tags;
+export const useImageDTOFromCroppableImage = (croppableImage: CroppableImageWithDims | null) => {
+  const { currentData: imageDTO } = useGetImageDTOQuery(
+    croppableImage?.crop?.image.image_name ?? croppableImage?.original.image.image_name ?? skipToken
+  );
+  return imageDTO ?? null;
 };

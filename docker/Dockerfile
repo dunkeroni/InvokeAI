@@ -5,8 +5,7 @@
 FROM docker.io/node:22-slim AS web-builder
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack use pnpm@8.x
-RUN corepack enable
+RUN corepack use pnpm@10.x && corepack enable
 
 WORKDIR /build
 COPY invokeai/frontend/web/ ./
@@ -44,7 +43,6 @@ ENV \
     UV_MANAGED_PYTHON=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
-    UV_INDEX="https://download.pytorch.org/whl/cu124" \
     INVOKEAI_ROOT=/invokeai \
     INVOKEAI_HOST=0.0.0.0 \
     INVOKEAI_PORT=9090 \
@@ -75,19 +73,17 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     # this is just to get the package manager to recognize that the project exists, without making changes to the docker layer
     --mount=type=bind,source=invokeai/version,target=invokeai/version \
-    if [ "$TARGETPLATFORM" = "linux/arm64" ] || [ "$GPU_DRIVER" = "cpu" ]; then UV_INDEX="https://download.pytorch.org/whl/cpu"; \
-    elif [ "$GPU_DRIVER" = "rocm" ]; then UV_INDEX="https://download.pytorch.org/whl/rocm6.2"; \
-    fi && \
-    uv sync --frozen
-
-# build patchmatch
-RUN cd /usr/lib/$(uname -p)-linux-gnu/pkgconfig/ && ln -sf opencv4.pc opencv.pc
-RUN python -c "from patchmatch import patch_match"
+    ulimit -n 30000 && \
+    uv sync --extra $GPU_DRIVER --frozen
 
 # Link amdgpu.ids for ROCm builds
 # contributed by https://github.com/Rubonnek
 RUN mkdir -p "/opt/amdgpu/share/libdrm" &&\
-    ln -s "/usr/share/libdrm/amdgpu.ids" "/opt/amdgpu/share/libdrm/amdgpu.ids"
+    ln -s "/usr/share/libdrm/amdgpu.ids" "/opt/amdgpu/share/libdrm/amdgpu.ids" && groupadd render
+
+# build patchmatch
+RUN cd /usr/lib/$(uname -p)-linux-gnu/pkgconfig/ && ln -sf opencv4.pc opencv.pc
+RUN python -c "from patchmatch import patch_match"
 
 RUN mkdir -p ${INVOKEAI_ROOT} && chown -R ${CONTAINER_UID}:${CONTAINER_GID} ${INVOKEAI_ROOT}
 
@@ -106,8 +102,6 @@ COPY invokeai ${INVOKEAI_SRC}/invokeai
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
-    if [ "$TARGETPLATFORM" = "linux/arm64" ] || [ "$GPU_DRIVER" = "cpu" ]; then UV_INDEX="https://download.pytorch.org/whl/cpu"; \
-    elif [ "$GPU_DRIVER" = "rocm" ]; then UV_INDEX="https://download.pytorch.org/whl/rocm6.2"; \
-    fi && \
-    uv pip install -e .
+    ulimit -n 30000 && \
+    uv pip install -e .[$GPU_DRIVER]
 

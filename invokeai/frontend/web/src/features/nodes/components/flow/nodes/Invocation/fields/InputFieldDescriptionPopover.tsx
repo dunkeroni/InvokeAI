@@ -5,6 +5,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Portal,
   Textarea,
 } from '@invoke-ai/ui-library';
 import { useAppDispatch } from 'app/store/storeHooks';
@@ -36,9 +37,11 @@ export const InputFieldDescriptionPopover = memo(({ nodeId, fieldName }: Props) 
           size="xs"
         />
       </PopoverTrigger>
-      <PopoverContent p={2} w={256}>
-        <Content nodeId={nodeId} fieldName={fieldName} />
-      </PopoverContent>
+      <Portal>
+        <PopoverContent p={2} w={256}>
+          <Content nodeId={nodeId} fieldName={fieldName} />
+        </PopoverContent>
+      </Portal>
     </Popover>
   );
 });
@@ -48,7 +51,7 @@ InputFieldDescriptionPopover.displayName = 'InputFieldDescriptionPopover';
 const Content = memo(({ nodeId, fieldName }: Props) => {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
-  const description = useInputFieldUserDescriptionSafe(nodeId, fieldName);
+  const description = useInputFieldUserDescriptionSafe(fieldName);
   const onChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
       dispatch(fieldDescriptionChanged({ nodeId, fieldName, val: e.target.value }));

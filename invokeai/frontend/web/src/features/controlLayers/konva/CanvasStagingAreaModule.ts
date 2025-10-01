@@ -1,15 +1,15 @@
 import { Mutex } from 'async-mutex';
-import type { ProgressData, ProgressDataMap } from 'features/controlLayers/components/SimpleSession/context';
+import type { SelectedItemData } from 'features/controlLayers/components/StagingArea/state';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
 import { CanvasObjectImage } from 'features/controlLayers/konva/CanvasObject/CanvasObjectImage';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
-import { selectIsStaging } from 'features/controlLayers/store/canvasStagingAreaSlice';
 import type { CanvasImageState } from 'features/controlLayers/store/types';
 import Konva from 'konva';
 import type { Atom } from 'nanostores';
 import { atom, effect } from 'nanostores';
 import type { Logger } from 'roarr';
+import type { S } from 'services/api/types';
 
 // To get pixel sizes corresponding to our theme tokens, first find the theme token CSS var in browser dev tools.
 // For example `var(--invoke-space-8)` is equivalent to using `8` as a space prop in a component.
@@ -121,14 +121,12 @@ export class CanvasStagingAreaModule extends CanvasModuleBase {
     this.image = null;
 
     /**
-     * When we change this flag, we need to re-render the staging area, which hides or shows the staged image.
-     */
-    this.subscriptions.add(this.$shouldShowStagedImage.listen(this.render));
-
-    /**
-     * Rerender when the image source changes.
+     * Rerender when the anything important changes.
      */
     this.subscriptions.add(this.$imageSrc.listen(this.render));
+    this.subscriptions.add(this.$shouldShowStagedImage.listen(this.render));
+    this.subscriptions.add(this.$isPending.listen(this.render));
+    this.subscriptions.add(this.$isStaging.listen(this.render));
 
     /**
      * Sync the $isStaging flag with the redux state. $isStaging is used by the manager to determine the global busy
@@ -138,8 +136,7 @@ export class CanvasStagingAreaModule extends CanvasModuleBase {
      * even if the user disabled this in the last staging session.
      */
     this.subscriptions.add(
-      this.manager.stateApi.createStoreSubscription(selectIsStaging, (isStaging, oldIsStaging) => {
-        this.$isStaging.set(isStaging);
+      this.$isStaging.listen((isStaging, oldIsStaging) => {
         if (isStaging && !oldIsStaging) {
           this.$shouldShowStagedImage.set(true);
         }
@@ -150,46 +147,49 @@ export class CanvasStagingAreaModule extends CanvasModuleBase {
   initialize = () => {
     this.log.debug('Initializing module');
     this.render();
-    this.$isStaging.set(this.manager.stateApi.runSelector(selectIsStaging));
   };
 
-  connectToSession = (
-    $selectedItemId: Atom<number | null>,
-    $progressData: ProgressDataMap,
-    $isPending: Atom<boolean>
-  ) => {
-    const cb = (selectedItemId: number | null, progressData: Record<number, ProgressData | undefined>) => {
-      if (!selectedItemId) {
+  connectToSession = ($items: Atom<S['SessionQueueItem'][]>, $selectedItem: Atom<SelectedItemData | null>) => {
+    const imageSrcListener = (selectedItem: SelectedItemData | null) => {
+      if (!selectedItem) {
         this.$imageSrc.set(null);
         return;
       }
 
-      const datum = progressData[selectedItemId];
-
-      if (datum?.imageDTO) {
-        this.$imageSrc.set({ type: 'imageName', data: datum.imageDTO.image_name });
+      if (selectedItem.progressData.imageDTO) {
+        this.$imageSrc.set({ type: 'imageName', data: selectedItem.progressData.imageDTO.image_name });
         return;
-      } else if (datum?.progressImage) {
-        this.$imageSrc.set({ type: 'dataURL', data: datum.progressImage.dataURL });
+      } else if (selectedItem.progressData?.progressImage) {
+        this.$imageSrc.set({ type: 'dataURL', data: selectedItem.progressData.progressImage.dataURL });
         return;
       } else {
         this.$imageSrc.set(null);
       }
     };
+    const unsubImageSrc = effect([$selectedItem], imageSrcListener);
 
-    // Run the effect & forcibly render once to initialize
-    cb($selectedItemId.get(), $progressData.get());
+    const isPendingListener = (items: S['SessionQueueItem'][]) => {
+      this.$isPending.set(items.some((item) => item.status === 'pending' || item.status === 'in_progress'));
+    };
+    const unsubIsPending = effect([$items], isPendingListener);
+
+    const isStagingListener = (items: S['SessionQueueItem'][]) => {
+      this.$isStaging.set(items.length > 0);
+    };
+    const unsubIsStaging = effect([$items], isStagingListener);
+
+    // Run the effects & forcibly render once to initialize
+    isStagingListener($items.get());
+    isPendingListener($items.get());
+    imageSrcListener($selectedItem.get());
     this.render();
 
-    // Sync the $isPending flag with the computed
-    const unsubIsPending = effect([$isPending], (isPending) => {
-      this.$isPending.set(isPending);
-    });
-
-    const unsubImageSrc = effect([$selectedItemId, $progressData], cb);
-
     return () => {
+      this.$isStaging.set(false);
+      unsubIsStaging();
+      this.$isPending.set(false);
       unsubIsPending();
+      this.$imageSrc.set(null);
       unsubImageSrc();
     };
   };
@@ -229,13 +229,25 @@ export class CanvasStagingAreaModule extends CanvasModuleBase {
 
       if (imageSrc) {
         const image = this._getImageFromSrc(imageSrc, width, height);
+
+        // Some models do not make guarantees about their output dimensions. This flag allows the staged images to
+        // render at their real dimensions, instead of the bbox size.
+        //
+        // When the image source is an image name, it is a final output image. In that case, we should use its
+        // physical dimensions. Otherwise, if it is a dataURL, that means it is a progress image. These come in at
+        // a smaller resolution and need to be stretched to fill the bbox, so we do not use the physical
+        // dimensions in that case.
+        const usePhysicalDimensions = imageSrc.type === 'imageName';
+
         if (!this.image) {
           this.image = new CanvasObjectImage({ id: 'staging-area-image', type: 'image', image }, this);
+          this.image.config.usePhysicalDimensions = usePhysicalDimensions;
           await this.image.update(this.image.state, true);
           this.konva.group.add(this.image.konva.group);
         } else if (this.image.isLoading || this.image.isError) {
           // noop
         } else {
+          this.image.config.usePhysicalDimensions = usePhysicalDimensions;
           await this.image.update({ ...this.image.state, image });
         }
         this.konva.placeholder.group.visible(false);

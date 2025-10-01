@@ -11,9 +11,9 @@ const getIsCollapsed = (
   collapsedSize?: number
 ) => {
   if (orientation === 'vertical') {
-    return panel.height <= (collapsedSize ?? panel.minimumHeight);
+    return panel.height <= (collapsedSize ?? panel.minimumHeight ?? 0);
   }
-  return panel.width <= (collapsedSize ?? panel.minimumWidth);
+  return panel.width <= (collapsedSize ?? panel.minimumWidth ?? 0);
 };
 
 export const useCollapsibleGridviewPanel = (
@@ -21,23 +21,28 @@ export const useCollapsibleGridviewPanel = (
   panelId: string,
   orientation: 'horizontal' | 'vertical',
   defaultSize: number,
-  collapsedSize?: number
+  collapsedSize?: number,
+  minExpandedSize?: number
 ) => {
   const $isCollapsed = useState(() => atom(false))[0];
   const lastExpandedSizeRef = useRef<number>(0);
   const collapse = useCallback(() => {
     const panel = navigationApi.getPanel(tab, panelId);
-
     if (!panel || !(panel instanceof GridviewPanel)) {
+      return;
+    }
+
+    const isCollapsed = getIsCollapsed(panel, orientation, collapsedSize);
+    if (isCollapsed) {
       return;
     }
 
     lastExpandedSizeRef.current = orientation === 'vertical' ? panel.height : panel.width;
 
     if (orientation === 'vertical') {
-      panel.api.setSize({ height: collapsedSize ?? panel.minimumHeight });
+      panel.api.setSize({ height: collapsedSize ?? panel.minimumHeight ?? 0 });
     } else {
-      panel.api.setSize({ width: collapsedSize ?? panel.minimumWidth });
+      panel.api.setSize({ width: collapsedSize ?? panel.minimumWidth ?? 0 });
     }
   }, [collapsedSize, orientation, panelId, tab]);
 
@@ -46,12 +51,23 @@ export const useCollapsibleGridviewPanel = (
     if (!panel || !(panel instanceof GridviewPanel)) {
       return;
     }
-    if (orientation === 'vertical') {
-      panel.api.setSize({ height: lastExpandedSizeRef.current || defaultSize });
-    } else {
-      panel.api.setSize({ width: lastExpandedSizeRef.current || defaultSize });
+
+    const isCollapsed = getIsCollapsed(panel, orientation, collapsedSize);
+    if (!isCollapsed) {
+      return;
     }
-  }, [defaultSize, orientation, panelId, tab]);
+
+    let newSize = lastExpandedSizeRef.current || defaultSize;
+    if (minExpandedSize && newSize < minExpandedSize) {
+      newSize = minExpandedSize;
+    }
+
+    if (orientation === 'vertical') {
+      panel.api.setSize({ height: newSize });
+    } else {
+      panel.api.setSize({ width: newSize });
+    }
+  }, [defaultSize, minExpandedSize, orientation, collapsedSize, panelId, tab]);
 
   const toggle = useCallback(() => {
     const panel = navigationApi.getPanel(tab, panelId);
@@ -59,6 +75,7 @@ export const useCollapsibleGridviewPanel = (
       return;
     }
     const isCollapsed = getIsCollapsed(panel, orientation, collapsedSize);
+
     if (isCollapsed) {
       expand();
     } else {

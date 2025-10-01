@@ -4,9 +4,9 @@ import type { NodeProps } from '@xyflow/react';
 import { useAppSelector } from 'app/store/storeHooks';
 import { IAINoContentFallback } from 'common/components/IAIImageFallback';
 import { DndImage } from 'features/dnd/DndImage';
-import NextPrevImageButtons from 'features/gallery/components/NextPrevImageButtons';
-import { selectLastSelectedImage } from 'features/gallery/store/gallerySelectors';
-import NodeWrapper from 'features/nodes/components/flow/nodes/common/NodeWrapper';
+import NextPrevItemButtons from 'features/gallery/components/NextPrevItemButtons';
+import { selectLastSelectedItem } from 'features/gallery/store/gallerySelectors';
+import NonInvocationNodeWrapper from 'features/nodes/components/flow/nodes/common/NonInvocationNodeWrapper';
 import { DRAG_HANDLE_CLASSNAME } from 'features/nodes/types/constants';
 import type { AnimationProps } from 'framer-motion';
 import { motion } from 'framer-motion';
@@ -17,9 +17,9 @@ import { useImageDTO } from 'services/api/endpoints/images';
 import { $lastProgressEvent } from 'services/events/stores';
 
 const CurrentImageNode = (props: NodeProps) => {
-  const image_name = useAppSelector(selectLastSelectedImage);
+  const lastSelectedItem = useAppSelector(selectLastSelectedItem);
   const lastProgressEvent = useStore($lastProgressEvent);
-  const imageDTO = useImageDTO(image_name);
+  const imageDTO = useImageDTO(lastSelectedItem?.id);
 
   if (lastProgressEvent?.image) {
     return (
@@ -32,7 +32,7 @@ const CurrentImageNode = (props: NodeProps) => {
   if (imageDTO) {
     return (
       <Wrapper nodeProps={props}>
-        <DndImage imageDTO={imageDTO} />
+        <DndImage imageDTO={imageDTO} borderRadius="base" />
       </Wrapper>
     );
   }
@@ -58,13 +58,14 @@ const Wrapper = (props: PropsWithChildren<{ nodeProps: NodeProps }>) => {
   }, []);
   const { t } = useTranslation();
   return (
-    <NodeWrapper nodeId={props.nodeProps.id} selected={props.nodeProps.selected} width={384}>
+    <NonInvocationNodeWrapper nodeId={props.nodeProps.id} selected={props.nodeProps.selected} width={384}>
       <Flex
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={DRAG_HANDLE_CLASSNAME}
         position="relative"
         flexDirection="column"
+        aspectRatio="1/1"
       >
         <Flex layerStyle="nodeHeader" borderTopRadius="base" alignItems="center" justifyContent="center" h={8}>
           <Text fontSize="sm" fontWeight="semibold" color="base.200">
@@ -75,12 +76,12 @@ const Wrapper = (props: PropsWithChildren<{ nodeProps: NodeProps }>) => {
           {props.children}
           {isHovering && (
             <motion.div key="nextPrevButtons" initial={initial} animate={animate} exit={exit} style={styles}>
-              <NextPrevImageButtons inset={2} />
+              <NextPrevItemButtons inset={2} />
             </motion.div>
           )}
         </Flex>
       </Flex>
-    </NodeWrapper>
+    </NonInvocationNodeWrapper>
   );
 };
 

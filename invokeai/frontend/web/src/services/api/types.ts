@@ -1,13 +1,21 @@
 import type { Dimensions } from 'features/controlLayers/store/types';
 import type { components, paths } from 'services/api/schema';
+import type { Equals } from 'tsafe';
+import { assert } from 'tsafe';
 import type { JsonObject, SetRequired } from 'type-fest';
+import z from 'zod';
 
 export type S = components['schemas'];
 
 export type ListImagesArgs = NonNullable<paths['/api/v1/images/']['get']['parameters']['query']>;
 export type ListImagesResponse = paths['/api/v1/images/']['get']['responses']['200']['content']['application/json'];
 
-export type ImageNamesResult = S['ImageNamesResult'];
+export type GetImageNamesResult =
+  paths['/api/v1/images/names']['get']['responses']['200']['content']['application/json'];
+export type GetImageNamesArgs = NonNullable<paths['/api/v1/images/names']['get']['parameters']['query']>;
+
+export type GetVideoIdsResult = paths['/api/v1/videos/ids']['get']['responses']['200']['content']['application/json'];
+export type GetVideoIdsArgs = NonNullable<paths['/api/v1/videos/ids']['get']['parameters']['query']>;
 
 export type ListBoardsArgs = NonNullable<paths['/api/v1/boards/']['get']['parameters']['query']>;
 
@@ -23,6 +31,15 @@ export type GraphAndWorkflowResponse =
 export type EnqueueBatchArg =
   paths['/api/v1/queue/{queue_id}/enqueue_batch']['post']['requestBody']['content']['application/json'];
 
+export type GetQueueItemIdsResult =
+  paths['/api/v1/queue/{queue_id}/item_ids']['get']['responses']['200']['content']['application/json'];
+export type GetQueueItemIdsArgs = NonNullable<paths['/api/v1/queue/{queue_id}/item_ids']['get']['parameters']['query']>;
+
+export type GetQueueItemDTOsByItemIdsResult =
+  paths['/api/v1/queue/{queue_id}/items_by_ids']['post']['responses']['200']['content']['application/json'];
+export type GetQueueItemDTOsByItemIdsArgs =
+  paths['/api/v1/queue/{queue_id}/items_by_ids']['post']['requestBody']['content']['application/json'];
+
 export type InputFieldJSONSchemaExtra = S['InputFieldJSONSchemaExtra'];
 export type OutputFieldJSONSchemaExtra = S['OutputFieldJSONSchemaExtra'];
 export type InvocationJSONSchemaExtra = S['UIConfigBase'];
@@ -31,11 +48,62 @@ export type InvocationJSONSchemaExtra = S['UIConfigBase'];
 export type AppVersion = S['AppVersion'];
 export type AppConfig = S['AppConfig'];
 
+const zResourceOrigin = z.enum(['internal', 'external']);
+type ResourceOrigin = z.infer<typeof zResourceOrigin>;
+assert<Equals<ResourceOrigin, S['ResourceOrigin']>>();
+const zImageCategory = z.enum(['general', 'mask', 'control', 'user', 'other']);
+export type ImageCategory = z.infer<typeof zImageCategory>;
+assert<Equals<ImageCategory, S['ImageCategory']>>();
+
 // Images
-export type ImageDTO = S['ImageDTO'];
+const _zImageDTO = z.object({
+  image_name: z.string(),
+  image_url: z.string(),
+  thumbnail_url: z.string(),
+  image_origin: zResourceOrigin,
+  image_category: zImageCategory,
+  width: z.number().int().gt(0),
+  height: z.number().int().gt(0),
+  created_at: z.string(),
+  updated_at: z.string(),
+  deleted_at: z.string().nullish(),
+  is_intermediate: z.boolean(),
+  session_id: z.string().nullish(),
+  node_id: z.string().nullish(),
+  starred: z.boolean(),
+  has_workflow: z.boolean(),
+  board_id: z.string().nullish(),
+});
+export type ImageDTO = z.infer<typeof _zImageDTO>;
+assert<Equals<ImageDTO, S['ImageDTO']>>();
+export const isImageDTO = (dto: ImageDTO | VideoDTO): dto is ImageDTO => {
+  return 'image_name' in dto;
+};
+
 export type BoardDTO = S['BoardDTO'];
-export type ImageCategory = S['ImageCategory'];
 export type OffsetPaginatedResults_ImageDTO_ = S['OffsetPaginatedResults_ImageDTO_'];
+
+// Videos
+const _zVideoDTO = z.object({
+  video_id: z.string(),
+  video_url: z.string(),
+  thumbnail_url: z.string(),
+  width: z.number().int().gt(0),
+  height: z.number().int().gt(0),
+  created_at: z.string(),
+  updated_at: z.string(),
+  deleted_at: z.string().nullish(),
+  starred: z.boolean(),
+  board_id: z.string().nullish(),
+  is_intermediate: z.boolean(),
+  session_id: z.string().nullish(),
+  node_id: z.string().nullish(),
+});
+export type VideoDTO = z.infer<typeof _zVideoDTO>;
+assert<Equals<VideoDTO, S['VideoDTO']>>();
+export const isVideoDTO = (dto: ImageDTO | VideoDTO): dto is VideoDTO => {
+  return 'video_id' in dto;
+};
 
 // Models
 export type ModelType = S['ModelType'];
@@ -54,7 +122,7 @@ export type T2IAdapterModelConfig = S['T2IAdapterConfig'];
 export type CLIPLEmbedModelConfig = S['CLIPLEmbedDiffusersConfig'];
 export type CLIPGEmbedModelConfig = S['CLIPGEmbedDiffusersConfig'];
 export type CLIPEmbedModelConfig = CLIPLEmbedModelConfig | CLIPGEmbedModelConfig;
-export type LlavaOnevisionConfig = S['LlavaOnevisionConfig'];
+type LlavaOnevisionConfig = S['LlavaOnevisionConfig'];
 export type T5EncoderModelConfig = S['T5EncoderConfig'];
 export type T5EncoderBnbQuantizedLlmInt8bModelConfig = S['T5EncoderBnbQuantizedLlmInt8bConfig'];
 export type SpandrelImageToImageModelConfig = S['SpandrelImageToImageConfig'];
@@ -62,12 +130,14 @@ type TextualInversionModelConfig = S['TextualInversionFileConfig'] | S['TextualI
 type DiffusersModelConfig = S['MainDiffusersConfig'];
 export type CheckpointModelConfig = S['MainCheckpointConfig'];
 type CLIPVisionDiffusersConfig = S['CLIPVisionDiffusersConfig'];
-export type SigLipModelConfig = S['SigLIPConfig'];
+type SigLipModelConfig = S['SigLIPConfig'];
 export type FLUXReduxModelConfig = S['FluxReduxConfig'];
-export type ApiModelConfig = S['ApiModelConfig'];
+type ApiModelConfig = S['ApiModelConfig'];
+export type VideoApiModelConfig = S['VideoApiModelConfig'];
 export type MainModelConfig = DiffusersModelConfig | CheckpointModelConfig | ApiModelConfig;
 export type FLUXKontextModelConfig = MainModelConfig;
 export type ChatGPT4oModelConfig = ApiModelConfig;
+export type Gemini2_5ModelConfig = ApiModelConfig;
 export type AnyModelConfig =
   | ControlLoRAModelConfig
   | LoRAModelConfig
@@ -81,6 +151,7 @@ export type AnyModelConfig =
   | SpandrelImageToImageModelConfig
   | TextualInversionModelConfig
   | MainModelConfig
+  | VideoApiModelConfig
   | CLIPVisionDiffusersConfig
   | SigLipModelConfig
   | FLUXReduxModelConfig
@@ -233,12 +304,8 @@ export const isChatGPT4oModelConfig = (config: AnyModelConfig): config is ChatGP
   return config.type === 'main' && config.base === 'chatgpt-4o';
 };
 
-export const isImagen3ModelConfig = (config: AnyModelConfig): config is ApiModelConfig => {
-  return config.type === 'main' && config.base === 'imagen3';
-};
-
-export const isImagen4ModelConfig = (config: AnyModelConfig): config is ApiModelConfig => {
-  return config.type === 'main' && config.base === 'imagen4';
+export const isVideoModelConfig = (config: AnyModelConfig): config is VideoApiModelConfig => {
+  return config.type === 'video';
 };
 
 export const isFluxKontextApiModelConfig = (config: AnyModelConfig): config is ApiModelConfig => {
@@ -246,7 +313,11 @@ export const isFluxKontextApiModelConfig = (config: AnyModelConfig): config is A
 };
 
 export const isFluxKontextModelConfig = (config: AnyModelConfig): config is FLUXKontextModelConfig => {
-  return config.type === 'main' && config.base === 'flux' && config.name?.toLowerCase().includes('kontext');
+  return config.type === 'main' && config.base === 'flux' && config.name.toLowerCase().includes('kontext');
+};
+
+export const isGemini2_5ModelConfig = (config: AnyModelConfig): config is ApiModelConfig => {
+  return config.type === 'main' && config.base === 'gemini-2.5';
 };
 
 export const isNonRefinerMainModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
@@ -261,28 +332,8 @@ export const isRefinerMainModelModelConfig = (config: AnyModelConfig): config is
   return config.type === 'main' && config.base === 'sdxl-refiner';
 };
 
-export const isSDXLMainModelModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
-  return config.type === 'main' && config.base === 'sdxl';
-};
-
-export const isSD3MainModelModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
-  return config.type === 'main' && config.base === 'sd-3';
-};
-
-export const isCogView4MainModelModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
-  return config.type === 'main' && config.base === 'cogview4';
-};
-
-export const isFluxMainModelModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
-  return config.type === 'main' && config.base === 'flux';
-};
-
 export const isFluxFillMainModelModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
   return config.type === 'main' && config.base === 'flux' && config.variant === 'inpaint';
-};
-
-export const isNonSDXLMainModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
-  return config.type === 'main' && (config.base === 'sd-1' || config.base === 'sd-2');
 };
 
 export const isTIModelConfig = (config: AnyModelConfig): config is MainModelConfig => {
@@ -296,8 +347,13 @@ export type ModelInstallStatus = S['InstallStatus'];
 export type Graph = S['Graph'];
 export type NonNullableGraph = SetRequired<Graph, 'nodes' | 'edges'>;
 export type Batch = S['Batch'];
-export type WorkflowRecordOrderBy = S['WorkflowRecordOrderBy'];
-export type SQLiteDirection = S['SQLiteDirection'];
+export const zWorkflowRecordOrderBy = z.enum(['name', 'created_at', 'updated_at', 'opened_at']);
+export type WorkflowRecordOrderBy = z.infer<typeof zWorkflowRecordOrderBy>;
+assert<Equals<S['WorkflowRecordOrderBy'], WorkflowRecordOrderBy>>();
+
+export const zSQLiteDirection = z.enum(['ASC', 'DESC']);
+export type SQLiteDirection = z.infer<typeof zSQLiteDirection>;
+assert<Equals<S['SQLiteDirection'], SQLiteDirection>>();
 export type WorkflowRecordListItemWithThumbnailDTO = S['WorkflowRecordListItemWithThumbnailDTO'];
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
@@ -318,6 +374,15 @@ export type Invocation<T extends InvocationType> = Extract<AnyInvocation, { type
 type NonInputFields = 'id' | 'type' | 'is_intermediate' | 'use_cache' | 'board' | 'metadata';
 export type AnyInvocationInputField = Exclude<KeysOfUnion<Required<AnyInvocation>>, NonInputFields>;
 export type InputFields<T extends AnyInvocation> = Extract<keyof T, AnyInvocationInputField>;
+
+type ExcludeIndexSignature<T> = {
+  [K in keyof T as string extends K ? never : K]: T[K];
+};
+
+export type CoreMetadataFields = Exclude<
+  keyof ExcludeIndexSignature<components['schemas']['CoreMetadataInvocation']>,
+  NonInputFields
+>;
 
 type NonOutputFields = 'type';
 export type AnyInvocationOutputField = Exclude<KeysOfUnion<Required<AnyInvocationOutput>>, NonOutputFields>;

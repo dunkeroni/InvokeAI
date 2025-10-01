@@ -18,7 +18,7 @@ import { createMemoizedSelector } from 'app/store/createMemoizedSelector';
 import { $onClickGoToModelManager } from 'app/store/nanostores/onClickGoToModelManager';
 import { useAppSelector } from 'app/store/storeHooks';
 import type { Group, PickerContextState } from 'common/components/Picker/Picker';
-import { buildGroup, getRegex, isOption, Picker, usePickerContext } from 'common/components/Picker/Picker';
+import { buildGroup, getRegex, isGroup, Picker, usePickerContext } from 'common/components/Picker/Picker';
 import { useDisclosure } from 'common/hooks/useBoolean';
 import { typedMemo } from 'common/util/typedMemo';
 import { uniq } from 'es-toolkit/compat';
@@ -164,6 +164,7 @@ const removeStarred = <T,>(obj: WithStarred<T>): T => {
 
 export const ModelPicker = typedMemo(
   <T extends AnyModelConfig = AnyModelConfig>({
+    pickerId,
     modelConfigs,
     selectedModelConfig,
     onChange,
@@ -177,6 +178,7 @@ export const ModelPicker = typedMemo(
     noOptionsText,
     initialGroupStates,
   }: {
+    pickerId: string;
     modelConfigs: T[];
     selectedModelConfig: T | undefined;
     onChange: (modelConfig: T) => void;
@@ -277,8 +279,22 @@ export const ModelPicker = typedMemo(
       if (!selectedModelConfig) {
         return undefined;
       }
+      let _selectedOption: WithStarred<T> | undefined = undefined;
 
-      return options.filter(isOption).find((o) => o.key === selectedModelConfig.key);
+      for (const optionOrGroup of options) {
+        if (isGroup(optionOrGroup)) {
+          const result = optionOrGroup.options.find((o) => o.key === selectedModelConfig.key);
+          if (result) {
+            _selectedOption = result;
+            break;
+          }
+        } else if (optionOrGroup.key === selectedModelConfig.key) {
+          _selectedOption = optionOrGroup;
+          break;
+        }
+      }
+
+      return _selectedOption;
     }, [options, selectedModelConfig]);
 
     const onClose = useCallback(() => {
@@ -332,6 +348,7 @@ export const ModelPicker = typedMemo(
             <PopoverArrow />
             <PopoverBody p={0} w="full" h="full" borderWidth={1} borderColor="base.700" borderRadius="base">
               <Picker<WithStarred<T>>
+                pickerId={pickerId}
                 handleRef={pickerRef}
                 optionsOrGroups={options}
                 getOptionId={getOptionId<T>}
@@ -361,9 +378,19 @@ const optionSx: SystemStyleObject = {
   cursor: 'pointer',
   borderRadius: 'base',
   '&[data-selected="true"]': {
-    bg: 'base.700',
+    bg: 'invokeBlue.300',
+    color: 'base.900',
+    '.extra-info': {
+      color: 'base.700',
+    },
+    '.picker-option': {
+      fontWeight: 'bold',
+      '&[data-is-compact="true"]': {
+        fontWeight: 'semibold',
+      },
+    },
     '&[data-active="true"]': {
-      bg: 'base.650',
+      bg: 'invokeBlue.250',
     },
   },
   '&[data-active="true"]': {
@@ -391,31 +418,48 @@ const optionNameSx: SystemStyleObject = {
 
 const PickerOptionComponent = typedMemo(
   <T extends AnyModelConfig>({ option, ...rest }: { option: WithStarred<T> } & BoxProps) => {
-    const { $compactView } = usePickerContext<WithStarred<T>>();
-    const compactView = useStore($compactView);
+    const { isCompactView } = usePickerContext<WithStarred<T>>();
 
     return (
-      <Flex {...rest} sx={optionSx} data-is-compact={compactView}>
-        {!compactView && option.cover_image && <ModelImage image_url={option.cover_image} />}
+      <Flex {...rest} sx={optionSx} data-is-compact={isCompactView}>
+        {!isCompactView && option.cover_image && <ModelImage image_url={option.cover_image} />}
         <Flex flexDir="column" gap={1} flex={1}>
           <Flex gap={2} alignItems="center">
             {option.starred && <Icon as={PiLinkSimple} color="invokeYellow.500" boxSize={4} />}
-            <Text sx={optionNameSx} data-is-compact={compactView}>
+            <Text className="picker-option" sx={optionNameSx} data-is-compact={isCompactView}>
               {option.name}
             </Text>
             <Spacer />
             {option.file_size > 0 && (
-              <Text variant="subtext" fontStyle="italic" noOfLines={1} flexShrink={0} overflow="visible">
+              <Text
+                className="extra-info"
+                variant="subtext"
+                fontStyle="italic"
+                noOfLines={1}
+                flexShrink={0}
+                overflow="visible"
+              >
                 {filesize(option.file_size)}
               </Text>
             )}
             {option.usage_info && (
-              <Text variant="subtext" fontStyle="italic" noOfLines={1} flexShrink={0} overflow="visible">
+              <Text
+                className="extra-info"
+                variant="subtext"
+                fontStyle="italic"
+                noOfLines={1}
+                flexShrink={0}
+                overflow="visible"
+              >
                 {option.usage_info}
               </Text>
             )}
           </Flex>
-          {option.description && !compactView && <Text color="base.200">{option.description}</Text>}
+          {option.description && !isCompactView && (
+            <Text className="extra-info" color="base.200">
+              {option.description}
+            </Text>
+          )}
         </Flex>
       </Flex>
     );
