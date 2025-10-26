@@ -48,6 +48,7 @@ export const FilterNoise = memo(({ onChange, config }: Props) => {
     () => [
       { label: t('controlLayers.filter.img_noise.gaussian_type'), value: 'gaussian' },
       { label: t('controlLayers.filter.img_noise.salt_and_pepper_type'), value: 'salt_and_pepper' },
+      { label: t('controlLayers.filter.img_noise.chroma_only_type'), value: 'chroma_only' },
     ],
     [t]
   );

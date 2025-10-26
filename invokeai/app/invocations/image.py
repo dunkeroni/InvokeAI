@@ -1220,7 +1220,7 @@ class ApplyMaskToImageInvocation(BaseInvocation, WithMetadata, WithBoard):
     title="Add Image Noise",
     tags=["image", "noise"],
     category="image",
-    version="1.1.0",
+    version="1.2.0",
 )
 class ImageNoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
     """Add noise to an image"""
@@ -1235,7 +1235,7 @@ class ImageNoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
         le=SEED_MAX,
         description=FieldDescriptions.seed,
     )
-    noise_type: Literal["gaussian", "salt_and_pepper"] = InputField(
+    noise_type: Literal["gaussian", "salt_and_pepper", "chroma_only"] = InputField(
         default="gaussian",
         description="The type of noise to add",
     )
@@ -1255,9 +1255,17 @@ class ImageNoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
         if self.noise_type == "gaussian":
             if self.noise_color:
                 noise = rs.normal(0, 1, (image.height // self.size, image.width // self.size, 3)) * 255
+                noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
+                    (image.width, image.height), Image.Resampling.NEAREST
+                )
+                noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGB")
             else:
                 noise = rs.normal(0, 1, (image.height // self.size, image.width // self.size)) * 255
                 noise = numpy.stack([noise] * 3, axis=-1)
+                noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
+                    (image.width, image.height), Image.Resampling.NEAREST
+                )
+                noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGB")
         elif self.noise_type == "salt_and_pepper":
             if self.noise_color:
                 noise = rs.choice(
@@ -1268,13 +1276,41 @@ class ImageNoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
                     [0, 255], (image.height // self.size, image.width // self.size), p=[1 - self.amount, self.amount]
                 )
                 noise = numpy.stack([noise] * 3, axis=-1)
+            noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
+                (image.width, image.height), Image.Resampling.NEAREST
+            )
+            noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGB")
+        elif self.noise_type == "chroma_only" and self.noise_color:
+            # Convert original to RGB numpy array
+            rgb_orig = numpy.array(image.convert("RGB"), dtype=numpy.uint8)
 
-        noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
-            (image.width, image.height), Image.Resampling.NEAREST
-        )
+            noise_height = max(1, image.height // self.size)
+            noise_width = max(1, image.width // self.size)
 
-        # Create a noisy version of the input image
-        noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGBA")
+            # Generate RGB Gaussian noise (small image to be upscaled)
+            noise = rs.uniform(0, 1, (noise_height, noise_width, 3)) * 255.0
+            noise = numpy.clip(noise, 0, 255).astype(numpy.uint8)
+            noise_img = Image.fromarray(noise, mode="RGB").resize((image.width, image.height), Image.Resampling.NEAREST)
+
+            # Blend noise into the original RGB image linearly (same approach as gaussian path)
+            base_pil = Image.fromarray(rgb_orig, mode="RGB")
+            blended_pil = Image.blend(base_pil, noise_img, float(self.amount))
+            blended_rgb = numpy.array(blended_pil, dtype=numpy.uint8)
+
+            # Convert both original and blended RGB to CIE LAB (OpenCV uses L in 0..255, a/b offset by 128)
+            lab_orig = cv2.cvtColor(rgb_orig, cv2.COLOR_RGB2LAB)
+            lab_blended = cv2.cvtColor(blended_rgb, cv2.COLOR_RGB2LAB)
+
+            # Replace L channel of blended image with L channel from original to preserve luminosity
+            lab_blended[:, :, 0] = lab_orig[:, :, 0]
+
+            # Convert back to RGB
+            rgb_out = cv2.cvtColor(lab_blended, cv2.COLOR_LAB2RGB)
+            rgb_out = numpy.clip(rgb_out, 0, 255).astype(numpy.uint8)
+
+            noisy_image = Image.fromarray(rgb_out, mode="RGB")
+        else:
+            noisy_image = image.convert("RGB")
 
         # Apply mask if provided
         if self.mask is not None:

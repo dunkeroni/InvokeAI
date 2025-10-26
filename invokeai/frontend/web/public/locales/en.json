@@ -2413,6 +2413,7 @@
                 "noise_amount": "Amount",
                 "gaussian_type": "Gaussian",
                 "salt_and_pepper_type": "Salt and Pepper",
+                "chroma_only_type": "Chroma Only",
                 "noise_color": "Colored Noise",
                 "size": "Noise Size"
             },

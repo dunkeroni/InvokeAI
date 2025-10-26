@@ -11258,7 +11258,7 @@ export type components = {
              * @default gaussian
              * @enum {string}
              */
-            noise_type?: "gaussian" | "salt_and_pepper";
+            noise_type?: "gaussian" | "salt_and_pepper" | "chroma_only";
             /**
              * Amount
              * @description The amount of noise to add

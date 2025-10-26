@@ -134,7 +134,7 @@ const zBlurFilterConfig = z.object({
 });
 export type BlurFilterConfig = z.infer<typeof zBlurFilterConfig>;
 
-const zNoiseTypes = z.enum(['gaussian', 'salt_and_pepper']);
+const zNoiseTypes = z.enum(['gaussian', 'salt_and_pepper', `chroma_only`]);
 export type NoiseTypes = z.infer<typeof zNoiseTypes>;
 export const isNoiseTypes = (v: unknown): v is NoiseTypes => zNoiseTypes.safeParse(v).success;
 const zNoiseFilterConfig = z.object({
