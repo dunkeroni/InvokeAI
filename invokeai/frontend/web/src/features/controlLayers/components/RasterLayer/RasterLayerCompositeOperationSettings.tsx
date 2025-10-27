@@ -2,39 +2,11 @@ import { Flex, FormControl, FormLabel, Select } from '@invoke-ai/ui-library';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import { useEntityIdentifierContext } from 'features/controlLayers/contexts/EntityIdentifierContext';
 import { rasterLayerGlobalCompositeOperationChanged } from 'features/controlLayers/store/canvasSlice';
+import { COMPOSITE_OPERATIONS } from 'features/controlLayers/store/compositeOperations';
 import type { CanvasRasterLayerState } from 'features/controlLayers/store/types';
 import type { ChangeEvent } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-
-const COMPOSITE_OPERATIONS = [
-  'source-over',
-  'source-in',
-  'source-out',
-  'source-atop',
-  'destination-over',
-  'destination-in',
-  'destination-out',
-  'destination-atop',
-  'lighter',
-  'copy',
-  'xor',
-  'multiply',
-  'screen',
-  'overlay',
-  'darken',
-  'lighten',
-  'color-dodge',
-  'color-burn',
-  'hard-light',
-  'soft-light',
-  'difference',
-  'exclusion',
-  'hue',
-  'saturation',
-  'color',
-  'luminosity',
-] as const;
 
 export const RasterLayerCompositeOperationSettings = memo(() => {
   const { t } = useTranslation();
