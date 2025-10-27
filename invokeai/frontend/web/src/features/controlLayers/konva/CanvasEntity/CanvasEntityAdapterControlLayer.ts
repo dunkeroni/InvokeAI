@@ -59,6 +59,9 @@ export class CanvasEntityAdapterControlLayer extends CanvasEntityAdapterBase<
     if (!prevState || this.state.opacity !== prevState.opacity) {
       this.syncOpacity();
     }
+    if (!prevState || this.state.globalCompositeOperation !== prevState.globalCompositeOperation) {
+      this.syncGlobalCompositeOperation();
+    }
     if (!prevState || this.state.withTransparencyEffect !== prevState.withTransparencyEffect) {
       this.renderer.updateTransparencyEffect();
     }
@@ -66,6 +69,13 @@ export class CanvasEntityAdapterControlLayer extends CanvasEntityAdapterBase<
 
   syncTransparencyEffect = () => {
     this.renderer.updateTransparencyEffect();
+  };
+
+  private syncGlobalCompositeOperation = () => {
+    this.log.trace('Syncing globalCompositeOperation');
+    // Set the globalCompositeOperation on the Konva layer for normal rendering
+    const operation = this.state.globalCompositeOperation ?? 'source-over';
+    this.konva.layer.globalCompositeOperation(operation);
   };
 
   getCanvas = (rect?: Rect): HTMLCanvasElement => {

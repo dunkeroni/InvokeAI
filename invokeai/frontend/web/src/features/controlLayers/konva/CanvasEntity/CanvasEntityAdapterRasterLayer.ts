@@ -60,6 +60,9 @@ export class CanvasEntityAdapterRasterLayer extends CanvasEntityAdapterBase<
     if (!prevState || this.state.opacity !== prevState.opacity) {
       this.syncOpacity();
     }
+    if (!prevState || this.state.globalCompositeOperation !== prevState.globalCompositeOperation) {
+      this.syncGlobalCompositeOperation();
+    }
 
     // Apply per-layer adjustments as a Konva filter
     if (!prevState || this.haveAdjustmentsChanged(prevState, this.state)) {
@@ -79,6 +82,13 @@ export class CanvasEntityAdapterRasterLayer extends CanvasEntityAdapterBase<
   getHashableState = (): JsonObject => {
     const keysToOmit: (keyof CanvasRasterLayerState)[] = ['name', 'isLocked'];
     return omit(this.state, keysToOmit);
+  };
+
+  private syncGlobalCompositeOperation = () => {
+    this.log.trace('Syncing globalCompositeOperation');
+    // Set the globalCompositeOperation on the Konva layer for normal rendering
+    const operation = this.state.globalCompositeOperation ?? 'source-over';
+    this.konva.layer.globalCompositeOperation(operation);
   };
 
   private syncAdjustmentsFilter = () => {
