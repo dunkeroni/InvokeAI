@@ -2,7 +2,7 @@ import { Flex, FormControl, FormLabel, Select } from '@invoke-ai/ui-library';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import { useEntityIdentifierContext } from 'features/controlLayers/contexts/EntityIdentifierContext';
 import { rasterLayerGlobalCompositeOperationChanged } from 'features/controlLayers/store/canvasSlice';
-import { COMPOSITE_OPERATIONS } from 'features/controlLayers/store/compositeOperations';
+import { COMPOSITE_OPERATIONS, type CompositeOperation } from 'features/controlLayers/store/compositeOperations';
 import type { CanvasRasterLayerState } from 'features/controlLayers/store/types';
 import type { ChangeEvent } from 'react';
 import { memo, useCallback, useMemo } from 'react';
@@ -27,7 +27,7 @@ export const RasterLayerCompositeOperationSettings = memo(() => {
 
   const onChange = useCallback(
     (e: ChangeEvent<HTMLSelectElement>) => {
-      const value = e.target.value as GlobalCompositeOperation;
+      const value = e.target.value as CompositeOperation;
       dispatch(rasterLayerGlobalCompositeOperationChanged({ entityIdentifier, globalCompositeOperation: value }));
     },
     [dispatch, entityIdentifier]
