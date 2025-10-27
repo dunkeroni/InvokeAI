@@ -2077,6 +2077,11 @@
         "pullBboxIntoReferenceImageError": "Problem Pulling BBox Into ReferenceImage",
         "addAdjustments": "Add Adjustments",
         "removeAdjustments": "Remove Adjustments",
+        "compositeOperation": {
+            "label": "Blend Mode",
+            "add": "Add Blend Mode",
+            "remove": "Remove Blend Mode"
+        },
         "adjustments": {
             "simple": "Simple",
             "curves": "Curves",

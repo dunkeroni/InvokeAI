@@ -462,6 +462,37 @@ const zCanvasRasterLayerState = zCanvasEntityBase.extend({
   objects: z.array(zCanvasObjectState),
   // Optional per-layer color adjustments (simple + curves). When undefined, no adjustments are applied.
   adjustments: zRasterLayerAdjustments.optional(),
+  // Optional per-layer composite operation. When undefined, defaults to 'source-over'.
+  globalCompositeOperation: z
+    .enum([
+      'source-over',
+      'source-in',
+      'source-out',
+      'source-atop',
+      'destination-over',
+      'destination-in',
+      'destination-out',
+      'destination-atop',
+      'lighter',
+      'copy',
+      'xor',
+      'multiply',
+      'screen',
+      'overlay',
+      'darken',
+      'lighten',
+      'color-dodge',
+      'color-burn',
+      'hard-light',
+      'soft-light',
+      'difference',
+      'exclusion',
+      'hue',
+      'saturation',
+      'color',
+      'luminosity',
+    ])
+    .optional(),
 });
 export type CanvasRasterLayerState = z.infer<typeof zCanvasRasterLayerState>;
 
