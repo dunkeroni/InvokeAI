@@ -1,9 +1,13 @@
-import { Flex, Slider, SliderFilledTrack, SliderThumb, SliderTrack, Text } from '@invoke-ai/ui-library';
+import { Flex, Slider, SliderFilledTrack, SliderThumb, SliderTrack, Switch, Text } from '@invoke-ai/ui-library';
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import { InpaintMaskDeleteModifierButton } from 'features/controlLayers/components/InpaintMask/InpaintMaskDeleteModifierButton';
 import { useEntityIdentifierContext } from 'features/controlLayers/contexts/EntityIdentifierContext';
-import { inpaintMaskNoiseChanged, inpaintMaskNoiseDeleted } from 'features/controlLayers/store/canvasSlice';
+import {
+  inpaintMaskNoiseChanged,
+  inpaintMaskNoiseDeleted,
+  inpaintMaskNoiseDeluminateToggled,
+} from 'features/controlLayers/store/canvasSlice';
 import { selectCanvasSlice, selectEntityOrThrow } from 'features/controlLayers/store/selectors';
 import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +27,16 @@ export const InpaintMaskNoiseSlider = memo(() => {
   );
   const noiseLevel = useAppSelector(selectNoiseLevel);
 
+  const selectDeluminate = useMemo(
+    () =>
+      createSelector(
+        selectCanvasSlice,
+        (canvas) => selectEntityOrThrow(canvas, entityIdentifier, 'InpaintMaskNoiseSlider').noiseDeluminate ?? true
+      ),
+    [entityIdentifier]
+  );
+  const noiseDeluminate = useAppSelector(selectDeluminate);
+
   const handleNoiseChange = useCallback(
     (value: number) => {
       dispatch(inpaintMaskNoiseChanged({ entityIdentifier, noiseLevel: value }));
@@ -32,6 +46,10 @@ export const InpaintMaskNoiseSlider = memo(() => {
 
   const onDeleteNoise = useCallback(() => {
     dispatch(inpaintMaskNoiseDeleted({ entityIdentifier }));
+  }, [dispatch, entityIdentifier]);
+
+  const onToggleDeluminate = useCallback(() => {
+    dispatch(inpaintMaskNoiseDeluminateToggled({ entityIdentifier }));
   }, [dispatch, entityIdentifier]);
 
   if (noiseLevel === undefined) {
@@ -60,6 +78,12 @@ export const InpaintMaskNoiseSlider = memo(() => {
         </SliderTrack>
         <SliderThumb />
       </Slider>
+      <Flex justifyContent="flex-end" w="full" alignItems="center" px={1} gap={1}>
+        <Text fontSize="sm" textAlign="right">
+          {t('controlLayers.deluminateNoise', 'Deluminate noise')}
+        </Text>
+        <Switch isChecked={noiseDeluminate} onChange={onToggleDeluminate} />
+      </Flex>
     </Flex>
   );
 });

@@ -2239,6 +2239,7 @@
         "referenceImageEmptyState": "<UploadButton>Upload an image</UploadButton> or drag an image from the gallery onto this Reference Image to get started.",
         "uploadOrDragAnImage": "Drag an image from the gallery or <UploadButton>upload an image</UploadButton>.",
         "imageNoise": "Image Noise",
+        "deluminateNoise": "Deluminate",
         "denoiseLimit": "Denoise Limit",
         "warnings": {
             "problemsFound": "Problems found",

@@ -383,6 +383,7 @@ const zCanvasInpaintMaskState = zCanvasEntityBase.extend({
   opacity: zOpacity,
   objects: z.array(zCanvasObjectState),
   noiseLevel: z.number().gte(0).lte(1).optional(),
+  noiseDeluminate: z.boolean().optional(),
   denoiseLimit: z.number().gte(0).lte(1).optional(),
 });
 export type CanvasInpaintMaskState = z.infer<typeof zCanvasInpaintMaskState>;

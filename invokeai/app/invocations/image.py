@@ -1248,53 +1248,48 @@ class ImageNoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
 
         # Save out the alpha channel
         alpha = image.getchannel("A")
+        noise_height = max(1, image.height // self.size)
+        noise_width = max(1, image.width // self.size)
 
         # Set the seed for numpy random
         rs = numpy.random.RandomState(numpy.random.MT19937(numpy.random.SeedSequence(self.seed)))
-
-        if self.noise_type == "gaussian":
-            if self.noise_color:
-                noise = rs.normal(0, 1, (image.height // self.size, image.width // self.size, 3)) * 255
-                noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
-                    (image.width, image.height), Image.Resampling.NEAREST
-                )
-                noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGB")
-            else:
-                noise = rs.normal(0, 1, (image.height // self.size, image.width // self.size)) * 255
-                noise = numpy.stack([noise] * 3, axis=-1)
-                noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
-                    (image.width, image.height), Image.Resampling.NEAREST
-                )
-                noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGB")
-        elif self.noise_type == "salt_and_pepper":
-            if self.noise_color:
-                noise = rs.choice(
-                    [0, 255], (image.height // self.size, image.width // self.size, 3), p=[1 - self.amount, self.amount]
-                )
-            else:
-                noise = rs.choice(
-                    [0, 255], (image.height // self.size, image.width // self.size), p=[1 - self.amount, self.amount]
-                )
-                noise = numpy.stack([noise] * 3, axis=-1)
-            noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
-                (image.width, image.height), Image.Resampling.NEAREST
-            )
-            noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGB")
-        elif self.noise_type == "chroma_only" and self.noise_color:
+        if self.noise_type == "chroma_only" and self.noise_color:
             # Convert original to RGB numpy array
             rgb_orig = numpy.array(image.convert("RGB"), dtype=numpy.uint8)
-
-            noise_height = max(1, image.height // self.size)
-            noise_width = max(1, image.width // self.size)
 
             # Generate RGB Gaussian noise (small image to be upscaled)
             noise = rs.uniform(0, 1, (noise_height, noise_width, 3)) * 255.0
             noise = numpy.clip(noise, 0, 255).astype(numpy.uint8)
             noise_img = Image.fromarray(noise, mode="RGB").resize((image.width, image.height), Image.Resampling.NEAREST)
 
-            # Blend noise into the original RGB image linearly (same approach as gaussian path)
             base_pil = Image.fromarray(rgb_orig, mode="RGB")
-            blended_pil = Image.blend(base_pil, noise_img, float(self.amount))
+            # Blend noise into the original RGB image per-pixel using an optional mask.
+            # If a mask is provided, scale the global amount by the per-pixel mask value.
+            # Mask semantics: black = noise (apply), white = no noise (keep original).
+            if self.mask is not None:
+                mask_image = context.images.get_pil(self.mask.image_name, mode="L")
+                if mask_image.size != base_pil.size:
+                    mask_image = mask_image.resize(base_pil.size, Image.Resampling.LANCZOS)
+
+                # Normalize mask to 0..1, where 0 is white (no noise) and 1 is black (full noise)
+                mask_arr = numpy.asarray(mask_image, dtype=numpy.float32) / 255.0
+                # Convert to noise alpha: black -> 1, white -> 0
+                noise_alpha = (1.0 - mask_arr) * float(self.amount)
+
+                # Prepare arrays for blending
+                base_arr = numpy.asarray(base_pil, dtype=numpy.float32)
+                noise_arr = numpy.asarray(noise_img, dtype=numpy.float32)
+
+                # Expand alpha to 3 channels
+                noise_alpha_3 = numpy.stack([noise_alpha] * 3, axis=-1)
+
+                # Per-pixel linear blend
+                blended_arr = (1.0 - noise_alpha_3) * base_arr + noise_alpha_3 * noise_arr
+                blended_arr = numpy.clip(blended_arr, 0, 255).astype(numpy.uint8)
+
+                blended_pil = Image.fromarray(blended_arr, mode="RGB")
+            else:
+                blended_pil = Image.blend(base_pil, noise_img, float(self.amount))
             blended_rgb = numpy.array(blended_pil, dtype=numpy.uint8)
 
             # Convert both original and blended RGB to CIE LAB (OpenCV uses L in 0..255, a/b offset by 128)
@@ -1308,22 +1303,44 @@ class ImageNoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
             rgb_out = cv2.cvtColor(lab_blended, cv2.COLOR_LAB2RGB)
             rgb_out = numpy.clip(rgb_out, 0, 255).astype(numpy.uint8)
 
-            noisy_image = Image.fromarray(rgb_out, mode="RGB")
+            result_image = Image.fromarray(rgb_out, mode="RGB")
         else:
-            noisy_image = image.convert("RGB")
+            if self.noise_type == "gaussian":
+                if self.noise_color:
+                    noise = rs.normal(0, 1, (noise_height, noise_width, 3)) * 255
+                else:
+                    noise = rs.normal(0, 1, (noise_height, noise_width)) * 255
+                    noise = numpy.stack([noise] * 3, axis=-1)
+            elif self.noise_type == "salt_and_pepper":
+                if self.noise_color:
+                    noise = rs.choice(
+                        [0, 255], (noise_height, noise_width, 3), p=[1 - self.amount, self.amount]
+                    )
+                else:
+                    noise = rs.choice(
+                        [0, 255], (noise_height, noise_width), p=[1 - self.amount, self.amount]
+                    )
+                    noise = numpy.stack([noise] * 3, axis=-1)
+            else: # exception case
+                noise = numpy.zeros((noise_height, noise_width, 3))
 
-        # Apply mask if provided
-        if self.mask is not None:
-            mask_image = context.images.get_pil(self.mask.image_name, mode="L")
+            noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
+                (image.width, image.height), Image.Resampling.NEAREST
+            )
+            noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGB")
 
-            if mask_image.size != image.size:
-                mask_image = mask_image.resize(image.size, Image.Resampling.LANCZOS)
+            # Apply mask if provided
+            if self.mask is not None:
+                mask_image = context.images.get_pil(self.mask.image_name, mode="L")
 
-            result_image = image.copy()
-            mask_image = ImageOps.invert(mask_image)
-            result_image.paste(noisy_image, (0, 0), mask=mask_image)
-        else:
-            result_image = noisy_image
+                if mask_image.size != image.size:
+                    mask_image = mask_image.resize(image.size, Image.Resampling.LANCZOS)
+
+                result_image = image.copy()
+                mask_image = ImageOps.invert(mask_image)
+                result_image.paste(noisy_image, (0, 0), mask=mask_image)
+            else:
+                result_image = noisy_image
 
         # Paste back the alpha channel from the original image
         result_image.putalpha(alpha)

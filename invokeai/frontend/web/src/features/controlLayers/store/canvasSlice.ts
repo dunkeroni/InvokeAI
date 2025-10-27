@@ -1025,6 +1025,7 @@ const slice = createSlice({
       const entity = selectEntity(state, entityIdentifier);
       if (entity && entity.type === 'inpaint_mask') {
         entity.noiseLevel = 0.15; // Default noise level
+        entity.noiseDeluminate = true;
       }
     },
     inpaintMaskNoiseChanged: (
@@ -1042,6 +1043,17 @@ const slice = createSlice({
       const entity = selectEntity(state, entityIdentifier);
       if (entity && entity.type === 'inpaint_mask') {
         entity.noiseLevel = undefined;
+        entity.noiseDeluminate = undefined;
+      }
+    },
+    inpaintMaskNoiseDeluminateToggled: (
+      state,
+      action: PayloadAction<EntityIdentifierPayload<void, 'inpaint_mask'>>
+    ) => {
+      const { entityIdentifier } = action.payload;
+      const entity = selectEntity(state, entityIdentifier);
+      if (entity && entity.type === 'inpaint_mask' && entity.noiseLevel !== undefined) {
+        entity.noiseDeluminate = !entity.noiseDeluminate;
       }
     },
     inpaintMaskConvertedToRegionalGuidance: {
@@ -1781,6 +1793,7 @@ export const {
   inpaintMaskNoiseAdded,
   inpaintMaskNoiseChanged,
   inpaintMaskNoiseDeleted,
+  inpaintMaskNoiseDeluminateToggled,
   inpaintMaskDenoiseLimitAdded,
   inpaintMaskDenoiseLimitChanged,
   inpaintMaskDenoiseLimitDeleted,

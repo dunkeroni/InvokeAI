@@ -75,6 +75,7 @@ export const addOutpaint = async ({
 
   // Get inpaint mask adapters that have noise settings
   const noiseMaskAdapters = inpaintMaskAdapters.filter((adapter) => adapter.state.noiseLevel !== undefined);
+  const useChromaOnlyNoise = noiseMaskAdapters.some((adapter) => adapter.state.noiseDeluminate ?? true);
 
   // Create a composite noise mask if we have any adapters with noise settings
   let noiseMaskImage: ImageDTO | null = null;
@@ -170,7 +171,7 @@ export const addOutpaint = async ({
       const noiseNode = g.addNode({
         type: 'img_noise',
         id: getPrefixedId('add_inpaint_noise'),
-        noise_type: 'gaussian',
+        noise_type: useChromaOnlyNoise ? 'chroma_only' : 'gaussian',
         amount: 1.0, // the mask controls the actual intensity
         noise_color: true,
       });
@@ -261,7 +262,7 @@ export const addOutpaint = async ({
         type: 'img_noise',
         id: getPrefixedId('add_inpaint_noise'),
         image: initialImage.image_name ? { image_name: initialImage.image_name } : undefined,
-        noise_type: 'gaussian',
+        noise_type: useChromaOnlyNoise ? 'chroma_only' : 'gaussian',
         amount: 1.0, // the mask controls the actual intensity
         noise_color: true,
         mask: { image_name: noiseMaskImage.image_name },
