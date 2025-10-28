@@ -1246,107 +1246,86 @@ class ImageNoiseInvocation(BaseInvocation, WithMetadata, WithBoard):
     def invoke(self, context: InvocationContext) -> ImageOutput:
         image = context.images.get_pil(self.image.image_name, mode="RGBA")
 
-        # Save out the alpha channel
+        # Preserve original alpha
         alpha = image.getchannel("A")
-        noise_height = max(1, image.height // self.size)
-        noise_width = max(1, image.width // self.size)
+        width, height = image.width, image.height
+        noise_height = max(1, height // self.size)
+        noise_width = max(1, width // self.size)
 
-        # Set the seed for numpy random
+        # RNG
         rs = numpy.random.RandomState(numpy.random.MT19937(numpy.random.SeedSequence(self.seed)))
-        if self.noise_type == "chroma_only" and self.noise_color:
-            # Convert original to RGB numpy array
-            rgb_orig = numpy.array(image.convert("RGB"), dtype=numpy.uint8)
 
-            # Generate RGB Gaussian noise (small image to be upscaled)
+        base_rgb = image.convert("RGB")
+        base_arr = numpy.asarray(base_rgb, dtype=numpy.float32)
+
+        # Prepare per-pixel apply factor (black=apply, white=skip)
+        mask_alpha = None
+        if self.mask is not None:
+            mask_image = context.images.get_pil(self.mask.image_name, mode="L")
+            if mask_image.size != (width, height):
+                mask_image = mask_image.resize((width, height), Image.Resampling.LANCZOS)
+            mask_arr = numpy.asarray(mask_image, dtype=numpy.float32) / 255.0
+            mask_alpha = 1.0 - mask_arr  # 1.0 where mask is black (apply), 0.0 where white (skip)
+
+        def upsample_noise(noise_u8: numpy.ndarray) -> numpy.ndarray:
+            noise_pil = Image.fromarray(noise_u8, mode="RGB").resize((width, height), Image.Resampling.NEAREST)
+            return numpy.asarray(noise_pil, dtype=numpy.float32)
+
+        # Generate noise image (as float32 array 0..255)
+        if self.noise_type == "chroma_only" and self.noise_color:
             noise = rs.uniform(0, 1, (noise_height, noise_width, 3)) * 255.0
             noise = numpy.clip(noise, 0, 255).astype(numpy.uint8)
-            noise_img = Image.fromarray(noise, mode="RGB").resize((image.width, image.height), Image.Resampling.NEAREST)
+            noise_arr = upsample_noise(noise)
 
-            base_pil = Image.fromarray(rgb_orig, mode="RGB")
-            # Blend noise into the original RGB image per-pixel using an optional mask.
-            # If a mask is provided, scale the global amount by the per-pixel mask value.
-            # Mask semantics: black = noise (apply), white = no noise (keep original).
-            if self.mask is not None:
-                mask_image = context.images.get_pil(self.mask.image_name, mode="L")
-                if mask_image.size != base_pil.size:
-                    mask_image = mask_image.resize(base_pil.size, Image.Resampling.LANCZOS)
-
-                # Normalize mask to 0..1, where 0 is white (no noise) and 1 is black (full noise)
-                mask_arr = numpy.asarray(mask_image, dtype=numpy.float32) / 255.0
-                # Convert to noise alpha: black -> 1, white -> 0
-                noise_alpha = (1.0 - mask_arr) * float(self.amount)
-
-                # Prepare arrays for blending
-                base_arr = numpy.asarray(base_pil, dtype=numpy.float32)
-                noise_arr = numpy.asarray(noise_img, dtype=numpy.float32)
-
-                # Expand alpha to 3 channels
-                noise_alpha_3 = numpy.stack([noise_alpha] * 3, axis=-1)
-
-                # Per-pixel linear blend
-                blended_arr = (1.0 - noise_alpha_3) * base_arr + noise_alpha_3 * noise_arr
-                blended_arr = numpy.clip(blended_arr, 0, 255).astype(numpy.uint8)
-
-                blended_pil = Image.fromarray(blended_arr, mode="RGB")
+            # Blend with optional mask scaling
+            if mask_alpha is None:
+                blended_arr = (1.0 - float(self.amount)) * base_arr + float(self.amount) * noise_arr
             else:
-                blended_pil = Image.blend(base_pil, noise_img, float(self.amount))
-            blended_rgb = numpy.array(blended_pil, dtype=numpy.uint8)
+                alpha_arr = float(self.amount) * mask_alpha
+                alpha_arr = numpy.stack([alpha_arr] * 3, axis=-1)
+                blended_arr = (1.0 - alpha_arr) * base_arr + alpha_arr * noise_arr
+            blended_arr = numpy.clip(blended_arr, 0, 255).astype(numpy.uint8)
 
-            # Convert both original and blended RGB to CIE LAB (OpenCV uses L in 0..255, a/b offset by 128)
-            lab_orig = cv2.cvtColor(rgb_orig, cv2.COLOR_RGB2LAB)
-            lab_blended = cv2.cvtColor(blended_rgb, cv2.COLOR_RGB2LAB)
-
-            # Replace L channel of blended image with L channel from original to preserve luminosity
+            # Preserve luminance by restoring original L channel
+            rgb_orig_u8 = base_arr.astype(numpy.uint8)
+            lab_orig = cv2.cvtColor(rgb_orig_u8, cv2.COLOR_RGB2LAB)
+            lab_blended = cv2.cvtColor(blended_arr, cv2.COLOR_RGB2LAB)
             lab_blended[:, :, 0] = lab_orig[:, :, 0]
-
-            # Convert back to RGB
             rgb_out = cv2.cvtColor(lab_blended, cv2.COLOR_LAB2RGB)
             rgb_out = numpy.clip(rgb_out, 0, 255).astype(numpy.uint8)
-
             result_image = Image.fromarray(rgb_out, mode="RGB")
         else:
             if self.noise_type == "gaussian":
                 if self.noise_color:
-                    noise = rs.normal(0, 1, (noise_height, noise_width, 3)) * 255
+                    noise = rs.normal(0, 1, (noise_height, noise_width, 3)) * 255.0
                 else:
-                    noise = rs.normal(0, 1, (noise_height, noise_width)) * 255
+                    noise = rs.normal(0, 1, (noise_height, noise_width)) * 255.0
                     noise = numpy.stack([noise] * 3, axis=-1)
             elif self.noise_type == "salt_and_pepper":
                 if self.noise_color:
-                    noise = rs.choice(
-                        [0, 255], (noise_height, noise_width, 3), p=[1 - self.amount, self.amount]
-                    )
+                    noise = rs.choice([0, 255], (noise_height, noise_width, 3), p=[1 - self.amount, self.amount])
                 else:
-                    noise = rs.choice(
-                        [0, 255], (noise_height, noise_width), p=[1 - self.amount, self.amount]
-                    )
+                    noise = rs.choice([0, 255], (noise_height, noise_width), p=[1 - self.amount, self.amount])
                     noise = numpy.stack([noise] * 3, axis=-1)
-            else: # exception case
+            else:  # exception case
                 noise = numpy.zeros((noise_height, noise_width, 3))
 
-            noise = Image.fromarray(noise.astype(numpy.uint8), mode="RGB").resize(
-                (image.width, image.height), Image.Resampling.NEAREST
-            )
-            noisy_image = Image.blend(image.convert("RGB"), noise, self.amount).convert("RGB")
+            noise_u8 = noise.astype(numpy.uint8)
+            noise_arr = upsample_noise(noise_u8)
 
-            # Apply mask if provided
-            if self.mask is not None:
-                mask_image = context.images.get_pil(self.mask.image_name, mode="L")
-
-                if mask_image.size != image.size:
-                    mask_image = mask_image.resize(image.size, Image.Resampling.LANCZOS)
-
-                result_image = image.copy()
-                mask_image = ImageOps.invert(mask_image)
-                result_image.paste(noisy_image, (0, 0), mask=mask_image)
+            if mask_alpha is None:
+                blended_arr = (1.0 - float(self.amount)) * base_arr + float(self.amount) * noise_arr
             else:
-                result_image = noisy_image
+                alpha_arr = float(self.amount) * mask_alpha
+                alpha_arr = numpy.stack([alpha_arr] * 3, axis=-1)
+                blended_arr = (1.0 - alpha_arr) * base_arr + alpha_arr * noise_arr
 
-        # Paste back the alpha channel from the original image
+            blended_arr = numpy.clip(blended_arr, 0, 255).astype(numpy.uint8)
+            result_image = Image.fromarray(blended_arr, mode="RGB")
+
+        # Restore alpha channel
         result_image.putalpha(alpha)
-
         image_dto = context.images.save(image=result_image)
-
         return ImageOutput.build(image_dto)
 
 
