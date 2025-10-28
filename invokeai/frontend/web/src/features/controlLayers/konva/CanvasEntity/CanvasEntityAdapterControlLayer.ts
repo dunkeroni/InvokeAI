@@ -73,9 +73,36 @@ export class CanvasEntityAdapterControlLayer extends CanvasEntityAdapterBase<
 
   private syncGlobalCompositeOperation = () => {
     this.log.trace('Syncing globalCompositeOperation');
-    // Set the globalCompositeOperation on the Konva layer for normal rendering
     const operation = this.state.globalCompositeOperation ?? 'source-over';
-    this.konva.layer.globalCompositeOperation(operation);
+
+    // Map globalCompositeOperation to CSS mix-blend-mode
+    // CSS mix-blend-mode is applied to the canvas DOM element to control how it blends with other layers
+    const mixBlendModeMap: Record<string, string> = {
+      'source-over': 'normal',
+      multiply: 'multiply',
+      screen: 'screen',
+      overlay: 'overlay',
+      darken: 'darken',
+      lighten: 'lighten',
+      'color-dodge': 'color-dodge',
+      'color-burn': 'color-burn',
+      'hard-light': 'hard-light',
+      'soft-light': 'soft-light',
+      difference: 'difference',
+      exclusion: 'exclusion',
+      hue: 'hue',
+      saturation: 'saturation',
+      color: 'color',
+      luminosity: 'luminosity',
+    };
+
+    const mixBlendMode = mixBlendModeMap[operation] || 'normal';
+
+    // Access the underlying canvas DOM element and set CSS mix-blend-mode
+    const canvasElement = this.konva.layer.getCanvas()._canvas;
+    if (canvasElement) {
+      canvasElement.style.mixBlendMode = mixBlendMode;
+    }
   };
 
   getCanvas = (rect?: Rect): HTMLCanvasElement => {
