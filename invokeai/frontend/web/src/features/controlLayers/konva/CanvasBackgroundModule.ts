@@ -96,6 +96,15 @@ export class CanvasBackgroundModule extends CanvasModuleBase {
     };
     this.checkboardPattern.src = 'anonymous';
     this.checkboardPattern.src = this.config.CHECKERBOARD_PATTERN_DATAURL;
+
+    // Set CSS isolation on the background layer to prevent blend modes from affecting it
+    // This creates a stacking context so that raster/control layers with mix-blend-mode
+    // will only blend with each other, not with the background
+    const backgroundCanvas = this.konva.layer.getCanvas()._canvas;
+    if (backgroundCanvas) {
+      backgroundCanvas.style.isolation = 'isolate';
+    }
+
     this.render();
   };
 
