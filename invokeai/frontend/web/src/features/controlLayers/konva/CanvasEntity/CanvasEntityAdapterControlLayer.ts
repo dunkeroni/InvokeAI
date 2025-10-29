@@ -59,6 +59,9 @@ export class CanvasEntityAdapterControlLayer extends CanvasEntityAdapterBase<
     if (!prevState || this.state.opacity !== prevState.opacity) {
       this.syncOpacity();
     }
+    if (!prevState || this.state.globalCompositeOperation !== prevState.globalCompositeOperation) {
+      this.syncGlobalCompositeOperation();
+    }
     if (!prevState || this.state.withTransparencyEffect !== prevState.withTransparencyEffect) {
       this.renderer.updateTransparencyEffect();
     }
@@ -66,6 +69,40 @@ export class CanvasEntityAdapterControlLayer extends CanvasEntityAdapterBase<
 
   syncTransparencyEffect = () => {
     this.renderer.updateTransparencyEffect();
+  };
+
+  private syncGlobalCompositeOperation = () => {
+    this.log.trace('Syncing globalCompositeOperation');
+    const operation = this.state.globalCompositeOperation ?? 'source-over';
+
+    // Map globalCompositeOperation to CSS mix-blend-mode
+    // CSS mix-blend-mode is applied to the canvas DOM element to control how it blends with other layers
+    const mixBlendModeMap: Record<string, string> = {
+      'source-over': 'normal',
+      multiply: 'multiply',
+      screen: 'screen',
+      overlay: 'overlay',
+      darken: 'darken',
+      lighten: 'lighten',
+      'color-dodge': 'color-dodge',
+      'color-burn': 'color-burn',
+      'hard-light': 'hard-light',
+      'soft-light': 'soft-light',
+      difference: 'difference',
+      exclusion: 'exclusion',
+      hue: 'hue',
+      saturation: 'saturation',
+      color: 'color',
+      luminosity: 'luminosity',
+    };
+
+    const mixBlendMode = mixBlendModeMap[operation] || 'normal';
+
+    // Access the underlying canvas DOM element and set CSS mix-blend-mode
+    const canvasElement = this.konva.layer.getCanvas()._canvas;
+    if (canvasElement) {
+      canvasElement.style.mixBlendMode = mixBlendMode;
+    }
   };
 
   getCanvas = (rect?: Rect): HTMLCanvasElement => {
