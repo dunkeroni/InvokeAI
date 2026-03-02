@@ -597,6 +597,7 @@ export class CanvasStageModule extends CanvasModuleBase {
 
   destroy = () => {
     this.log.debug('Destroying module');
+    this.syncStageAttrsThrottled.cancel();
     this.subscriptions.forEach((unsubscribe) => unsubscribe());
     this.subscriptions.clear();
     if (this.resizeObserver) {

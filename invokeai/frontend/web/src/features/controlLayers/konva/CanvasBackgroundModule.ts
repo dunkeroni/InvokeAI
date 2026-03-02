@@ -163,9 +163,7 @@ export class CanvasBackgroundModule extends CanvasModuleBase {
 
     const totalLines = xSteps + ySteps;
 
-    while (this.konva.lines.length > totalLines) {
-      this.konva.lines.pop()?.destroy();
-    }
+    this.konva.lines.splice(totalLines).forEach((line) => line.destroy());
 
     let lineIndex = 0;
     for (let i = 0; i < xSteps; i++) {
