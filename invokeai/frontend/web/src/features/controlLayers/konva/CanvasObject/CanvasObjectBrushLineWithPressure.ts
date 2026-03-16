@@ -100,14 +100,27 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
         this.konva.group.clip(expandedClip);
       }
 
-      // Apply Konva blur filter for softness
+      // Store blurRadius as a node attr so it can be read from cloned nodes during rasterization
+      // to calculate group cache offset.
+      this.konva.line.blurRadius(blurRadius);
+
+      // Apply softness via GPU-accelerated canvas 2D context filter instead of Konva's
+      // cache() + Filters.Blur, which is CPU-based at O(W*H*R) per update and causes severe
+      // slowdown as the stroke grows during drawing.
       if (blurRadius > 0) {
-        this.konva.line.cache({ offset: Math.ceil(blurRadius) });
-        this.konva.line.filters([Konva.Filters.Blur]);
-        this.konva.line.blurRadius(blurRadius);
+        const br = blurRadius;
+        this.konva.line.sceneFunc((ctx, shape) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const nativeCtx = (ctx as any)._context as CanvasRenderingContext2D;
+          const prevFilter = nativeCtx.filter;
+          nativeCtx.filter = `blur(${br}px)`;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (Konva.Path.prototype as any)._sceneFunc.call(shape, ctx);
+          nativeCtx.filter = prevFilter;
+        });
       } else {
-        this.konva.line.clearCache();
-        this.konva.line.filters([]);
+        // Remove custom sceneFunc to fall back to Konva's default
+        this.konva.line.setAttr('sceneFunc', undefined);
       }
 
       this.state = state;

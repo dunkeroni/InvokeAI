@@ -227,9 +227,9 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
       this.log.trace('Caching object group');
       this.konva.objectGroup.clearCache();
 
-      // clearCache() recursively destroys all descendant caches, including blur filter
-      // caches on individual Line/Path nodes. Re-cache any blurred nodes before caching
-      // the group so the softened brush effect is preserved.
+      // Calculate max blur radius to expand group cache bounds for softened brush lines.
+      // Individual line nodes apply blur via GPU-accelerated ctx.filter in their custom
+      // sceneFunc, so they don't need individual caching.
       let maxBlurRadius = 0;
       for (const renderer of this.renderers.values()) {
         if (renderer instanceof CanvasObjectBrushLine || renderer instanceof CanvasObjectBrushLineWithPressure) {
@@ -237,7 +237,6 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
           if (softness > 0) {
             const blurRadius = (softness * renderer.state.strokeWidth) / 100;
             maxBlurRadius = Math.max(maxBlurRadius, blurRadius);
-            renderer.konva.line.cache({ offset: Math.ceil(blurRadius) });
           }
         }
       }
@@ -607,15 +606,14 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
     if (attrs) {
       clone.setAttrs(attrs);
     }
-    // Konva's clone() copies filter attributes (filters, blurRadius) but does NOT clone the internal
-    // cache bitmap. Since filters only apply to cached nodes, we must re-cache any descendant nodes
-    // that have blur filters so the softened brush effect is preserved during rasterization.
+    // Calculate max blur radius from cloned nodes to expand group cache bounds.
+    // Individual nodes apply blur via GPU-accelerated ctx.filter in their custom sceneFunc
+    // (cloned automatically as an attr), so they don't need individual caching.
     let maxBlurRadius = 0;
     clone.find('Line, Path').forEach((node: Konva.Node) => {
       const blurRadius = node.getAttr('blurRadius');
       if (blurRadius && blurRadius > 0) {
         maxBlurRadius = Math.max(maxBlurRadius, blurRadius);
-        node.cache({ offset: Math.ceil(blurRadius) });
       }
     });
     if (clone.hasChildren()) {
