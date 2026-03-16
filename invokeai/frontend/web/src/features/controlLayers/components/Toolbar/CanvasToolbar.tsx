@@ -7,6 +7,7 @@ import { ToolGradientClipToggle } from 'features/controlLayers/components/Tool/T
 import { ToolGradientModeToggle } from 'features/controlLayers/components/Tool/ToolGradientModeToggle';
 import { ToolLassoModeToggle } from 'features/controlLayers/components/Tool/ToolLassoModeToggle';
 import { ToolOptionsRowContainer } from 'features/controlLayers/components/Tool/ToolOptionsRowContainer';
+import { ToolSoftnessPicker } from 'features/controlLayers/components/Tool/ToolSoftnessPicker';
 import { ToolWidthPicker } from 'features/controlLayers/components/Tool/ToolWidthPicker';
 import { CanvasToolbarFitBboxToLayersButton } from 'features/controlLayers/components/Toolbar/CanvasToolbarFitBboxToLayersButton';
 import { CanvasToolbarFitBboxToMasksButton } from 'features/controlLayers/components/Toolbar/CanvasToolbarFitBboxToMasksButton';
@@ -66,6 +67,7 @@ export const CanvasToolbar = memo(() => {
           </Box>
         )}
         {isTextSelected ? <TextToolOptions /> : showToolWithPicker && <ToolWidthPicker />}
+        {isBrushSelected && <ToolSoftnessPicker />}
       </ToolOptionsRowContainer>
       <Flex alignItems="center" h="full">
         <CanvasToolbarScale />

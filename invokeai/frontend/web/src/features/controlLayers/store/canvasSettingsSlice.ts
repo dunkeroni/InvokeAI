@@ -123,6 +123,10 @@ const zCanvasSettingsState = z.object({
    * The lasso tool mode.
    */
   lassoMode: zLassoMode.default('freehand'),
+  /**
+   * The softness of the brush tool (0-100). 0 is a hard edge, 100 is maximum blur.
+   */
+  brushSoftness: z.number().min(0).max(100).default(0),
 });
 
 type CanvasSettingsState = z.infer<typeof zCanvasSettingsState>;
@@ -154,6 +158,7 @@ const getInitialState = (): CanvasSettingsState => ({
   gradientType: 'linear',
   gradientClipEnabled: true,
   lassoMode: 'freehand',
+  brushSoftness: 0,
 });
 
 const slice = createSlice({
@@ -254,6 +259,9 @@ const slice = createSlice({
     settingsLassoModeChanged: (state, action: PayloadAction<CanvasSettingsState['lassoMode']>) => {
       state.lassoMode = action.payload;
     },
+    settingsBrushSoftnessChanged: (state, action: PayloadAction<number>) => {
+      state.brushSoftness = action.payload;
+    },
   },
 });
 
@@ -286,6 +294,7 @@ export const {
   settingsGradientTypeChanged,
   settingsGradientClipToggled,
   settingsLassoModeChanged,
+  settingsBrushSoftnessChanged,
 } = slice.actions;
 
 export const canvasSettingsSliceConfig: SliceConfig<typeof slice> = {

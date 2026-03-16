@@ -226,7 +226,24 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
     if (isVisible && (force || !isCached)) {
       this.log.trace('Caching object group');
       this.konva.objectGroup.clearCache();
-      this.konva.objectGroup.cache({ pixelRatio: 1, imageSmoothingEnabled: false });
+
+      // clearCache() recursively destroys all descendant caches, including blur filter
+      // caches on individual Line/Path nodes. Re-cache any blurred nodes before caching
+      // the group so the softened brush effect is preserved.
+      let maxBlurRadius = 0;
+      for (const renderer of this.renderers.values()) {
+        if (renderer instanceof CanvasObjectBrushLine || renderer instanceof CanvasObjectBrushLineWithPressure) {
+          const softness = renderer.state.softness ?? 0;
+          if (softness > 0) {
+            const blurRadius = (softness * renderer.state.strokeWidth) / 100;
+            maxBlurRadius = Math.max(maxBlurRadius, blurRadius);
+            renderer.konva.line.cache({ offset: Math.ceil(blurRadius) });
+          }
+        }
+      }
+
+      const offset = maxBlurRadius > 0 ? Math.ceil(maxBlurRadius) : 0;
+      this.konva.objectGroup.cache({ pixelRatio: 1, imageSmoothingEnabled: false, offset });
     }
   };
 
@@ -458,7 +475,10 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
       const isImage = renderer instanceof CanvasObjectImage;
       const imageIgnoresTransparency = isImage && renderer.state.usePixelBbox === false;
       const hasClip = renderer instanceof CanvasObjectBrushLine && renderer.state.clip;
-      if (isEraserLine || isSubtractingLasso || hasClip || (isImage && !imageIgnoresTransparency)) {
+      const hasSoftness =
+        (renderer instanceof CanvasObjectBrushLine || renderer instanceof CanvasObjectBrushLineWithPressure) &&
+        (renderer.state.softness ?? 0) > 0;
+      if (isEraserLine || isSubtractingLasso || hasClip || hasSoftness || (isImage && !imageIgnoresTransparency)) {
         needsPixelBbox = true;
         break;
       }
@@ -587,9 +607,21 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
     if (attrs) {
       clone.setAttrs(attrs);
     }
+    // Konva's clone() copies filter attributes (filters, blurRadius) but does NOT clone the internal
+    // cache bitmap. Since filters only apply to cached nodes, we must re-cache any descendant nodes
+    // that have blur filters so the softened brush effect is preserved during rasterization.
+    let maxBlurRadius = 0;
+    clone.find('Line, Path').forEach((node: Konva.Node) => {
+      const blurRadius = node.getAttr('blurRadius');
+      if (blurRadius && blurRadius > 0) {
+        maxBlurRadius = Math.max(maxBlurRadius, blurRadius);
+        node.cache({ offset: Math.ceil(blurRadius) });
+      }
+    });
     if (clone.hasChildren()) {
       const { pixelRatio = 1, imageSmoothingEnabled = false } = cache ?? {};
-      clone.cache({ pixelRatio, imageSmoothingEnabled });
+      const offset = maxBlurRadius > 0 ? Math.ceil(maxBlurRadius) : 0;
+      clone.cache({ pixelRatio, imageSmoothingEnabled, offset });
     }
     return clone;
   };
