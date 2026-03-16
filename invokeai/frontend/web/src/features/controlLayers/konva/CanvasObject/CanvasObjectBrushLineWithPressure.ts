@@ -28,7 +28,7 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
     parent: CanvasEntityObjectRenderer | CanvasEntityBufferObjectRenderer
   ) {
     super();
-    const { id, clip } = state;
+    const { id, clip, softness, strokeWidth } = state;
     this.id = id;
     this.parent = parent;
     this.manager = parent.manager;
@@ -37,10 +37,21 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
 
     this.log.debug({ state }, 'Creating module');
 
+    const blurRadius = ((softness ?? 0) * strokeWidth) / 100;
+    const expandedClip =
+      clip && blurRadius > 0
+        ? {
+            x: clip.x - blurRadius,
+            y: clip.y - blurRadius,
+            width: clip.width + 2 * blurRadius,
+            height: clip.height + 2 * blurRadius,
+          }
+        : clip;
+
     this.konva = {
       group: new Konva.Group({
         name: `${this.type}:group`,
-        clip,
+        clip: expandedClip,
         listening: false,
       }),
       line: new Konva.Path({
@@ -58,7 +69,7 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
   update(state: CanvasBrushLineWithPressureState, force = false): boolean {
     if (force || this.state !== state) {
       this.log.trace({ state }, 'Updating brush line with pressure');
-      const { points, color, strokeWidth } = state;
+      const { points, color, strokeWidth, softness, clip } = state;
       this.konva.line.setAttrs({
         data: getSVGPathDataFromPoints(points, {
           size: strokeWidth / 2,
@@ -68,6 +79,33 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
         }),
         fill: rgbaColorToString(color),
       });
+
+      const blurRadius = ((softness ?? 0) * strokeWidth) / 100;
+
+      // Expand clip to accommodate blur extent
+      if (clip) {
+        const expandedClip =
+          blurRadius > 0
+            ? {
+                x: clip.x - blurRadius,
+                y: clip.y - blurRadius,
+                width: clip.width + 2 * blurRadius,
+                height: clip.height + 2 * blurRadius,
+              }
+            : clip;
+        this.konva.group.clip(expandedClip);
+      }
+
+      // Apply Konva blur filter for softness
+      if (blurRadius > 0) {
+        this.konva.line.cache({ offset: Math.ceil(blurRadius) });
+        this.konva.line.filters([Konva.Filters.Blur]);
+        this.konva.line.blurRadius(blurRadius);
+      } else {
+        this.konva.line.clearCache();
+        this.konva.line.filters([]);
+      }
+
       this.state = state;
       return true;
     }

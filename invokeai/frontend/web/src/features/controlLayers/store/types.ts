@@ -212,6 +212,10 @@ const zCanvasBrushLineState = z.object({
   points: zPoints,
   color: zRgbaColor,
   clip: zRect.nullable(),
+  /**
+   * The softness of the brush line (0-100). 0 is a hard edge, 100 is maximum blur.
+   */
+  softness: z.number().min(0).max(100).default(0),
 });
 export type CanvasBrushLineState = z.infer<typeof zCanvasBrushLineState>;
 
@@ -225,6 +229,10 @@ const zCanvasBrushLineWithPressureState = z.object({
   points: zPointsWithPressure,
   color: zRgbaColor,
   clip: zRect.nullable(),
+  /**
+   * The softness of the brush line (0-100). 0 is a hard edge, 100 is maximum blur.
+   */
+  softness: z.number().min(0).max(100).default(0),
 });
 export type CanvasBrushLineWithPressureState = z.infer<typeof zCanvasBrushLineWithPressureState>;
 

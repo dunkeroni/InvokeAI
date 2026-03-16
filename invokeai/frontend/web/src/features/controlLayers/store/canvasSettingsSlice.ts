@@ -118,6 +118,10 @@ const zCanvasSettingsState = z.object({
    * Whether the gradient tool clips to the drag gesture.
    */
   gradientClipEnabled: z.boolean().default(true),
+  /**
+   * The softness of the brush tool (0-100). 0 is a hard edge, 100 is maximum blur.
+   */
+  brushSoftness: z.number().min(0).max(100).default(0),
 });
 
 type CanvasSettingsState = z.infer<typeof zCanvasSettingsState>;
@@ -148,6 +152,7 @@ const getInitialState = (): CanvasSettingsState => ({
   transformSmoothingMode: 'bicubic',
   gradientType: 'linear',
   gradientClipEnabled: true,
+  brushSoftness: 0,
 });
 
 const slice = createSlice({
@@ -245,6 +250,9 @@ const slice = createSlice({
     settingsGradientClipToggled: (state) => {
       state.gradientClipEnabled = !state.gradientClipEnabled;
     },
+    settingsBrushSoftnessChanged: (state, action: PayloadAction<number>) => {
+      state.brushSoftness = action.payload;
+    },
   },
 });
 
@@ -276,6 +284,7 @@ export const {
   settingsFillColorPickerPinnedSet,
   settingsGradientTypeChanged,
   settingsGradientClipToggled,
+  settingsBrushSoftnessChanged,
 } = slice.actions;
 
 export const canvasSettingsSliceConfig: SliceConfig<typeof slice> = {
