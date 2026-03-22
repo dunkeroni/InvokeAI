@@ -240,7 +240,9 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
         }
       }
 
-      const offset = maxBlurRadius > 0 ? Math.ceil(maxBlurRadius) : 0;
+      // Canvas blur(X) uses X as the Gaussian standard deviation. The visible extent of a
+      // Gaussian is ~3*sigma, so we need 3x the blur radius to avoid clipping the soft edges.
+      const offset = maxBlurRadius > 0 ? Math.ceil(maxBlurRadius * 3) : 0;
       this.konva.objectGroup.cache({ pixelRatio: 1, imageSmoothingEnabled: false, offset });
     }
   };
@@ -607,7 +609,9 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
     });
     if (clone.hasChildren()) {
       const { pixelRatio = 1, imageSmoothingEnabled = false } = cache ?? {};
-      const offset = maxBlurRadius > 0 ? Math.ceil(maxBlurRadius) : 0;
+      // Canvas blur(X) uses X as the Gaussian standard deviation. The visible extent of a
+      // Gaussian is ~3*sigma, so we need 3x the blur radius to avoid clipping the soft edges.
+      const offset = maxBlurRadius > 0 ? Math.ceil(maxBlurRadius * 3) : 0;
       clone.cache({ pixelRatio, imageSmoothingEnabled, offset });
     }
     return clone;
