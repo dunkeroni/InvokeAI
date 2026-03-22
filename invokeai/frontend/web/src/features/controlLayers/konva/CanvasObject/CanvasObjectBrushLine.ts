@@ -109,7 +109,11 @@ export class CanvasObjectBrushLine extends CanvasModuleBase {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const nativeCtx = (ctx as any)._context as CanvasRenderingContext2D;
           const prevFilter = nativeCtx.filter;
-          nativeCtx.filter = `blur(${br}px)`;
+          // CSS filter blur operates in device pixels, not the transformed coordinate space.
+          // Read the current scale from the context transform to compensate for zoom level.
+          const { a, b } = nativeCtx.getTransform();
+          const scale = Math.sqrt(a * a + b * b);
+          nativeCtx.filter = `blur(${br * scale}px)`;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (Konva.Line.prototype as any)._sceneFunc.call(shape, ctx);
           nativeCtx.filter = prevFilter;
