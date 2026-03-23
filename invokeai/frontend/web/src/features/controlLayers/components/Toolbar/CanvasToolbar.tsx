@@ -67,7 +67,7 @@ export const CanvasToolbar = memo(() => {
           </Box>
         )}
         {isTextSelected ? <TextToolOptions /> : showToolWithPicker && <ToolWidthPicker />}
-        {isBrushSelected && <ToolSoftnessPicker />}
+        {showToolWithPicker && isBrushSelected && <ToolSoftnessPicker />}
       </ToolOptionsRowContainer>
       <Flex alignItems="center" h="full">
         <CanvasToolbarScale />
