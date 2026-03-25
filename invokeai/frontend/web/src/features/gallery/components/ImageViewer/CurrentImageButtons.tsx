@@ -1,5 +1,6 @@
 import { Button, Divider, IconButton, Menu, MenuButton, MenuList } from '@invoke-ai/ui-library';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { DeleteImageButton } from 'features/deleteImageModal/components/DeleteImageButton';
 import SingleSelectionMenuItems from 'features/gallery/components/ContextMenu/SingleSelectionMenuItems';
 import { useDeleteImage } from 'features/gallery/hooks/useDeleteImage';
@@ -75,15 +76,16 @@ export const CurrentImageButtons = memo(({ imageDTO }: { imageDTO: ImageDTO }) =
   return (
     <>
       <Menu isLazy>
-        <MenuButton
-          as={IconButton}
-          aria-label={t('parameters.imageActions')}
-          tooltip={t('parameters.imageActions')}
-          isDisabled={!imageDTO}
-          variant="link"
-          alignSelf="stretch"
-          icon={<PiDotsThreeOutlineFill />}
-        />
+        <IAITooltip label={t('parameters.imageActions')}>
+          <MenuButton
+            as={IconButton}
+            aria-label={t('parameters.imageActions')}
+            isDisabled={!imageDTO}
+            variant="link"
+            alignSelf="stretch"
+            icon={<PiDotsThreeOutlineFill />}
+          />
+        </IAITooltip>
         <MenuList>{imageDTO && <SingleSelectionMenuItems imageDTO={imageDTO} />}</MenuList>
       </Menu>
 
@@ -104,15 +106,16 @@ export const CurrentImageButtons = memo(({ imageDTO }: { imageDTO: ImageDTO }) =
       <Divider orientation="vertical" h={8} mx={2} />
 
       {doesTabHaveGallery && isGalleryImage && (
-        <IconButton
-          icon={<PiCrosshairBold />}
-          aria-label={t('boards.locateInGalery')}
-          tooltip={t('boards.locateInGalery')}
-          onClick={locateInGallery}
-          variant="link"
-          size="sm"
-          alignSelf="stretch"
-        />
+        <IAITooltip label={t('boards.locateInGalery')}>
+          <IconButton
+            icon={<PiCrosshairBold />}
+            aria-label={t('boards.locateInGalery')}
+            onClick={locateInGallery}
+            variant="link"
+            size="sm"
+            alignSelf="stretch"
+          />
+        </IAITooltip>
       )}
       <IconButton
         icon={<PiFlowArrowBold />}

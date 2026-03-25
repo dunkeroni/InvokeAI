@@ -1,5 +1,6 @@
 import { createMemoizedSelector } from 'app/store/createMemoizedSelector';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { IconMenuItem } from 'common/components/IconMenuItem';
 import { useEntityIdentifierContext } from 'features/controlLayers/contexts/EntityIdentifierContext';
 import { useCanvasIsBusy } from 'features/controlLayers/hooks/useCanvasIsBusy';
@@ -83,34 +84,38 @@ export const CanvasEntityMenuItemsArrange = memo(() => {
 
   return (
     <>
-      <IconMenuItem
-        aria-label={t('controlLayers.moveToFront')}
-        tooltip={t('controlLayers.moveToFront')}
-        onClick={moveToFront}
-        isDisabled={!validActions.canMoveToFront || isBusy}
-        icon={<PiArrowLineUpBold />}
-      />
-      <IconMenuItem
-        aria-label={t('controlLayers.moveForward')}
-        tooltip={t('controlLayers.moveForward')}
-        onClick={moveForwardOne}
-        isDisabled={!validActions.canMoveForwardOne || isBusy}
-        icon={<PiArrowUpBold />}
-      />
-      <IconMenuItem
-        aria-label={t('controlLayers.moveBackward')}
-        tooltip={t('controlLayers.moveBackward')}
-        onClick={moveBackwardOne}
-        isDisabled={!validActions.canMoveBackwardOne || isBusy}
-        icon={<PiArrowDownBold />}
-      />
-      <IconMenuItem
-        aria-label={t('controlLayers.moveToBack')}
-        tooltip={t('controlLayers.moveToBack')}
-        onClick={moveToBack}
-        isDisabled={!validActions.canMoveToBack || isBusy}
-        icon={<PiArrowLineDownBold />}
-      />
+      <IAITooltip label={t('controlLayers.moveToFront')}>
+        <IconMenuItem
+          aria-label={t('controlLayers.moveToFront')}
+          onClick={moveToFront}
+          isDisabled={!validActions.canMoveToFront || isBusy}
+          icon={<PiArrowLineUpBold />}
+        />
+      </IAITooltip>
+      <IAITooltip label={t('controlLayers.moveForward')}>
+        <IconMenuItem
+          aria-label={t('controlLayers.moveForward')}
+          onClick={moveForwardOne}
+          isDisabled={!validActions.canMoveForwardOne || isBusy}
+          icon={<PiArrowUpBold />}
+        />
+      </IAITooltip>
+      <IAITooltip label={t('controlLayers.moveBackward')}>
+        <IconMenuItem
+          aria-label={t('controlLayers.moveBackward')}
+          onClick={moveBackwardOne}
+          isDisabled={!validActions.canMoveBackwardOne || isBusy}
+          icon={<PiArrowDownBold />}
+        />
+      </IAITooltip>
+      <IAITooltip label={t('controlLayers.moveToBack')}>
+        <IconMenuItem
+          aria-label={t('controlLayers.moveToBack')}
+          onClick={moveToBack}
+          isDisabled={!validActions.canMoveToBack || isBusy}
+          icon={<PiArrowLineDownBold />}
+        />
+      </IAITooltip>
     </>
   );
 });

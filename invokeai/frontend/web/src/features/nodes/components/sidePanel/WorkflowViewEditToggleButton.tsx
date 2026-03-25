@@ -1,5 +1,6 @@
 import { IconButton } from '@invoke-ai/ui-library';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { selectWorkflowMode, workflowModeChanged } from 'features/nodes/store/workflowLibrarySlice';
 import { navigationApi } from 'features/ui/layouts/navigation-api';
 import { VIEWER_PANEL_ID, WORKSPACE_PANEL_ID } from 'features/ui/layouts/shared';
@@ -37,27 +38,29 @@ export const WorkflowViewEditToggleButton = memo(() => {
 
   if (mode === 'view') {
     return (
-      <IconButton
-        aria-label={t('nodes.editMode')}
-        tooltip={t('nodes.editMode')}
-        onClick={onClickEdit}
-        icon={<PiPencilSimpleFill />}
-        variant="ghost"
-        size="sm"
-      />
+      <IAITooltip label={t('nodes.editMode')}>
+        <IconButton
+          aria-label={t('nodes.editMode')}
+          onClick={onClickEdit}
+          icon={<PiPencilSimpleFill />}
+          variant="ghost"
+          size="sm"
+        />
+      </IAITooltip>
     );
   }
 
   // mode === 'edit'
   return (
-    <IconButton
-      aria-label={t('nodes.viewMode')}
-      tooltip={t('nodes.viewMode')}
-      onClick={onClickView}
-      icon={<PiEyeBold />}
-      variant="ghost"
-      size="sm"
-    />
+    <IAITooltip label={t('nodes.viewMode')}>
+      <IconButton
+        aria-label={t('nodes.viewMode')}
+        onClick={onClickView}
+        icon={<PiEyeBold />}
+        variant="ghost"
+        size="sm"
+      />
+    </IAITooltip>
   );
 });
 

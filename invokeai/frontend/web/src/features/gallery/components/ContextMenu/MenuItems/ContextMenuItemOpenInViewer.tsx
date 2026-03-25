@@ -1,4 +1,5 @@
 import { useAppDispatch } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { IconMenuItem } from 'common/components/IconMenuItem';
 import { useImageDTOContext } from 'features/gallery/contexts/ImageDTOContext';
 import { imageSelected, imageToCompareChanged } from 'features/gallery/store/gallerySlice';
@@ -19,12 +20,9 @@ export const ContextMenuItemOpenInViewer = memo(() => {
   }, [dispatch, imageDTO]);
 
   return (
-    <IconMenuItem
-      icon={<PiArrowsOutBold />}
-      onClickCapture={onClick}
-      aria-label={t('common.openInViewer')}
-      tooltip={t('common.openInViewer')}
-    />
+    <IAITooltip label={t('common.openInViewer')}>
+      <IconMenuItem icon={<PiArrowsOutBold />} onClickCapture={onClick} aria-label={t('common.openInViewer')} />
+    </IAITooltip>
   );
 });
 

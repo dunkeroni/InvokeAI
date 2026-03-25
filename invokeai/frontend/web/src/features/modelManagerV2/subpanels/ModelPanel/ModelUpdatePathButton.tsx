@@ -15,6 +15,7 @@ import {
   Text,
   useDisclosure,
 } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { isExternalModel } from 'features/modelManagerV2/subpanels/ModelPanel/isExternalModel';
 import { toast } from 'features/toast/toast';
 import type { ChangeEvent } from 'react';
@@ -79,16 +80,17 @@ export const ModelUpdatePathButton = memo(({ modelConfig }: Props) => {
 
   return (
     <>
-      <Button
-        onClick={handleOpen}
-        size="sm"
-        aria-label={t('modelManager.updatePathTooltip')}
-        tooltip={t('modelManager.updatePathTooltip')}
-        flexShrink={0}
-        leftIcon={<PiFolderOpenFill />}
-      >
-        {t('modelManager.updatePath')}
-      </Button>
+      <IAITooltip label={t('modelManager.updatePathTooltip')}>
+        <Button
+          onClick={handleOpen}
+          size="sm"
+          aria-label={t('modelManager.updatePathTooltip')}
+          flexShrink={0}
+          leftIcon={<PiFolderOpenFill />}
+        >
+          {t('modelManager.updatePath')}
+        </Button>
+      </IAITooltip>
       <Modal isOpen={isOpen} onClose={onClose} isCentered size="lg" useInert={false}>
         <ModalOverlay />
         <ModalContent>

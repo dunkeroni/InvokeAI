@@ -1,6 +1,7 @@
 import { IconButton } from '@invoke-ai/ui-library';
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { bboxAspectRatioLockToggled } from 'features/controlLayers/store/canvasSlice';
 import { selectCanvasSlice } from 'features/controlLayers/store/selectors';
 import { useIsBboxSizeLocked } from 'features/parameters/components/Bbox/use-is-bbox-size-locked';
@@ -21,15 +22,16 @@ export const BboxLockAspectRatioButton = memo(() => {
   }, [dispatch]);
 
   return (
-    <IconButton
-      tooltip={t('parameters.lockAspectRatio')}
-      aria-label={t('parameters.lockAspectRatio')}
-      onClick={onClick}
-      variant={isLocked ? 'outline' : 'ghost'}
-      size="sm"
-      icon={isLocked ? <PiLockSimpleFill /> : <PiLockSimpleOpenBold />}
-      isDisabled={isBboxSizeLocked}
-    />
+    <IAITooltip label={t('parameters.lockAspectRatio')}>
+      <IconButton
+        aria-label={t('parameters.lockAspectRatio')}
+        onClick={onClick}
+        variant={isLocked ? 'outline' : 'ghost'}
+        size="sm"
+        icon={isLocked ? <PiLockSimpleFill /> : <PiLockSimpleOpenBold />}
+        isDisabled={isBboxSizeLocked}
+      />
+    </IAITooltip>
   );
 });
 

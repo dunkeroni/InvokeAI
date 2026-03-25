@@ -1,6 +1,7 @@
 import { Flex, IconButton } from '@invoke-ai/ui-library';
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppSelector, useAppStore } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useImageUploadButton } from 'common/hooks/useImageUploadButton';
 import { BeginEndStepPct } from 'features/controlLayers/components/common/BeginEndStepPct';
 import { Weight } from 'features/controlLayers/components/common/Weight';
@@ -129,36 +130,39 @@ export const ControlLayerControlAdapter = memo(() => {
     <Flex flexDir="column" gap={3} position="relative" w="full">
       <Flex w="full" gap={2}>
         <ControlLayerControlAdapterModel modelKey={controlAdapter.model?.key ?? null} onChange={onChangeModel} />
-        <IconButton
-          onClick={filter.start}
-          isDisabled={filter.isDisabled}
-          size="sm"
-          alignSelf="stretch"
-          variant="link"
-          aria-label={t('controlLayers.filter.filter')}
-          tooltip={t('controlLayers.filter.filter')}
-          icon={<PiShootingStarFill />}
-        />
-        <IconButton
-          onClick={pullBboxIntoLayer}
-          isDisabled={isBusy}
-          size="sm"
-          alignSelf="stretch"
-          variant="link"
-          aria-label={t('controlLayers.pullBboxIntoLayer')}
-          tooltip={t('controlLayers.pullBboxIntoLayer')}
-          icon={<PiBoundingBoxBold />}
-        />
-        <IconButton
-          isDisabled={isBusy}
-          size="sm"
-          alignSelf="stretch"
-          variant="link"
-          aria-label={t('accessibility.uploadImage')}
-          tooltip={t('accessibility.uploadImage')}
-          icon={<PiUploadBold />}
-          {...uploadApi.getUploadButtonProps()}
-        />
+        <IAITooltip label={t('controlLayers.filter.filter')}>
+          <IconButton
+            onClick={filter.start}
+            isDisabled={filter.isDisabled}
+            size="sm"
+            alignSelf="stretch"
+            variant="link"
+            aria-label={t('controlLayers.filter.filter')}
+            icon={<PiShootingStarFill />}
+          />
+        </IAITooltip>
+        <IAITooltip label={t('controlLayers.pullBboxIntoLayer')}>
+          <IconButton
+            onClick={pullBboxIntoLayer}
+            isDisabled={isBusy}
+            size="sm"
+            alignSelf="stretch"
+            variant="link"
+            aria-label={t('controlLayers.pullBboxIntoLayer')}
+            icon={<PiBoundingBoxBold />}
+          />
+        </IAITooltip>
+        <IAITooltip label={t('accessibility.uploadImage')}>
+          <IconButton
+            isDisabled={isBusy}
+            size="sm"
+            alignSelf="stretch"
+            variant="link"
+            aria-label={t('accessibility.uploadImage')}
+            icon={<PiUploadBold />}
+            {...uploadApi.getUploadButtonProps()}
+          />
+        </IAITooltip>
         <input {...uploadApi.getUploadInputProps()} />
       </Flex>
       <Weight weight={controlAdapter.weight} onChange={onChangeWeight} />

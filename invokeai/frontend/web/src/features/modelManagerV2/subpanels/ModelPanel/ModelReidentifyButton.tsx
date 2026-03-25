@@ -1,4 +1,5 @@
 import { Button } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { toast } from 'features/toast/toast';
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -41,17 +42,18 @@ export const ModelReidentifyButton = memo(({ modelConfig }: Props) => {
   }, [modelConfig.key, reidentifyModel, t]);
 
   return (
-    <Button
-      onClick={onClick}
-      size="sm"
-      aria-label={t('modelManager.reidentifyTooltip')}
-      tooltip={t('modelManager.reidentifyTooltip')}
-      isLoading={isLoading}
-      flexShrink={0}
-      leftIcon={<PiSparkleFill />}
-    >
-      {t('modelManager.reidentify')}
-    </Button>
+    <IAITooltip label={t('modelManager.reidentifyTooltip')}>
+      <Button
+        onClick={onClick}
+        size="sm"
+        aria-label={t('modelManager.reidentifyTooltip')}
+        isLoading={isLoading}
+        flexShrink={0}
+        leftIcon={<PiSparkleFill />}
+      >
+        {t('modelManager.reidentify')}
+      </Button>
+    </IAITooltip>
   );
 });
 

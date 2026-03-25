@@ -1,6 +1,7 @@
 import { IconButton } from '@invoke-ai/ui-library';
 import { logger } from 'app/logging/logger';
 import { useAppStore } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useGetNodesNeedUpdate } from 'features/nodes/hooks/useGetNodesNeedUpdate';
 import { $templates, nodesChanged } from 'features/nodes/store/nodesSlice';
 import { selectNodes } from 'features/nodes/store/selectors';
@@ -83,14 +84,15 @@ const UpdateNodesButton = () => {
   }
 
   return (
-    <IconButton
-      tooltip={t('nodes.updateAllNodes')}
-      aria-label={t('nodes.updateAllNodes')}
-      icon={<PiWarningBold />}
-      onClick={updateNodes}
-      pointerEvents="auto"
-      colorScheme="warning"
-    />
+    <IAITooltip label={t('nodes.updateAllNodes')}>
+      <IconButton
+        aria-label={t('nodes.updateAllNodes')}
+        icon={<PiWarningBold />}
+        onClick={updateNodes}
+        pointerEvents="auto"
+        colorScheme="warning"
+      />
+    </IAITooltip>
   );
 };
 

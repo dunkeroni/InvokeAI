@@ -1,6 +1,7 @@
 import type { FlexProps, SystemStyleObject } from '@invoke-ai/ui-library';
 import { Flex, IconButton, Spacer, Text } from '@invoke-ai/ui-library';
 import { useAppDispatch } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { camelCase } from 'es-toolkit/compat';
 import { InvocationNodeContextProvider } from 'features/nodes/components/flow/nodes/Invocation/context';
 import { InputFieldGate } from 'features/nodes/components/flow/nodes/Invocation/fields/InputFieldGate';
@@ -74,17 +75,18 @@ const ZoomToNodeButton = memo(({ element }: { element: NodeFieldElement }) => {
   const mouseOverFormField = useMouseOverFormField(nodeId);
 
   return (
-    <IconButton
-      onMouseOver={mouseOverFormField.handleMouseOver}
-      onMouseOut={mouseOverFormField.handleMouseOut}
-      tooltip={t('workflows.builder.zoomToNode')}
-      aria-label={t('workflows.builder.zoomToNode')}
-      onClick={zoomToNode}
-      icon={<PiGpsFixBold />}
-      variant="link"
-      size="sm"
-      alignSelf="stretch"
-    />
+    <IAITooltip label={t('workflows.builder.zoomToNode')}>
+      <IconButton
+        onMouseOver={mouseOverFormField.handleMouseOver}
+        onMouseOut={mouseOverFormField.handleMouseOut}
+        aria-label={t('workflows.builder.zoomToNode')}
+        onClick={zoomToNode}
+        icon={<PiGpsFixBold />}
+        variant="link"
+        size="sm"
+        alignSelf="stretch"
+      />
+    </IAITooltip>
   );
 });
 ZoomToNodeButton.displayName = 'ZoomToNodeButton';
@@ -97,16 +99,17 @@ const RemoveElementButton = memo(({ element }: { element: FormElement }) => {
   }, [dispatch, element.id]);
 
   return (
-    <IconButton
-      tooltip={t('common.delete')}
-      aria-label={t('common.delete')}
-      onClick={removeElement}
-      icon={<PiXBold />}
-      variant="link"
-      size="sm"
-      alignSelf="stretch"
-      colorScheme="error"
-    />
+    <IAITooltip label={t('common.delete')}>
+      <IconButton
+        aria-label={t('common.delete')}
+        onClick={removeElement}
+        icon={<PiXBold />}
+        variant="link"
+        size="sm"
+        alignSelf="stretch"
+        colorScheme="error"
+      />
+    </IAITooltip>
   );
 });
 RemoveElementButton.displayName = 'RemoveElementButton';

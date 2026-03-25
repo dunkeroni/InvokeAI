@@ -1,4 +1,5 @@
 import { IconButton } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useInputFieldDefaultValue } from 'features/nodes/hooks/useInputFieldDefaultValue';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,16 +15,17 @@ export const InputFieldResetToDefaultValueIconButton = memo(({ fieldName }: Prop
   const { isValueChanged, resetToDefaultValue } = useInputFieldDefaultValue(fieldName);
 
   return (
-    <IconButton
-      variant="ghost"
-      tooltip={t('nodes.resetToDefaultValue')}
-      aria-label={t('nodes.resetToDefaultValue')}
-      icon={<PiArrowCounterClockwiseBold />}
-      pointerEvents="auto"
-      size="xs"
-      onClick={resetToDefaultValue}
-      isDisabled={!isValueChanged}
-    />
+    <IAITooltip label={t('nodes.resetToDefaultValue')}>
+      <IconButton
+        variant="ghost"
+        aria-label={t('nodes.resetToDefaultValue')}
+        icon={<PiArrowCounterClockwiseBold />}
+        pointerEvents="auto"
+        size="xs"
+        onClick={resetToDefaultValue}
+        isDisabled={!isValueChanged}
+      />
+    </IAITooltip>
   );
 });
 

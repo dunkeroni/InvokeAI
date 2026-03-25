@@ -1,3 +1,4 @@
+import { IAITooltip } from 'common/components/IAITooltip';
 import { IconMenuItem } from 'common/components/IconMenuItem';
 import { useDeleteImageModalApi } from 'features/deleteImageModal/store/state';
 import { useImageDTOContext } from 'features/gallery/contexts/ImageDTOContext';
@@ -19,13 +20,14 @@ export const ContextMenuItemDeleteImage = memo(() => {
   }, [deleteImageModal, imageDTO]);
 
   return (
-    <IconMenuItem
-      icon={<PiTrashSimpleBold />}
-      onClickCapture={onClick}
-      aria-label={t('gallery.deleteImage', { count: 1 })}
-      tooltip={t('gallery.deleteImage', { count: 1 })}
-      isDestructive
-    />
+    <IAITooltip label={t('gallery.deleteImage', { count: 1 })}>
+      <IconMenuItem
+        icon={<PiTrashSimpleBold />}
+        onClickCapture={onClick}
+        aria-label={t('gallery.deleteImage', { count: 1 })}
+        isDestructive
+      />
+    </IAITooltip>
   );
 });
 

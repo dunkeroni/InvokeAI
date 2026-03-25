@@ -1,5 +1,6 @@
 import { MenuItem } from '@invoke-ai/ui-library';
 import { useAppDispatch } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { IconMenuItem } from 'common/components/IconMenuItem';
 import { useEntityIdentifierContext } from 'features/controlLayers/contexts/EntityIdentifierContext';
 import { useCanvasIsBusy } from 'features/controlLayers/hooks/useCanvasIsBusy';
@@ -24,14 +25,15 @@ export const CanvasEntityMenuItemsDelete = memo(({ asIcon = false }: Props) => {
 
   if (asIcon) {
     return (
-      <IconMenuItem
-        aria-label={t('common.delete')}
-        tooltip={t('common.delete')}
-        onClick={deleteEntity}
-        icon={<PiTrashSimpleBold />}
-        isDestructive
-        isDisabled={isBusy}
-      />
+      <IAITooltip label={t('common.delete')}>
+        <IconMenuItem
+          aria-label={t('common.delete')}
+          onClick={deleteEntity}
+          icon={<PiTrashSimpleBold />}
+          isDestructive
+          isDisabled={isBusy}
+        />
+      </IAITooltip>
     );
   }
 

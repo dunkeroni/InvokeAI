@@ -1,4 +1,5 @@
 import { FormControl, FormLabel, IconButton, Spacer, Textarea } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { isString } from 'es-toolkit/compat';
 import { NO_DRAG_CLASS, NO_PAN_CLASS, NO_WHEEL_CLASS } from 'features/nodes/types/constants';
 import { toast } from 'features/toast/toast';
@@ -62,13 +63,14 @@ export const GeneratorTextareaWithFileUpload = memo(({ value, onChange }: Props)
       <FormLabel m={0} display="flex" alignItems="center">
         {t('common.input')}
         <Spacer />
-        <IconButton
-          tooltip={t('nodes.generatorLoadFromFile')}
-          aria-label={t('nodes.generatorLoadFromFile')}
-          icon={<PiUploadFill />}
-          variant="link"
-          {...getRootProps()}
-        />
+        <IAITooltip label={t('nodes.generatorLoadFromFile')}>
+          <IconButton
+            aria-label={t('nodes.generatorLoadFromFile')}
+            icon={<PiUploadFill />}
+            variant="link"
+            {...getRootProps()}
+          />
+        </IAITooltip>
         <input {...getInputProps()} />
       </FormLabel>
       <Textarea

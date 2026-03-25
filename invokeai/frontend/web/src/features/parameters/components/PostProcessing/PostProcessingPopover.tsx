@@ -12,6 +12,7 @@ import {
 } from '@invoke-ai/ui-library';
 import { adHocPostProcessingRequested } from 'app/store/middleware/listenerMiddleware/listeners/addAdHocPostProcessingRequestedListener';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { setInstallModelsTabByName } from 'features/modelManagerV2/store/installModelsStore';
 import ParamPostProcessingModel from 'features/parameters/components/PostProcessing/ParamPostProcessingModel';
 import { selectPostProcessingModel } from 'features/parameters/store/upscaleSlice';
@@ -43,15 +44,16 @@ export const PostProcessingPopover = memo((props: Props) => {
   return (
     <Popover isOpen={isOpen} onClose={onClose} isLazy>
       <PopoverTrigger>
-        <IconButton
-          tooltip={t('parameters.postProcessing')}
-          onClick={onOpen}
-          icon={<PiFrameCornersBold />}
-          aria-label={t('parameters.postProcessing')}
-          variant="link"
-          alignSelf="stretch"
-          isDisabled={isDisabled}
-        />
+        <IAITooltip label={t('parameters.postProcessing')}>
+          <IconButton
+            onClick={onOpen}
+            icon={<PiFrameCornersBold />}
+            aria-label={t('parameters.postProcessing')}
+            variant="link"
+            alignSelf="stretch"
+            isDisabled={isDisabled}
+          />
+        </IAITooltip>
       </PopoverTrigger>
       <Portal>
         <PopoverContent>

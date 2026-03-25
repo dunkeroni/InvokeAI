@@ -1,6 +1,7 @@
 import { Flex, IconButton, Spacer, Text } from '@invoke-ai/ui-library';
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { BeginEndStepPct } from 'features/controlLayers/components/common/BeginEndStepPct';
 import { FLUXReduxImageInfluence } from 'features/controlLayers/components/common/FLUXReduxImageInfluence';
 import { IPAdapterCLIPVisionModel } from 'features/controlLayers/components/common/IPAdapterCLIPVisionModel';
@@ -128,16 +129,17 @@ const RegionalGuidanceIPAdapterSettingsContent = memo(({ referenceImageId }: Pro
           {t('controlLayers.referenceImage')}
         </Text>
         <Spacer />
-        <IconButton
-          size="sm"
-          variant="link"
-          alignSelf="stretch"
-          icon={<PiXBold />}
-          tooltip={t('controlLayers.deleteReferenceImage')}
-          aria-label={t('controlLayers.deleteReferenceImage')}
-          onClick={onDeleteIPAdapter}
-          colorScheme="error"
-        />
+        <IAITooltip label={t('controlLayers.deleteReferenceImage')}>
+          <IconButton
+            size="sm"
+            variant="link"
+            alignSelf="stretch"
+            icon={<PiXBold />}
+            aria-label={t('controlLayers.deleteReferenceImage')}
+            onClick={onDeleteIPAdapter}
+            colorScheme="error"
+          />
+        </IAITooltip>
       </Flex>
       <Flex flexDir="column" gap={2} position="relative" w="full">
         <Flex gap={2} alignItems="center" w="full">
@@ -145,14 +147,15 @@ const RegionalGuidanceIPAdapterSettingsContent = memo(({ referenceImageId }: Pro
           {config.type === 'ip_adapter' && (
             <IPAdapterCLIPVisionModel model={config.clipVisionModel} onChange={onChangeCLIPVisionModel} />
           )}
-          <IconButton
-            onClick={pullBboxIntoIPAdapter}
-            isDisabled={isBusy}
-            variant="ghost"
-            aria-label={t('controlLayers.pullBboxIntoReferenceImage')}
-            tooltip={t('controlLayers.pullBboxIntoReferenceImage')}
-            icon={<PiBoundingBoxBold />}
-          />
+          <IAITooltip label={t('controlLayers.pullBboxIntoReferenceImage')}>
+            <IconButton
+              onClick={pullBboxIntoIPAdapter}
+              isDisabled={isBusy}
+              variant="ghost"
+              aria-label={t('controlLayers.pullBboxIntoReferenceImage')}
+              icon={<PiBoundingBoxBold />}
+            />
+          </IAITooltip>
         </Flex>
         <Flex gap={2} w="full">
           {config.type === 'ip_adapter' && (

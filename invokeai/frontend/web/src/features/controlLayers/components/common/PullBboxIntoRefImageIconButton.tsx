@@ -1,4 +1,5 @@
 import { IconButton } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useRefImageIdContext } from 'features/controlLayers/contexts/RefImageIdContext';
 import { usePullBboxIntoGlobalReferenceImage } from 'features/controlLayers/hooks/saveCanvasHooks';
 import { useCanvasIsBusy } from 'features/controlLayers/hooks/useCanvasIsBusy';
@@ -14,14 +15,15 @@ export const PullBboxIntoRefImageIconButton = memo(() => {
   const isBusy = useCanvasIsBusy();
 
   return (
-    <IconButton
-      onClick={pullBboxIntoIPAdapter}
-      isDisabled={isBusy}
-      variant="ghost"
-      aria-label={t('controlLayers.pullBboxIntoReferenceImage')}
-      tooltip={t('controlLayers.pullBboxIntoReferenceImage')}
-      icon={<PiBoundingBoxBold />}
-    />
+    <IAITooltip label={t('controlLayers.pullBboxIntoReferenceImage')}>
+      <IconButton
+        onClick={pullBboxIntoIPAdapter}
+        isDisabled={isBusy}
+        variant="ghost"
+        aria-label={t('controlLayers.pullBboxIntoReferenceImage')}
+        icon={<PiBoundingBoxBold />}
+      />
+    </IAITooltip>
   );
 });
 

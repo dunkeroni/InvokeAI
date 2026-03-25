@@ -1,5 +1,6 @@
 import { Button, Collapse, Divider, Flex, IconButton } from '@invoke-ai/ui-library';
 import { useAppSelector, useAppStore } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useImageUploadButton } from 'common/hooks/useImageUploadButton';
 import { RefImagePreview } from 'features/controlLayers/components/RefImage/RefImagePreview';
 import { CanvasManagerProviderGate } from 'features/controlLayers/contexts/CanvasManagerProviderGate';
@@ -136,16 +137,17 @@ const BboxButton = memo(() => {
   const newGlobalReferenceImageFromBbox = useNewGlobalReferenceImageFromBbox();
 
   return (
-    <IconButton
-      size="lg"
-      variant="outline"
-      h="full"
-      icon={<PiBoundingBoxBold />}
-      onClick={newGlobalReferenceImageFromBbox}
-      isDisabled={isBusy}
-      aria-label={t('controlLayers.pullBboxIntoReferenceImage')}
-      tooltip={t('controlLayers.pullBboxIntoReferenceImage')}
-    />
+    <IAITooltip label={t('controlLayers.pullBboxIntoReferenceImage')}>
+      <IconButton
+        size="lg"
+        variant="outline"
+        h="full"
+        icon={<PiBoundingBoxBold />}
+        onClick={newGlobalReferenceImageFromBbox}
+        isDisabled={isBusy}
+        aria-label={t('controlLayers.pullBboxIntoReferenceImage')}
+      />
+    </IAITooltip>
   );
 });
 BboxButton.displayName = 'BboxButton';

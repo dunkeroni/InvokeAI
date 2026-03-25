@@ -1,5 +1,6 @@
 import { IconButton } from '@invoke-ai/ui-library';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { selectShouldShowProgressInViewer } from 'features/ui/store/uiSelectors';
 import { setShouldShowProgressInViewer } from 'features/ui/store/uiSlice';
 import { memo, useCallback } from 'react';
@@ -16,16 +17,17 @@ export const ToggleProgressButton = memo(() => {
   }, [dispatch, shouldShowProgressInViewer]);
 
   return (
-    <IconButton
-      aria-label={t('settings.displayInProgress')}
-      tooltip={t('settings.displayInProgress')}
-      icon={<PiHourglassHighBold />}
-      onClick={onClick}
-      variant="link"
-      alignSelf="stretch"
-      colorScheme={shouldShowProgressInViewer ? 'invokeBlue' : 'base'}
-      data-testid="toggle-show-progress-button"
-    />
+    <IAITooltip label={t('settings.displayInProgress')}>
+      <IconButton
+        aria-label={t('settings.displayInProgress')}
+        icon={<PiHourglassHighBold />}
+        onClick={onClick}
+        variant="link"
+        alignSelf="stretch"
+        colorScheme={shouldShowProgressInViewer ? 'invokeBlue' : 'base'}
+        data-testid="toggle-show-progress-button"
+      />
+    </IAITooltip>
   );
 });
 

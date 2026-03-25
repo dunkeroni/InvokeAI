@@ -1,3 +1,4 @@
+import { IAITooltip } from 'common/components/IAITooltip';
 import { IconMenuItem } from 'common/components/IconMenuItem';
 import { useCopyImageToClipboard } from 'common/hooks/useCopyImageToClipboard';
 import { useImageDTOContext } from 'features/gallery/contexts/ImageDTOContext';
@@ -15,12 +16,9 @@ export const ContextMenuItemCopy = memo(() => {
   }, [copyImageToClipboard, imageDTO]);
 
   return (
-    <IconMenuItem
-      icon={<PiCopyBold />}
-      aria-label={t('parameters.copyImage')}
-      tooltip={t('parameters.copyImage')}
-      onClickCapture={onClick}
-    />
+    <IAITooltip label={t('parameters.copyImage')}>
+      <IconMenuItem icon={<PiCopyBold />} aria-label={t('parameters.copyImage')} onClickCapture={onClick} />
+    </IAITooltip>
   );
 });
 

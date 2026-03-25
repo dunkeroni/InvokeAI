@@ -1,5 +1,6 @@
 import { IconButton } from '@invoke-ai/ui-library';
 import { useAppDispatch } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { dimensionsSwapped } from 'features/controlLayers/store/paramsSlice';
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,14 +13,15 @@ export const DimensionsSwapButton = memo(() => {
     dispatch(dimensionsSwapped());
   }, [dispatch]);
   return (
-    <IconButton
-      tooltip={t('parameters.swapDimensions')}
-      aria-label={t('parameters.swapDimensions')}
-      onClick={onClick}
-      variant="ghost"
-      size="sm"
-      icon={<PiArrowsDownUpBold />}
-    />
+    <IAITooltip label={t('parameters.swapDimensions')}>
+      <IconButton
+        aria-label={t('parameters.swapDimensions')}
+        onClick={onClick}
+        variant="ghost"
+        size="sm"
+        icon={<PiArrowsDownUpBold />}
+      />
+    </IAITooltip>
   );
 });
 

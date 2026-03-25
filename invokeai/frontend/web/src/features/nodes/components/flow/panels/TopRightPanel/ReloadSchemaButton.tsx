@@ -1,4 +1,5 @@
 import { Button } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PiArrowsClockwiseBold } from 'react-icons/pi';
@@ -13,14 +14,15 @@ const ReloadNodeTemplatesButton = () => {
   }, [_getOpenAPISchema]);
 
   return (
-    <Button
-      leftIcon={<PiArrowsClockwiseBold />}
-      tooltip={t('nodes.reloadNodeTemplates')}
-      aria-label={t('nodes.reloadNodeTemplates')}
-      onClick={handleReloadSchema}
-    >
-      {t('nodes.reloadNodeTemplates')}
-    </Button>
+    <IAITooltip label={t('nodes.reloadNodeTemplates')}>
+      <Button
+        leftIcon={<PiArrowsClockwiseBold />}
+        aria-label={t('nodes.reloadNodeTemplates')}
+        onClick={handleReloadSchema}
+      >
+        {t('nodes.reloadNodeTemplates')}
+      </Button>
+    </IAITooltip>
   );
 };
 

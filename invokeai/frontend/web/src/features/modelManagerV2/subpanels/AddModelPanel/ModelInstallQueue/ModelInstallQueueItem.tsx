@@ -273,44 +273,48 @@ export const ModelInstallQueueItem = memo((props: ModelListItemProps) => {
         </IAITooltip>
         <Flex gap={1} alignItems="center" justifyContent="flex-end" minW="90px">
           {showResume && (
-            <IconButton
-              size="xs"
-              tooltip={t('modelManager.resume')}
-              aria-label={t('modelManager.resume')}
-              icon={<PiPlayBold />}
-              onClick={handleResumeModelInstall}
-              variant="ghost"
-            />
+            <IAITooltip label={t('modelManager.resume')}>
+              <IconButton
+                size="xs"
+                aria-label={t('modelManager.resume')}
+                icon={<PiPlayBold />}
+                onClick={handleResumeModelInstall}
+                variant="ghost"
+              />
+            </IAITooltip>
           )}
           {showPause && (
-            <IconButton
-              size="xs"
-              tooltip={t('modelManager.pause')}
-              aria-label={t('modelManager.pause')}
-              icon={<PiPauseBold />}
-              onClick={handlePauseModelInstall}
-              variant="ghost"
-            />
+            <IAITooltip label={t('modelManager.pause')}>
+              <IconButton
+                size="xs"
+                aria-label={t('modelManager.pause')}
+                icon={<PiPauseBold />}
+                onClick={handlePauseModelInstall}
+                variant="ghost"
+              />
+            </IAITooltip>
           )}
           {hasRestartRequired && (
-            <IconButton
-              size="xs"
-              tooltip={t('modelManager.restartFailed')}
-              aria-label={t('modelManager.restartFailed')}
-              icon={<PiArrowClockwiseBold />}
-              onClick={handleRestartFailed}
-              variant="ghost"
-            />
+            <IAITooltip label={t('modelManager.restartFailed')}>
+              <IconButton
+                size="xs"
+                aria-label={t('modelManager.restartFailed')}
+                icon={<PiArrowClockwiseBold />}
+                onClick={handleRestartFailed}
+                variant="ghost"
+              />
+            </IAITooltip>
           )}
           {showCancel && (
-            <IconButton
-              size="xs"
-              tooltip={t('modelManager.cancel')}
-              aria-label={t('modelManager.cancel')}
-              icon={<PiXBold />}
-              onClick={handleDeleteModelImport}
-              variant="ghost"
-            />
+            <IAITooltip label={t('modelManager.cancel')}>
+              <IconButton
+                size="xs"
+                aria-label={t('modelManager.cancel')}
+                icon={<PiXBold />}
+                onClick={handleDeleteModelImport}
+                variant="ghost"
+              />
+            </IAITooltip>
           )}
           {!showResume && !showPause && !showCancel && <Box w="24px" />}
         </Flex>
@@ -331,14 +335,15 @@ export const ModelInstallQueueItem = memo((props: ModelListItemProps) => {
                 <Text fontSize="xs" color="warning.400">
                   {isResumeRequired ? t('modelManager.resumeRefused') : t('queue.failed')}
                 </Text>
-                <IconButton
-                  size="xs"
-                  tooltip={t('modelManager.restartFile')}
-                  aria-label={t('modelManager.restartFile')}
-                  icon={<PiArrowClockwiseBold />}
-                  onClick={getRestartFileHandler(part.source)}
-                  variant="ghost"
-                />
+                <IAITooltip label={t('modelManager.restartFile')}>
+                  <IconButton
+                    size="xs"
+                    aria-label={t('modelManager.restartFile')}
+                    icon={<PiArrowClockwiseBold />}
+                    onClick={getRestartFileHandler(part.source)}
+                    variant="ghost"
+                  />
+                </IAITooltip>
               </Flex>
             );
           })}

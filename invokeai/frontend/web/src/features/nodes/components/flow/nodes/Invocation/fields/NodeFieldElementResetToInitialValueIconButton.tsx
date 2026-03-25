@@ -1,4 +1,5 @@
 import { IconButton } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useInputFieldInitialFormValue } from 'features/nodes/hooks/useInputFieldInitialFormValue';
 import type { NodeFieldElement } from 'features/nodes/types/workflow';
 import { memo } from 'react';
@@ -20,16 +21,17 @@ export const NodeFieldElementResetToInitialValueIconButton = memo(({ element }: 
   }
 
   return (
-    <IconButton
-      variant="link"
-      size="sm"
-      alignSelf="stretch"
-      tooltip={t('nodes.resetToDefaultValue')}
-      aria-label={t('nodes.resetToDefaultValue')}
-      icon={<PiArrowCounterClockwiseBold />}
-      onClick={resetToInitialValue}
-      isDisabled={!isValueChanged}
-    />
+    <IAITooltip label={t('nodes.resetToDefaultValue')}>
+      <IconButton
+        variant="link"
+        size="sm"
+        alignSelf="stretch"
+        aria-label={t('nodes.resetToDefaultValue')}
+        icon={<PiArrowCounterClockwiseBold />}
+        onClick={resetToInitialValue}
+        isDisabled={!isValueChanged}
+      />
+    </IAITooltip>
   );
 });
 

@@ -1,3 +1,4 @@
+import { IAITooltip } from 'common/components/IAITooltip';
 import { IconMenuItem } from 'common/components/IconMenuItem';
 import { useDownloadItem } from 'common/hooks/useDownloadImage';
 import { useImageDTOContext } from 'features/gallery/contexts/ImageDTOContext';
@@ -15,12 +16,9 @@ export const ContextMenuItemDownload = memo(() => {
   }, [downloadItem, imageDTO]);
 
   return (
-    <IconMenuItem
-      icon={<PiDownloadSimpleBold />}
-      aria-label={t('gallery.download')}
-      tooltip={t('gallery.download')}
-      onClick={onClick}
-    />
+    <IAITooltip label={t('gallery.download')}>
+      <IconMenuItem icon={<PiDownloadSimpleBold />} aria-label={t('gallery.download')} onClick={onClick} />
+    </IAITooltip>
   );
 });
 

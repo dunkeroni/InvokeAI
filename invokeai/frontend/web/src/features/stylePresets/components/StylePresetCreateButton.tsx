@@ -1,4 +1,5 @@
 import { IconButton } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { $stylePresetModalState } from 'features/stylePresets/store/stylePresetModal';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,14 +17,15 @@ export const StylePresetCreateButton = () => {
   const { t } = useTranslation();
 
   return (
-    <IconButton
-      size="sm"
-      variant="link"
-      alignSelf="stretch"
-      icon={<PiPlusBold />}
-      tooltip={t('stylePresets.createPromptTemplate')}
-      aria-label={t('stylePresets.createPromptTemplate')}
-      onClick={handleClickAddNew}
-    />
+    <IAITooltip label={t('stylePresets.createPromptTemplate')}>
+      <IconButton
+        size="sm"
+        variant="link"
+        alignSelf="stretch"
+        icon={<PiPlusBold />}
+        aria-label={t('stylePresets.createPromptTemplate')}
+        onClick={handleClickAddNew}
+      />
+    </IAITooltip>
   );
 };

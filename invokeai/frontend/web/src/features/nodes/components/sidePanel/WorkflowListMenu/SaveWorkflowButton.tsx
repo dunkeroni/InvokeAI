@@ -1,4 +1,5 @@
 import { IconButton } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useSaveOrSaveAsWorkflow } from 'features/workflowLibrary/hooks/useSaveOrSaveAsWorkflow';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,15 +10,16 @@ const SaveWorkflowButton = () => {
   const saveOrSaveAsWorkflow = useSaveOrSaveAsWorkflow();
 
   return (
-    <IconButton
-      tooltip={t('workflows.saveWorkflow')}
-      aria-label={t('workflows.saveWorkflow')}
-      icon={<PiFloppyDiskBold />}
-      onClick={saveOrSaveAsWorkflow}
-      pointerEvents="auto"
-      variant="ghost"
-      size="sm"
-    />
+    <IAITooltip label={t('workflows.saveWorkflow')}>
+      <IconButton
+        aria-label={t('workflows.saveWorkflow')}
+        icon={<PiFloppyDiskBold />}
+        onClick={saveOrSaveAsWorkflow}
+        pointerEvents="auto"
+        variant="ghost"
+        size="sm"
+      />
+    </IAITooltip>
   );
 };
 

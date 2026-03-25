@@ -10,6 +10,7 @@ import {
   UnorderedList,
 } from '@invoke-ai/ui-library';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { selectComparisonFit, selectComparisonMode } from 'features/gallery/store/gallerySelectors';
 import {
   comparedImagesSwapped,
@@ -72,15 +73,16 @@ export const CompareToolbar = memo(() => {
             alignSelf="stretch"
           />
           {comparisonMode !== 'side-by-side' && (
-            <IconButton
-              aria-label={t('gallery.stretchToFit')}
-              tooltip={t('gallery.stretchToFit')}
-              onClick={toggleComparisonFit}
-              colorScheme={comparisonFit === 'fill' ? 'invokeBlue' : 'base'}
-              variant="link"
-              alignSelf="stretch"
-              icon={<PiArrowsOutBold />}
-            />
+            <IAITooltip label={t('gallery.stretchToFit')}>
+              <IconButton
+                aria-label={t('gallery.stretchToFit')}
+                onClick={toggleComparisonFit}
+                colorScheme={comparisonFit === 'fill' ? 'invokeBlue' : 'base'}
+                variant="link"
+                alignSelf="stretch"
+                icon={<PiArrowsOutBold />}
+              />
+            </IAITooltip>
           )}
         </Flex>
       </Flex>

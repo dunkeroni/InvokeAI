@@ -1,5 +1,6 @@
 import { Box, Button, Flex, Heading } from '@invoke-ai/ui-library';
 import { useStore } from '@nanostores/react';
+import { IAITooltip } from 'common/components/IAITooltip';
 import ScrollableContent from 'common/components/OverlayScrollbars/ScrollableContent';
 import { getApiErrorDetail } from 'features/modelManagerV2/util/getApiErrorDetail';
 import { toast } from 'features/toast/toast';
@@ -199,25 +200,27 @@ export const ModelInstallQueue = memo(() => {
           >
             {pauseResumeLabel}
           </Button>
-          <Button
-            size="sm"
-            leftIcon={<PiXBold />}
-            isDisabled={!hasCancelableInstalls || isBulkActionRunning || isPruning}
-            isLoading={bulkActionInProgress === 'cancel'}
-            onClick={cancelAll}
-            tooltip={t('modelManager.cancelAllTooltip')}
-          >
-            {t('modelManager.cancelAll')}
-          </Button>
-          <Button
-            size="sm"
-            isDisabled={!pruneAvailable || isBulkActionRunning}
-            isLoading={isPruning}
-            onClick={pruneCompletedModelInstalls}
-            tooltip={t('modelManager.pruneTooltip')}
-          >
-            {t('modelManager.prune')}
-          </Button>
+          <IAITooltip label={t('modelManager.cancelAllTooltip')}>
+            <Button
+              size="sm"
+              leftIcon={<PiXBold />}
+              isDisabled={!hasCancelableInstalls || isBulkActionRunning || isPruning}
+              isLoading={bulkActionInProgress === 'cancel'}
+              onClick={cancelAll}
+            >
+              {t('modelManager.cancelAll')}
+            </Button>
+          </IAITooltip>
+          <IAITooltip label={t('modelManager.pruneTooltip')}>
+            <Button
+              size="sm"
+              isDisabled={!pruneAvailable || isBulkActionRunning}
+              isLoading={isPruning}
+              onClick={pruneCompletedModelInstalls}
+            >
+              {t('modelManager.prune')}
+            </Button>
+          </IAITooltip>
         </Flex>
       </Flex>
       <Box layerStyle="first" p={3} borderRadius="base" w="full" h="full">

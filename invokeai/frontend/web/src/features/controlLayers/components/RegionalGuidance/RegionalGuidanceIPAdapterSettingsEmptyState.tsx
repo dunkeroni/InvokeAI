@@ -1,5 +1,6 @@
 import { Button, Flex, IconButton, Spacer, Text } from '@invoke-ai/ui-library';
 import { useAppDispatch } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useImageUploadButton } from 'common/hooks/useImageUploadButton';
 import { useEntityIdentifierContext } from 'features/controlLayers/contexts/EntityIdentifierContext';
 import { usePullBboxIntoRegionalGuidanceReferenceImage } from 'features/controlLayers/hooks/saveCanvasHooks';
@@ -63,16 +64,17 @@ export const RegionalGuidanceIPAdapterSettingsEmptyState = memo(({ referenceImag
           {t('controlLayers.referenceImage')}
         </Text>
         <Spacer />
-        <IconButton
-          size="sm"
-          variant="link"
-          alignSelf="stretch"
-          icon={<PiXBold />}
-          tooltip={t('controlLayers.deleteReferenceImage')}
-          aria-label={t('controlLayers.deleteReferenceImage')}
-          onClick={onDeleteIPAdapter}
-          colorScheme="error"
-        />
+        <IAITooltip label={t('controlLayers.deleteReferenceImage')}>
+          <IconButton
+            size="sm"
+            variant="link"
+            alignSelf="stretch"
+            icon={<PiXBold />}
+            aria-label={t('controlLayers.deleteReferenceImage')}
+            onClick={onDeleteIPAdapter}
+            colorScheme="error"
+          />
+        </IAITooltip>
       </Flex>
       <Flex alignItems="center" gap={2} p={4}>
         <Text textAlign="center" color="base.300">

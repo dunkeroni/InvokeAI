@@ -13,6 +13,7 @@ import {
 import { useStore } from '@nanostores/react';
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import ScrollableContent from 'common/components/OverlayScrollbars/ScrollableContent';
 import { typedMemo } from 'common/util/typedMemo';
 import { NO_DRAG_CLASS, NO_WHEEL_CLASS } from 'features/nodes/types/constants';
@@ -823,16 +824,17 @@ const SearchInput = typedMemo(<T extends object>() => {
       <Input ref={inputRef} value={searchTerm} onChange={onChangeSearchTerm} placeholder={placeholder} />
       {searchTerm && (
         <InputRightElement h="full" pe={2}>
-          <IconButton
-            onClick={resetSearchTerm}
-            size="sm"
-            variant="link"
-            aria-label={t('common.clear')}
-            tooltip={t('common.clear')}
-            icon={<PiXBold />}
-            isDisabled={totalOptionCount === 0}
-            disabled={false}
-          />
+          <IAITooltip label={t('common.clear')}>
+            <IconButton
+              onClick={resetSearchTerm}
+              size="sm"
+              variant="link"
+              aria-label={t('common.clear')}
+              icon={<PiXBold />}
+              isDisabled={totalOptionCount === 0}
+              disabled={false}
+            />
+          </IAITooltip>
         </InputRightElement>
       )}
     </InputGroup>
@@ -872,19 +874,20 @@ const GroupToggleButtons = typedMemo(<T extends object>() => {
         <GroupToggleButton key={group.id} group={group} />
       ))}
       <Spacer />
-      <IconButton
-        icon={<PiArrowCounterClockwiseBold />}
-        aria-label={t('common.reset')}
-        tooltip={t('common.reset')}
-        size="sm"
-        variant="link"
-        alignSelf="stretch"
-        onClick={onClick}
-        // When a focused element is disabled, it blurs. This closes the popover. Fake the disabled state to prevent this.
-        // See: https://github.com/chakra-ui/chakra-ui/issues/7965
-        opacity={areAllGroupsDisabled ? 0.5 : undefined}
-        pointerEvents={areAllGroupsDisabled ? 'none' : undefined}
-      />
+      <IAITooltip label={t('common.reset')}>
+        <IconButton
+          icon={<PiArrowCounterClockwiseBold />}
+          aria-label={t('common.reset')}
+          size="sm"
+          variant="link"
+          alignSelf="stretch"
+          onClick={onClick}
+          // When a focused element is disabled, it blurs. This closes the popover. Fake the disabled state to prevent this.
+          // See: https://github.com/chakra-ui/chakra-ui/issues/7965
+          opacity={areAllGroupsDisabled ? 0.5 : undefined}
+          pointerEvents={areAllGroupsDisabled ? 'none' : undefined}
+        />
+      </IAITooltip>
     </Flex>
   );
 });

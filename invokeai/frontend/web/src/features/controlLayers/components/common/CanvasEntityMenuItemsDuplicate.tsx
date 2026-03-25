@@ -1,4 +1,5 @@
 import { useAppDispatch } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { IconMenuItem } from 'common/components/IconMenuItem';
 import { useEntityIdentifierContext } from 'features/controlLayers/contexts/EntityIdentifierContext';
 import { useCanvasIsBusy } from 'features/controlLayers/hooks/useCanvasIsBusy';
@@ -18,13 +19,14 @@ export const CanvasEntityMenuItemsDuplicate = memo(() => {
   }, [dispatch, entityIdentifier]);
 
   return (
-    <IconMenuItem
-      aria-label={t('controlLayers.duplicate')}
-      tooltip={t('controlLayers.duplicate')}
-      onClick={onClick}
-      icon={<PiCopyFill />}
-      isDisabled={isBusy}
-    />
+    <IAITooltip label={t('controlLayers.duplicate')}>
+      <IconMenuItem
+        aria-label={t('controlLayers.duplicate')}
+        onClick={onClick}
+        icon={<PiCopyFill />}
+        isDisabled={isBusy}
+      />
+    </IAITooltip>
   );
 });
 

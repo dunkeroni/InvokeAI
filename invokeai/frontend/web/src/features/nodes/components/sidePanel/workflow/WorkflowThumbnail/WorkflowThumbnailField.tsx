@@ -72,17 +72,18 @@ export const WorkflowThumbnailField = ({
           h={100}
           borderRadius="base"
         />
-        <IconButton
-          position="absolute"
-          insetInlineEnd={0}
-          insetBlockStart={0}
-          onClick={handleResetImage}
-          aria-label={t('stylePresets.deleteImage')}
-          tooltip={t('stylePresets.deleteImage')}
-          icon={<PiArrowCounterClockwiseBold />}
-          size="md"
-          variant="ghost"
-        />
+        <IAITooltip label={t('stylePresets.deleteImage')}>
+          <IconButton
+            position="absolute"
+            insetInlineEnd={0}
+            insetBlockStart={0}
+            onClick={handleResetImage}
+            aria-label={t('stylePresets.deleteImage')}
+            icon={<PiArrowCounterClockwiseBold />}
+            size="md"
+            variant="ghost"
+          />
+        </IAITooltip>
       </Box>
     );
   }

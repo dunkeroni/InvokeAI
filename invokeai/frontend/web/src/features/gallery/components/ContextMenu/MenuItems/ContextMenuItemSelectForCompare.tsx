@@ -1,5 +1,6 @@
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { IconMenuItem } from 'common/components/IconMenuItem';
 import { useImageDTOContext } from 'features/gallery/contexts/ImageDTOContext';
 import { imageToCompareChanged, selectGallerySlice } from 'features/gallery/store/gallerySlice';
@@ -25,13 +26,14 @@ export const ContextMenuItemSelectForCompare = memo(() => {
   }, [dispatch, imageDTO]);
 
   return (
-    <IconMenuItem
-      icon={<PiImagesBold />}
-      isDisabled={!maySelectForCompare}
-      onClick={onClick}
-      aria-label={t('gallery.selectForCompare')}
-      tooltip={t('gallery.selectForCompare')}
-    />
+    <IAITooltip label={t('gallery.selectForCompare')}>
+      <IconMenuItem
+        icon={<PiImagesBold />}
+        isDisabled={!maySelectForCompare}
+        onClick={onClick}
+        aria-label={t('gallery.selectForCompare')}
+      />
+    </IAITooltip>
   );
 });
 

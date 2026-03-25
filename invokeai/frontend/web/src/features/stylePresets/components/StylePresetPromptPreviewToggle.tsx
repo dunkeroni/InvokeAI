@@ -1,5 +1,6 @@
 import { IconButton } from '@invoke-ai/ui-library';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { selectShowPromptPreviews, showPromptPreviewsChanged } from 'features/stylePresets/store/stylePresetSlice';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,15 +16,16 @@ export const StylePresetPromptPreviewToggle = () => {
   }, [dispatch, showPromptPreviews]);
 
   return (
-    <IconButton
-      size="sm"
-      variant="link"
-      alignSelf="stretch"
-      aria-label={t('stylePresets.togglePromptPreviews')}
-      tooltip={t('stylePresets.togglePromptPreviews')}
-      onClick={handleToggle}
-      icon={showPromptPreviews ? <PiEyeBold /> : <PiEyeSlashBold />}
-      colorScheme={showPromptPreviews ? 'invokeBlue' : 'base'}
-    />
+    <IAITooltip label={t('stylePresets.togglePromptPreviews')}>
+      <IconButton
+        size="sm"
+        variant="link"
+        alignSelf="stretch"
+        aria-label={t('stylePresets.togglePromptPreviews')}
+        onClick={handleToggle}
+        icon={showPromptPreviews ? <PiEyeBold /> : <PiEyeSlashBold />}
+        colorScheme={showPromptPreviews ? 'invokeBlue' : 'base'}
+      />
+    </IAITooltip>
   );
 };

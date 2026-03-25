@@ -1,5 +1,6 @@
 import type { SystemStyleObject } from '@invoke-ai/ui-library';
 import { Box, IconButton, Image } from '@invoke-ai/ui-library';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { dropzoneAccept } from 'common/hooks/useImageUploadButton';
 import { typedMemo } from 'common/util/typedMemo';
 import { toast } from 'features/toast/toast';
@@ -106,33 +107,35 @@ const ModelImageUpload = ({ model_key, model_image }: Props) => {
           borderRadius="base"
           sx={sharedSx}
         />
-        <IconButton
-          position="absolute"
-          insetInlineEnd={0}
-          insetBlockStart={0}
-          onClick={handleResetImage}
-          aria-label={t('modelManager.deleteModelImage')}
-          tooltip={t('modelManager.deleteModelImage')}
-          icon={<PiArrowCounterClockwiseBold />}
-          size="md"
-          variant="ghost"
-        />
+        <IAITooltip label={t('modelManager.deleteModelImage')}>
+          <IconButton
+            position="absolute"
+            insetInlineEnd={0}
+            insetBlockStart={0}
+            onClick={handleResetImage}
+            aria-label={t('modelManager.deleteModelImage')}
+            icon={<PiArrowCounterClockwiseBold />}
+            size="md"
+            variant="ghost"
+          />
+        </IAITooltip>
       </Box>
     );
   }
 
   return (
     <>
-      <IconButton
-        variant="ghost"
-        aria-label={t('modelManager.uploadImage')}
-        tooltip={t('modelManager.uploadImage')}
-        fontSize={36}
-        icon={<PiUploadBold />}
-        sx={sharedSx}
-        isLoading={request.isLoading}
-        {...getRootProps()}
-      />
+      <IAITooltip label={t('modelManager.uploadImage')}>
+        <IconButton
+          variant="ghost"
+          aria-label={t('modelManager.uploadImage')}
+          fontSize={36}
+          icon={<PiUploadBold />}
+          sx={sharedSx}
+          isLoading={request.isLoading}
+          {...getRootProps()}
+        />
+      </IAITooltip>
       <input {...getInputProps()} />
     </>
   );

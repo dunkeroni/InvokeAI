@@ -2,6 +2,7 @@ import { Flex, IconButton, Text } from '@invoke-ai/ui-library';
 import { createSelector } from '@reduxjs/toolkit';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import RgbaColorPicker from 'common/components/ColorPicker/RgbaColorPicker';
+import { IAITooltip } from 'common/components/IAITooltip';
 import {
   selectCanvasSettingsSlice,
   settingsActiveColorToggled,
@@ -68,22 +69,24 @@ export const PinnedFillColorPickerOverlay = memo(() => {
             {t('controlLayers.fill.fillColor')}
           </Text>
           <Flex gap={1}>
-            <IconButton
-              aria-label={t('controlLayers.fill.switchColors', { defaultValue: 'Switch FG/BG (X)' })}
-              tooltip={t('controlLayers.fill.switchColors', { defaultValue: 'Switch FG/BG (X)' })}
-              size="sm"
-              variant="ghost"
-              onClick={onToggleActive}
-              icon={<PiArrowsLeftRightBold />}
-            />
-            <IconButton
-              aria-label={t('common.unpin', { defaultValue: 'Unpin' })}
-              tooltip={t('common.unpin', { defaultValue: 'Unpin' })}
-              size="sm"
-              variant="solid"
-              onClick={onUnpin}
-              icon={<PiPushPinSlashBold />}
-            />
+            <IAITooltip label={t('controlLayers.fill.switchColors', { defaultValue: 'Switch FG/BG (X)' })}>
+              <IconButton
+                aria-label={t('controlLayers.fill.switchColors', { defaultValue: 'Switch FG/BG (X)' })}
+                size="sm"
+                variant="ghost"
+                onClick={onToggleActive}
+                icon={<PiArrowsLeftRightBold />}
+              />
+            </IAITooltip>
+            <IAITooltip label={t('common.unpin', { defaultValue: 'Unpin' })}>
+              <IconButton
+                aria-label={t('common.unpin', { defaultValue: 'Unpin' })}
+                size="sm"
+                variant="solid"
+                onClick={onUnpin}
+                icon={<PiPushPinSlashBold />}
+              />
+            </IAITooltip>
           </Flex>
         </Flex>
         <RgbaColorPicker color={activeColor} onChange={onColorChange} withNumberInput withSwatches />

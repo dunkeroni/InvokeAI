@@ -1,6 +1,7 @@
 import type { SystemStyleObject } from '@invoke-ai/ui-library';
 import { IconButton, spinAnimation } from '@invoke-ai/ui-library';
 import { EMPTY_ARRAY } from 'app/store/constants';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { toast } from 'features/toast/toast';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -52,16 +53,17 @@ export const StylePresetExportButton = () => {
   }, [exportStylePresets, t]);
 
   return (
-    <IconButton
-      size="sm"
-      variant="link"
-      alignSelf="stretch"
-      onClick={handleClickDownloadCsv}
-      icon={!isLoading ? <PiDownloadSimpleBold /> : <PiSpinner />}
-      tooltip={t('stylePresets.exportPromptTemplates')}
-      aria-label={t('stylePresets.exportPromptTemplates')}
-      sx={isLoading ? loadingStyles : undefined}
-      isDisabled={isLoading || presetCount === 0}
-    />
+    <IAITooltip label={t('stylePresets.exportPromptTemplates')}>
+      <IconButton
+        size="sm"
+        variant="link"
+        alignSelf="stretch"
+        onClick={handleClickDownloadCsv}
+        icon={!isLoading ? <PiDownloadSimpleBold /> : <PiSpinner />}
+        aria-label={t('stylePresets.exportPromptTemplates')}
+        sx={isLoading ? loadingStyles : undefined}
+        isDisabled={isLoading || presetCount === 0}
+      />
+    </IAITooltip>
   );
 };

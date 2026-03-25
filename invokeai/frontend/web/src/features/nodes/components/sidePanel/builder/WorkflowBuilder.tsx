@@ -5,6 +5,7 @@ import { Button, Flex, Spacer } from '@invoke-ai/ui-library';
 import { useStore } from '@nanostores/react';
 import { useAppSelector } from 'app/store/storeHooks';
 import { IAINoContentFallback } from 'common/components/IAIImageFallback';
+import { IAITooltip } from 'common/components/IAITooltip';
 import ScrollableContent from 'common/components/OverlayScrollbars/ScrollableContent';
 import { firefoxDndFix } from 'features/dnd/util';
 import { RootContainerElementEditMode } from 'features/nodes/components/sidePanel/builder/ContainerElement';
@@ -41,9 +42,11 @@ export const WorkflowBuilder = memo(() => {
           <AddFormElementDndButton type="divider">{t('workflows.builder.divider')}</AddFormElementDndButton>
           <AddFormElementDndButton type="heading">{t('workflows.builder.heading')}</AddFormElementDndButton>
           <AddFormElementDndButton type="text">{t('workflows.builder.text')}</AddFormElementDndButton>
-          <Button size="sm" variant="ghost" tooltip={t('workflows.builder.nodeFieldTooltip')}>
-            {t('workflows.builder.nodeField')}
-          </Button>
+          <IAITooltip label={t('workflows.builder.nodeFieldTooltip')}>
+            <Button size="sm" variant="ghost">
+              {t('workflows.builder.nodeField')}
+            </Button>
+          </IAITooltip>
           <Spacer />
           <WorkflowBuilderEditMenu />
         </Flex>

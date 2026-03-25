@@ -9,6 +9,7 @@ import {
   Textarea,
 } from '@invoke-ai/ui-library';
 import { useAppDispatch } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { useInputFieldUserDescriptionSafe } from 'features/nodes/hooks/useInputFieldUserDescriptionSafe';
 import { fieldDescriptionChanged } from 'features/nodes/store/nodesSlice';
 import { NO_DRAG_CLASS, NO_PAN_CLASS, NO_WHEEL_CLASS } from 'features/nodes/types/constants';
@@ -28,14 +29,15 @@ export const InputFieldDescriptionPopover = memo(({ nodeId, fieldName }: Props) 
   return (
     <Popover isLazy lazyBehavior="unmount">
       <PopoverTrigger>
-        <IconButton
-          variant="ghost"
-          tooltip={t('nodes.description')}
-          aria-label={t('nodes.description')}
-          icon={<PiNoteBold />}
-          pointerEvents="auto"
-          size="xs"
-        />
+        <IAITooltip label={t('nodes.description')}>
+          <IconButton
+            variant="ghost"
+            aria-label={t('nodes.description')}
+            icon={<PiNoteBold />}
+            pointerEvents="auto"
+            size="xs"
+          />
+        </IAITooltip>
       </PopoverTrigger>
       <Portal>
         <PopoverContent p={2} w={256}>

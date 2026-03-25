@@ -1,6 +1,7 @@
 import { IconButton } from '@invoke-ai/ui-library';
 import { useStore } from '@nanostores/react';
 import { useAppSelector } from 'app/store/storeHooks';
+import { IAITooltip } from 'common/components/IAITooltip';
 import { withResultAsync } from 'common/util/result';
 import { useStagingAreaContext } from 'features/controlLayers/components/StagingArea/context';
 import { useCanvasManager } from 'features/controlLayers/contexts/CanvasManagerProviderGate';
@@ -58,14 +59,15 @@ export const StagingAreaToolbarSaveSelectedToGalleryButton = memo(() => {
   }, [autoAddBoardId, selectedItemImageDTO, t]);
 
   return (
-    <IconButton
-      tooltip={t('controlLayers.stagingArea.saveToGallery')}
-      aria-label={t('controlLayers.stagingArea.saveToGallery')}
-      icon={<PiFloppyDiskBold />}
-      onClick={saveSelectedImageToGallery}
-      colorScheme="invokeBlue"
-      isDisabled={!selectedItemImageDTO || !shouldShowStagedImage}
-    />
+    <IAITooltip label={t('controlLayers.stagingArea.saveToGallery')}>
+      <IconButton
+        aria-label={t('controlLayers.stagingArea.saveToGallery')}
+        icon={<PiFloppyDiskBold />}
+        onClick={saveSelectedImageToGallery}
+        colorScheme="invokeBlue"
+        isDisabled={!selectedItemImageDTO || !shouldShowStagedImage}
+      />
+    </IAITooltip>
   );
 });
 
