@@ -37,14 +37,18 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
 
     this.log.debug({ state }, 'Creating module');
 
-    const blurRadius = ((softness ?? 0) * strokeWidth) / 100;
+    // Reduce the rendered stroke width by the softness fraction, then choose a blur sigma
+    // so that 3 standard deviations extend back to the original (user-selected) width.
+    const softnessFraction = (softness ?? 0) / 100;
+    const blurRadius = (strokeWidth * softnessFraction) / 6; // sigma
+    const blurExtent = blurRadius * 3; // visible reach of the Gaussian
     const expandedClip =
       clip && blurRadius > 0
         ? {
-            x: clip.x - blurRadius,
-            y: clip.y - blurRadius,
-            width: clip.width + 2 * blurRadius,
-            height: clip.height + 2 * blurRadius,
+            x: clip.x - blurExtent,
+            y: clip.y - blurExtent,
+            width: clip.width + 2 * blurExtent,
+            height: clip.height + 2 * blurExtent,
           }
         : clip;
 
@@ -70,9 +74,17 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
     if (force || this.state !== state) {
       this.log.trace({ state }, 'Updating brush line with pressure');
       const { points, color, strokeWidth, softness, clip } = state;
+
+      // Reduce the rendered stroke width by the softness fraction, then choose a blur sigma
+      // so that 3 standard deviations extend back to the original (user-selected) width.
+      const softnessFraction = (softness ?? 0) / 100;
+      const reducedStrokeWidth = strokeWidth * (1 - softnessFraction);
+      const blurRadius = (strokeWidth * softnessFraction) / 6; // sigma
+      const blurExtent = blurRadius * 3; // visible reach of the Gaussian
+
       this.konva.line.setAttrs({
         data: getSVGPathDataFromPoints(points, {
-          size: strokeWidth / 2,
+          size: reducedStrokeWidth / 2,
           simulatePressure: false,
           last: true,
           thinning: 1,
@@ -80,17 +92,15 @@ export class CanvasObjectBrushLineWithPressure extends CanvasModuleBase {
         fill: rgbaColorToString(color),
       });
 
-      const blurRadius = ((softness ?? 0) * strokeWidth) / 100;
-
       // Expand clip to accommodate blur extent
       if (clip) {
         const expandedClip =
           blurRadius > 0
             ? {
-                x: clip.x - blurRadius,
-                y: clip.y - blurRadius,
-                width: clip.width + 2 * blurRadius,
-                height: clip.height + 2 * blurRadius,
+                x: clip.x - blurExtent,
+                y: clip.y - blurExtent,
+                width: clip.width + 2 * blurExtent,
+                height: clip.height + 2 * blurExtent,
               }
             : clip;
         this.konva.group.clip(expandedClip);

@@ -234,7 +234,7 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
         if (renderer instanceof CanvasObjectBrushLine || renderer instanceof CanvasObjectBrushLineWithPressure) {
           const softness = renderer.state.softness ?? 0;
           if (softness > 0) {
-            const blurRadius = (softness * renderer.state.strokeWidth) / 100;
+            const blurRadius = (softness * renderer.state.strokeWidth) / 600;
             maxBlurRadius = Math.max(maxBlurRadius, blurRadius);
           }
         }

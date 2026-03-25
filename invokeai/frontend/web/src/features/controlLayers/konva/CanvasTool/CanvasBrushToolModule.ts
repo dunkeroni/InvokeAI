@@ -230,26 +230,26 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
 
     if (e.evt.pointerType === 'pen' && settings.pressureSensitivity) {
       // If the pen is down and pressure sensitivity is enabled, add the point with pressure
-      const blurRadius = (settings.brushSoftness * settings.brushWidth) / 100;
+      const blurExtent = (settings.brushSoftness * settings.brushWidth) / 200;
       await selectedEntity.bufferRenderer.setBuffer({
         id: getPrefixedId('brush_line_with_pressure'),
         type: 'brush_line_with_pressure',
         points: [alignedPoint.x, alignedPoint.y, e.evt.pressure],
         strokeWidth: settings.brushWidth,
         color: this.manager.stateApi.getCurrentColor(),
-        clip: expandClipForSoftness(this.parent.getClip(selectedEntity.state), blurRadius),
+        clip: expandClipForSoftness(this.parent.getClip(selectedEntity.state), blurExtent),
         softness: settings.brushSoftness,
       });
     } else {
       // Else, add the point without pressure
-      const blurRadius = (settings.brushSoftness * settings.brushWidth) / 100;
+      const blurExtent = (settings.brushSoftness * settings.brushWidth) / 200;
       await selectedEntity.bufferRenderer.setBuffer({
         id: getPrefixedId('brush_line'),
         type: 'brush_line',
         points: [alignedPoint.x, alignedPoint.y],
         strokeWidth: settings.brushWidth,
         color: this.manager.stateApi.getCurrentColor(),
-        clip: expandClipForSoftness(this.parent.getClip(selectedEntity.state), blurRadius),
+        clip: expandClipForSoftness(this.parent.getClip(selectedEntity.state), blurExtent),
         softness: settings.brushSoftness,
       });
     }
@@ -326,7 +326,7 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
         // are clipping to stage, we don't need to clip at all.
         clip: expandClipForSoftness(
           isShiftDraw && !settings.clipToBbox ? null : this.parent.getClip(selectedEntity.state),
-          (settings.brushSoftness * settings.brushWidth) / 100
+          (settings.brushSoftness * settings.brushWidth) / 200
         ),
         softness: settings.brushSoftness,
       });
@@ -355,7 +355,7 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
         // are clipping to stage, we don't need to clip at all.
         clip: expandClipForSoftness(
           isShiftDraw && !settings.clipToBbox ? null : this.parent.getClip(selectedEntity.state),
-          (settings.brushSoftness * settings.brushWidth) / 100
+          (settings.brushSoftness * settings.brushWidth) / 200
         ),
         softness: settings.brushSoftness,
       });
