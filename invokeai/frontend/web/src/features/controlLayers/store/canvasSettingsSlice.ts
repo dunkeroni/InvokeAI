@@ -2,6 +2,7 @@ import type { PayloadAction, Selector } from '@reduxjs/toolkit';
 import { createSelector, createSlice } from '@reduxjs/toolkit';
 import type { RootState } from 'app/store/store';
 import type { SliceConfig } from 'app/store/types';
+import { invertLegacySoftness } from 'features/controlLayers/konva/brushHardness';
 import type { RgbaColor } from 'features/controlLayers/store/types';
 import { RGBA_BLACK, RGBA_WHITE, zRgbaColor } from 'features/controlLayers/store/types';
 import { z } from 'zod';
@@ -15,119 +16,145 @@ export type TransformSmoothingMode = z.infer<typeof zTransformSmoothingMode>;
 const zGradientType = z.enum(['linear', 'radial']);
 const zLassoMode = z.enum(['freehand', 'polygon']);
 
-const zCanvasSettingsState = z.object({
-  /**
-   * Whether to show HUD (Heads-Up Display) on the canvas.
-   */
-  showHUD: z.boolean(),
-  /**
-   * Whether to clip lines and shapes to the generation bounding box. If disabled, lines and shapes will be clipped to
-   * the canvas bounds.
-   */
-  clipToBbox: z.boolean(),
-  /**
-   * Whether to show a dynamic grid on the canvas. If disabled, a checkerboard pattern will be shown instead.
-   */
-  dynamicGrid: z.boolean(),
-  /**
-   * Whether to invert the scroll direction when adjusting the brush or eraser width with the scroll wheel.
-   */
-  invertScrollForToolWidth: z.boolean(),
-  /**
-   * The width of the brush tool.
-   */
-  brushWidth: z.int().gt(0),
-  /**
-   * The width of the eraser tool.
-   */
-  eraserWidth: z.int().gt(0),
-  /**
-   * The colors to use when drawing lines or filling shapes.
-   */
-  activeColor: z.enum(['bgColor', 'fgColor']),
-  bgColor: zRgbaColor,
-  fgColor: zRgbaColor,
-  /**
-   * Whether to composite inpainted/outpainted regions back onto the source image when saving canvas generations.
-   *
-   * If disabled, inpainted/outpainted regions will be saved with a transparent background.
-   *
-   * When `sendToCanvas` is disabled, this setting is ignored, masked regions will always be composited.
-   */
-  outputOnlyMaskedRegions: z.boolean(),
-  /**
-   * Whether to automatically process the operations like filtering and auto-masking.
-   */
-  autoProcess: z.boolean(),
-  /**
-   * The snap-to-grid setting for the canvas.
-   */
-  snapToGrid: z.boolean(),
-  /**
-   * Whether to show progress on the canvas when generating images.
-   */
-  showProgressOnCanvas: z.boolean(),
-  /**
-   * Whether to show the bounding box overlay on the canvas.
-   */
-  bboxOverlay: z.boolean(),
-  /**
-   * Whether to preserve the masked region instead of inpainting it.
-   */
-  preserveMask: z.boolean(),
-  /**
-   * Whether to show only raster layers while staging.
-   */
-  isolatedStagingPreview: z.boolean(),
-  /**
-   * Whether to show only the selected layer while filtering, transforming, or doing other operations.
-   */
-  isolatedLayerPreview: z.boolean(),
-  /**
-   * Whether to use pressure sensitivity for the brush and eraser tool when a pen device is used.
-   */
-  pressureSensitivity: z.boolean(),
-  /**
-   * Whether to show the rule of thirds composition guide overlay on the canvas.
-   */
-  ruleOfThirds: z.boolean(),
-  /**
-   * Whether to apply smoothing when rasterizing transformed layers.
-   */
-  transformSmoothingEnabled: z.boolean().default(false),
-  /**
-   * The resampling mode to use when smoothing transformed layers.
-   */
-  transformSmoothingMode: zTransformSmoothingMode.default('bicubic'),
-  /**
-   * Whether to save all staging images to the gallery instead of keeping them as intermediate images.
-   */
-  saveAllImagesToGallery: z.boolean(),
-  /**
-   * The auto-switch mode for the canvas staging area.
-   */
-  stagingAreaAutoSwitch: zAutoSwitchMode,
-  /**
-   * Whether the fill color picker UI is pinned (persistently shown in the canvas overlay).
-   */
-  fillColorPickerPinned: z.boolean(),
-  /**
-   * The gradient tool type.
-   */
-  gradientType: zGradientType.default('linear'),
-  /**
-   * Whether the gradient tool clips to the drag gesture.
-   */
-  gradientClipEnabled: z.boolean().default(true),
-  /**
-   * The lasso tool mode.
-   */
-  lassoMode: zLassoMode.default('freehand'),
-  /**
-   * The softness of the brush tool (0-100). 0 is a hard edge, 100 is maximum blur.
-   */
-  brushSoftness: z.number().min(0).max(100).default(0),
-});
+const migrateLegacyBrushHardnessSetting = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  if (typeof record.brushHardness === 'number') {
+    return value;
+  }
+
+  if (typeof record.brushSoftness !== 'number') {
+    return value;
+  }
+
+  const { brushSoftness, ...rest } = record;
+
+  return {
+    ...rest,
+    brushHardness: invertLegacySoftness(brushSoftness),
+  };
+};
+
+const zCanvasSettingsState = z.preprocess(
+  migrateLegacyBrushHardnessSetting,
+  z.object({
+    /**
+     * Whether to show HUD (Heads-Up Display) on the canvas.
+     */
+    showHUD: z.boolean(),
+    /**
+     * Whether to clip lines and shapes to the generation bounding box. If disabled, lines and shapes will be clipped to
+     * the canvas bounds.
+     */
+    clipToBbox: z.boolean(),
+    /**
+     * Whether to show a dynamic grid on the canvas. If disabled, a checkerboard pattern will be shown instead.
+     */
+    dynamicGrid: z.boolean(),
+    /**
+     * Whether to invert the scroll direction when adjusting the brush or eraser width with the scroll wheel.
+     */
+    invertScrollForToolWidth: z.boolean(),
+    /**
+     * The width of the brush tool.
+     */
+    brushWidth: z.int().gt(0),
+    /**
+     * The width of the eraser tool.
+     */
+    eraserWidth: z.int().gt(0),
+    /**
+     * The colors to use when drawing lines or filling shapes.
+     */
+    activeColor: z.enum(['bgColor', 'fgColor']),
+    bgColor: zRgbaColor,
+    fgColor: zRgbaColor,
+    /**
+     * Whether to composite inpainted/outpainted regions back onto the source image when saving canvas generations.
+     *
+     * If disabled, inpainted/outpainted regions will be saved with a transparent background.
+     *
+     * When `sendToCanvas` is disabled, this setting is ignored, masked regions will always be composited.
+     */
+    outputOnlyMaskedRegions: z.boolean(),
+    /**
+     * Whether to automatically process the operations like filtering and auto-masking.
+     */
+    autoProcess: z.boolean(),
+    /**
+     * The snap-to-grid setting for the canvas.
+     */
+    snapToGrid: z.boolean(),
+    /**
+     * Whether to show progress on the canvas when generating images.
+     */
+    showProgressOnCanvas: z.boolean(),
+    /**
+     * Whether to show the bounding box overlay on the canvas.
+     */
+    bboxOverlay: z.boolean(),
+    /**
+     * Whether to preserve the masked region instead of inpainting it.
+     */
+    preserveMask: z.boolean(),
+    /**
+     * Whether to show only raster layers while staging.
+     */
+    isolatedStagingPreview: z.boolean(),
+    /**
+     * Whether to show only the selected layer while filtering, transforming, or doing other operations.
+     */
+    isolatedLayerPreview: z.boolean(),
+    /**
+     * Whether to use pressure sensitivity for the brush and eraser tool when a pen device is used.
+     */
+    pressureSensitivity: z.boolean(),
+    /**
+     * Whether to show the rule of thirds composition guide overlay on the canvas.
+     */
+    ruleOfThirds: z.boolean(),
+    /**
+     * Whether to apply smoothing when rasterizing transformed layers.
+     */
+    transformSmoothingEnabled: z.boolean().default(false),
+    /**
+     * The resampling mode to use when smoothing transformed layers.
+     */
+    transformSmoothingMode: zTransformSmoothingMode.default('bicubic'),
+    /**
+     * Whether to save all staging images to the gallery instead of keeping them as intermediate images.
+     */
+    saveAllImagesToGallery: z.boolean(),
+    /**
+     * The auto-switch mode for the canvas staging area.
+     */
+    stagingAreaAutoSwitch: zAutoSwitchMode,
+    /**
+     * Whether the fill color picker UI is pinned (persistently shown in the canvas overlay).
+     */
+    fillColorPickerPinned: z.boolean(),
+    /**
+     * The gradient tool type.
+     */
+    gradientType: zGradientType.default('linear'),
+    /**
+     * Whether the gradient tool clips to the drag gesture.
+     */
+    gradientClipEnabled: z.boolean().default(true),
+    /**
+     * The lasso tool mode.
+     */
+    lassoMode: zLassoMode.default('freehand'),
+    /**
+     * The hardness of the brush tool (0-100). 0 is the softest edge, 100 is a hard edge.
+     */
+    brushHardness: z.number().min(0).max(100).default(100),
+  })
+);
 
 type CanvasSettingsState = z.infer<typeof zCanvasSettingsState>;
 const getInitialState = (): CanvasSettingsState => ({
@@ -158,7 +185,7 @@ const getInitialState = (): CanvasSettingsState => ({
   gradientType: 'linear',
   gradientClipEnabled: true,
   lassoMode: 'freehand',
-  brushSoftness: 0,
+  brushHardness: 100,
 });
 
 const slice = createSlice({
@@ -259,8 +286,8 @@ const slice = createSlice({
     settingsLassoModeChanged: (state, action: PayloadAction<CanvasSettingsState['lassoMode']>) => {
       state.lassoMode = action.payload;
     },
-    settingsBrushSoftnessChanged: (state, action: PayloadAction<number>) => {
-      state.brushSoftness = action.payload;
+    settingsBrushHardnessChanged: (state, action: PayloadAction<number>) => {
+      state.brushHardness = action.payload;
     },
   },
 });
@@ -294,7 +321,7 @@ export const {
   settingsGradientTypeChanged,
   settingsGradientClipToggled,
   settingsLassoModeChanged,
-  settingsBrushSoftnessChanged,
+  settingsBrushHardnessChanged,
 } = slice.actions;
 
 export const canvasSettingsSliceConfig: SliceConfig<typeof slice> = {
@@ -302,7 +329,7 @@ export const canvasSettingsSliceConfig: SliceConfig<typeof slice> = {
   schema: zCanvasSettingsState,
   getInitialState,
   persistConfig: {
-    migrate: (state) => zCanvasSettingsState.parse(state),
+    migrate: (state) => zCanvasSettingsState.parse(migrateLegacyBrushHardnessSetting(state)),
   },
 };
 

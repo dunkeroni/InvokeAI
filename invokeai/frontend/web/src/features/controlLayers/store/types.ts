@@ -1,4 +1,5 @@
 import { deepClone } from 'common/util/deepClone';
+import { invertLegacySoftness } from 'features/controlLayers/konva/brushHardness';
 import type { CanvasEntityAdapter } from 'features/controlLayers/konva/CanvasEntity/types';
 import { zMainModelBase, zModelIdentifierField } from 'features/nodes/types/common';
 import {
@@ -202,40 +203,69 @@ const _zRectWithRotation = zRect.extend({
 });
 export type RectWithRotation = z.infer<typeof _zRectWithRotation>;
 
-const zCanvasBrushLineState = z.object({
-  id: zId,
-  type: z.literal('brush_line'),
-  strokeWidth: z.number().min(1),
-  /**
-   * Points without pressure are in the format [x1, y1, x2, y2, ...]
-   */
-  points: zPoints,
-  color: zRgbaColor,
-  clip: zRect.nullable(),
-  globalCompositeOperation: z.string().optional(),
-  /**
-   * The softness of the brush line (0-100). 0 is a hard edge, 100 is maximum blur.
-   */
-  softness: z.number().min(0).max(100).default(0),
-});
+const migrateLegacyBrushObjectHardness = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  if (typeof record.hardness === 'number') {
+    return value;
+  }
+
+  if (typeof record.softness !== 'number') {
+    return value;
+  }
+
+  const { softness, ...rest } = record;
+
+  return {
+    ...rest,
+    hardness: invertLegacySoftness(softness),
+  };
+};
+
+const zCanvasBrushLineState = z.preprocess(
+  migrateLegacyBrushObjectHardness,
+  z.object({
+    id: zId,
+    type: z.literal('brush_line'),
+    strokeWidth: z.number().min(1),
+    /**
+     * Points without pressure are in the format [x1, y1, x2, y2, ...]
+     */
+    points: zPoints,
+    color: zRgbaColor,
+    clip: zRect.nullable(),
+    globalCompositeOperation: z.string().optional(),
+    /**
+     * The hardness of the brush line (0-100). 0 is the softest edge, 100 is a hard edge.
+     */
+    hardness: z.number().min(0).max(100).default(100),
+  })
+);
 export type CanvasBrushLineState = z.infer<typeof zCanvasBrushLineState>;
 
-const zCanvasBrushLineWithPressureState = z.object({
-  id: zId,
-  type: z.literal('brush_line_with_pressure'),
-  strokeWidth: z.number().min(1),
-  /**
-   * Points with pressure are in the format [x1, y1, pressure1, x2, y2, pressure2, ...]
-   */
-  points: zPointsWithPressure,
-  color: zRgbaColor,
-  clip: zRect.nullable(),
-  globalCompositeOperation: z.string().optional(),
-  /**
-   * The softness of the brush line (0-100). 0 is a hard edge, 100 is maximum blur.
-   */
-  softness: z.number().min(0).max(100).default(0),
-});
+const zCanvasBrushLineWithPressureState = z.preprocess(
+  migrateLegacyBrushObjectHardness,
+  z.object({
+    id: zId,
+    type: z.literal('brush_line_with_pressure'),
+    strokeWidth: z.number().min(1),
+    /**
+     * Points with pressure are in the format [x1, y1, pressure1, x2, y2, pressure2, ...]
+     */
+    points: zPointsWithPressure,
+    color: zRgbaColor,
+    clip: zRect.nullable(),
+    globalCompositeOperation: z.string().optional(),
+    /**
+     * The hardness of the brush line (0-100). 0 is the softest edge, 100 is a hard edge.
+     */
+    hardness: z.number().min(0).max(100).default(100),
+  })
+);
 export type CanvasBrushLineWithPressureState = z.infer<typeof zCanvasBrushLineWithPressureState>;
 
 const zCanvasEraserLineState = z.object({

@@ -1,6 +1,7 @@
 import { rgbColorToString } from 'common/util/colorCodeTransformers';
 import { SyncableMap } from 'common/util/SyncableMap/SyncableMap';
 import { throttle } from 'es-toolkit/compat';
+import { BRUSH_HARDNESS_BLUR_SIGMA_ATTR, getBrushHardnessMetrics } from 'features/controlLayers/konva/brushHardness';
 import type { CanvasEntityAdapter } from 'features/controlLayers/konva/CanvasEntity/types';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
@@ -227,23 +228,20 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
       this.log.trace('Caching object group');
       this.konva.objectGroup.clearCache();
 
-      // Calculate max blur radius to expand group cache bounds for softened brush lines.
+      // Calculate max blur sigma to expand group cache bounds for brush lines with soft edges.
       // Individual line nodes apply blur via GPU-accelerated ctx.filter in their custom
       // sceneFunc, so they don't need individual caching.
-      let maxBlurRadius = 0;
+      let maxBlurSigmaPx = 0;
       for (const renderer of this.renderers.values()) {
         if (renderer instanceof CanvasObjectBrushLine || renderer instanceof CanvasObjectBrushLineWithPressure) {
-          const softness = renderer.state.softness ?? 0;
-          if (softness > 0) {
-            const blurRadius = (softness * renderer.state.strokeWidth) / 600;
-            maxBlurRadius = Math.max(maxBlurRadius, blurRadius);
-          }
+          const { blurSigmaPx } = getBrushHardnessMetrics(renderer.state.strokeWidth, renderer.state.hardness);
+          maxBlurSigmaPx = Math.max(maxBlurSigmaPx, blurSigmaPx);
         }
       }
 
       // Canvas blur(X) uses X as the Gaussian standard deviation. The visible extent of a
       // Gaussian is ~3*sigma, so we need 3x the blur radius to avoid clipping the soft edges.
-      const offset = maxBlurRadius > 0 ? Math.ceil(maxBlurRadius * 3) : 0;
+      const offset = maxBlurSigmaPx > 0 ? Math.ceil(maxBlurSigmaPx * 3) : 0;
       this.konva.objectGroup.cache({ pixelRatio: 1, imageSmoothingEnabled: false, offset });
     }
   };
@@ -476,10 +474,10 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
       const isImage = renderer instanceof CanvasObjectImage;
       const imageIgnoresTransparency = isImage && renderer.state.usePixelBbox === false;
       const hasClip = renderer instanceof CanvasObjectBrushLine && renderer.state.clip;
-      const hasSoftness =
+      const hasSoftEdge =
         (renderer instanceof CanvasObjectBrushLine || renderer instanceof CanvasObjectBrushLineWithPressure) &&
-        (renderer.state.softness ?? 0) > 0;
-      if (isEraserLine || isSubtractingLasso || hasClip || hasSoftness || (isImage && !imageIgnoresTransparency)) {
+        renderer.state.hardness < 100;
+      if (isEraserLine || isSubtractingLasso || hasClip || hasSoftEdge || (isImage && !imageIgnoresTransparency)) {
         needsPixelBbox = true;
         break;
       }
@@ -608,21 +606,21 @@ export class CanvasEntityObjectRenderer extends CanvasModuleBase {
     if (attrs) {
       clone.setAttrs(attrs);
     }
-    // Calculate max blur radius from cloned nodes to expand group cache bounds.
+    // Calculate max blur sigma from cloned nodes to expand group cache bounds.
     // Individual nodes apply blur via GPU-accelerated ctx.filter in their custom sceneFunc
     // (cloned automatically as an attr), so they don't need individual caching.
-    let maxBlurRadius = 0;
+    let maxBlurSigmaPx = 0;
     clone.find('Line, Path').forEach((node: Konva.Node) => {
-      const blurRadius = node.getAttr('blurRadius');
-      if (blurRadius && blurRadius > 0) {
-        maxBlurRadius = Math.max(maxBlurRadius, blurRadius);
+      const blurSigmaPx = node.getAttr(BRUSH_HARDNESS_BLUR_SIGMA_ATTR);
+      if (typeof blurSigmaPx === 'number' && blurSigmaPx > 0) {
+        maxBlurSigmaPx = Math.max(maxBlurSigmaPx, blurSigmaPx);
       }
     });
     if (clone.hasChildren()) {
       const { pixelRatio = 1, imageSmoothingEnabled = false } = cache ?? {};
       // Canvas blur(X) uses X as the Gaussian standard deviation. The visible extent of a
       // Gaussian is ~3*sigma, so we need 3x the blur radius to avoid clipping the soft edges.
-      const offset = maxBlurRadius > 0 ? Math.ceil(maxBlurRadius * 3) : 0;
+      const offset = maxBlurSigmaPx > 0 ? Math.ceil(maxBlurSigmaPx * 3) : 0;
       clone.cache({ pixelRatio, imageSmoothingEnabled, offset });
     }
     return clone;

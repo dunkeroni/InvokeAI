@@ -19,7 +19,7 @@ import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import { clamp } from 'es-toolkit/compat';
 import {
   selectCanvasSettingsSlice,
-  settingsBrushSoftnessChanged,
+  settingsBrushHardnessChanged,
 } from 'features/controlLayers/store/canvasSettingsSlice';
 import type { FocusEvent, KeyboardEvent, PointerEvent } from 'react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -30,7 +30,7 @@ const formatPct = (v: number | string) => `${v}%`;
 const marks = [0, 25, 50, 75, 100];
 
 const SLIDER_VS_DROPDOWN_CONTAINER_WIDTH_THRESHOLD = 280;
-const DEFAULT_SOFTNESS = 0;
+const DEFAULT_HARDNESS = 100;
 const parseInputValue = (value: string) => Number.parseFloat(value);
 const getInputValueFromEvent = (
   event?: Pick<FocusEvent<HTMLElement> | KeyboardEvent<HTMLElement>, 'target' | 'currentTarget'>
@@ -44,7 +44,7 @@ const getInputValueFromEvent = (
   return { input, parsed: input ? parseInputValue(input.value) : NaN };
 };
 
-interface ToolSoftnessPickerComponentProps {
+interface ToolHardnessPickerComponentProps {
   localValue: number;
   onChangeSlider: (value: number) => void;
   onChangeInput: (value: number) => void;
@@ -54,7 +54,7 @@ interface ToolSoftnessPickerComponentProps {
   onPointerUpCapture: (value: PointerEvent<HTMLDivElement>) => void;
 }
 
-const DropDownToolSoftnessPickerComponent = memo(
+const DropDownToolHardnessPickerComponent = memo(
   ({
     localValue,
     onChangeSlider,
@@ -63,7 +63,7 @@ const DropDownToolSoftnessPickerComponent = memo(
     onPointerDownCapture,
     onPointerUpCapture,
     onBlur,
-  }: ToolSoftnessPickerComponentProps) => {
+  }: ToolHardnessPickerComponentProps) => {
     const onChangeNumberInput = useCallback(
       (valueAsString: string, valueAsNumber: number) => {
         onChangeInput(valueAsNumber);
@@ -86,7 +86,7 @@ const DropDownToolSoftnessPickerComponent = memo(
               onBlur={onBlur}
               w={76}
               format={formatPct}
-              defaultValue={0}
+              defaultValue={100}
               onKeyDown={onKeyDown}
               onPointerDownCapture={onPointerDownCapture}
               onPointerUpCapture={onPointerUpCapture}
@@ -116,7 +116,7 @@ const DropDownToolSoftnessPickerComponent = memo(
                 max={100}
                 value={localValue}
                 onChange={onChangeSlider}
-                defaultValue={0}
+                defaultValue={100}
                 marks={marks}
                 alwaysShowMarks
               />
@@ -127,9 +127,9 @@ const DropDownToolSoftnessPickerComponent = memo(
     );
   }
 );
-DropDownToolSoftnessPickerComponent.displayName = 'DropDownToolSoftnessPickerComponent';
+DropDownToolHardnessPickerComponent.displayName = 'DropDownToolHardnessPickerComponent';
 
-const SliderToolSoftnessPickerComponent = memo(
+const SliderToolHardnessPickerComponent = memo(
   ({
     localValue,
     onChangeSlider,
@@ -138,7 +138,7 @@ const SliderToolSoftnessPickerComponent = memo(
     onPointerDownCapture,
     onPointerUpCapture,
     onBlur,
-  }: ToolSoftnessPickerComponentProps) => {
+  }: ToolHardnessPickerComponentProps) => {
     return (
       <Flex w={SLIDER_VS_DROPDOWN_CONTAINER_WIDTH_THRESHOLD} gap={4}>
         <CompositeSlider
@@ -148,7 +148,7 @@ const SliderToolSoftnessPickerComponent = memo(
           max={100}
           value={localValue}
           onChange={onChangeSlider}
-          defaultValue={0}
+          defaultValue={100}
           marks={marks}
           alwaysShowMarks
         />
@@ -164,21 +164,21 @@ const SliderToolSoftnessPickerComponent = memo(
           onPointerDownCapture={onPointerDownCapture}
           onPointerUpCapture={onPointerUpCapture}
           format={formatPct}
-          defaultValue={0}
+          defaultValue={100}
         />
       </Flex>
     );
   }
 );
-SliderToolSoftnessPickerComponent.displayName = 'SliderToolSoftnessPickerComponent';
+SliderToolHardnessPickerComponent.displayName = 'SliderToolHardnessPickerComponent';
 
-const selectBrushSoftness = createSelector(selectCanvasSettingsSlice, (settings) => settings.brushSoftness);
+const selectBrushHardness = createSelector(selectCanvasSettingsSlice, (settings) => settings.brushHardness);
 
-export const ToolSoftnessPicker = memo(() => {
+export const ToolHardnessPicker = memo(() => {
   const ref = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
-  const brushSoftness = useAppSelector(selectBrushSoftness);
-  const [localValue, setLocalValue] = useState(brushSoftness);
+  const brushHardness = useAppSelector(selectBrushHardness);
+  const [localValue, setLocalValue] = useState(brushHardness);
   const [componentType, setComponentType] = useState<'slider' | 'dropdown' | null>(null);
   const isTypingRef = useRef(false);
   const inputPollRef = useRef<number | null>(null);
@@ -206,7 +206,7 @@ export const ToolSoftnessPicker = memo(() => {
 
   const onChange = useCallback(
     (value: number) => {
-      dispatch(settingsBrushSoftnessChanged(clamp(Math.round(value), 0, 100)));
+      dispatch(settingsBrushHardnessChanged(clamp(Math.round(value), 0, 100)));
     },
     [dispatch]
   );
@@ -260,8 +260,8 @@ export const ToolSoftnessPicker = memo(() => {
   const commitValue = useCallback(
     (value: number) => {
       if (isNaN(Number(value))) {
-        onChange(DEFAULT_SOFTNESS);
-        setLocalValue(DEFAULT_SOFTNESS);
+        onChange(DEFAULT_HARDNESS);
+        setLocalValue(DEFAULT_HARDNESS);
       } else {
         onChange(value);
         setLocalValue(value);
@@ -337,8 +337,8 @@ export const ToolSoftnessPicker = memo(() => {
   }, [stopPollingInput]);
 
   useEffect(() => {
-    setLocalValue(brushSoftness);
-  }, [brushSoftness]);
+    setLocalValue(brushHardness);
+  }, [brushHardness]);
 
   useEffect(() => {
     return () => {
@@ -349,7 +349,7 @@ export const ToolSoftnessPicker = memo(() => {
   return (
     <Flex ref={ref} alignItems="center" flexGrow={1} flexShrink={1} minW={0}>
       {componentType === 'slider' && (
-        <SliderToolSoftnessPickerComponent
+        <SliderToolHardnessPickerComponent
           localValue={localValue}
           onChangeSlider={onChangeSlider}
           onChangeInput={onChangeInput}
@@ -360,7 +360,7 @@ export const ToolSoftnessPicker = memo(() => {
         />
       )}
       {componentType === 'dropdown' && (
-        <DropDownToolSoftnessPickerComponent
+        <DropDownToolHardnessPickerComponent
           localValue={localValue}
           onChangeSlider={onChangeSlider}
           onChangeInput={onChangeInput}
@@ -374,4 +374,4 @@ export const ToolSoftnessPicker = memo(() => {
   );
 });
 
-ToolSoftnessPicker.displayName = 'ToolSoftnessPicker';
+ToolHardnessPicker.displayName = 'ToolHardnessPicker';

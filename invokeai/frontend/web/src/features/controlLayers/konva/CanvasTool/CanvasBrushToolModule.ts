@@ -1,4 +1,5 @@
 import { rgbaColorToString } from 'common/util/colorCodeTransformers';
+import { getBrushHardnessMetrics } from 'features/controlLayers/konva/brushHardness';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
 import type { CanvasToolModule } from 'features/controlLayers/konva/CanvasTool/CanvasToolModule';
@@ -11,7 +12,6 @@ import {
   isDistanceMoreThanMin,
   offsetCoord,
 } from 'features/controlLayers/konva/util';
-import type { Rect } from 'features/controlLayers/store/types';
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Logger } from 'roarr';
@@ -36,21 +36,6 @@ const DEFAULT_CONFIG: CanvasBrushToolModuleConfig = {
   BORDER_OUTER_COLOR: 'rgba(255,255,255,0.8)',
   HIDE_FILL_TIMEOUT_MS: 1500, // same as Affinity
 };
-
-/**
- * Expands a clip rect by blurRadius on all sides to prevent clipping softened edges.
- */
-function expandClipForSoftness(clip: Rect | null, blurRadius: number): Rect | null {
-  if (!clip || blurRadius <= 0) {
-    return clip;
-  }
-  return {
-    x: clip.x - blurRadius,
-    y: clip.y - blurRadius,
-    width: clip.width + 2 * blurRadius,
-    height: clip.height + 2 * blurRadius,
-  };
-}
 
 /**
  * Renders a preview of the brush tool on the canvas.
@@ -159,6 +144,7 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
 
     const settings = this.manager.stateApi.getSettings();
     const brushPreviewFill = this.manager.stateApi.getBrushPreviewColor();
+    const brushHardnessMetrics = getBrushHardnessMetrics(settings.brushWidth, settings.brushHardness);
     const alignedCursorPos = alignCoordForTool(cursorPos.relative, settings.brushWidth);
     const radius = settings.brushWidth / 2;
 
@@ -169,7 +155,7 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
       radius,
       fill: rgbaColorToString(brushPreviewFill),
       visible: !isPrimaryPointerDown && lastPointerType === 'mouse',
-      opacity: 1 - ((settings.brushSoftness ?? 0) * 0.6) / 100,
+      opacity: brushHardnessMetrics.previewOpacity,
     });
 
     // But the borders are in screen-pixels
@@ -232,31 +218,30 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
     const isTransparencyLocked =
       selectedEntity.state.type === 'raster_layer' && selectedEntity.state.isTransparencyLocked;
     const globalCompositeOperation = isTransparencyLocked ? 'source-atop' : undefined;
+    const hardness = settings.brushHardness;
 
     if (e.evt.pointerType === 'pen' && settings.pressureSensitivity) {
       // If the pen is down and pressure sensitivity is enabled, add the point with pressure
-      const blurExtent = (settings.brushSoftness * settings.brushWidth) / 200;
       await selectedEntity.bufferRenderer.setBuffer({
         id: getPrefixedId('brush_line_with_pressure'),
         type: 'brush_line_with_pressure',
         points: [alignedPoint.x, alignedPoint.y, e.evt.pressure],
         strokeWidth: settings.brushWidth,
         color: this.manager.stateApi.getCurrentColor(),
-        clip: expandClipForSoftness(this.parent.getClip(selectedEntity.state), blurExtent),
-        softness: settings.brushSoftness,
+        clip: this.parent.getClip(selectedEntity.state),
+        hardness,
         globalCompositeOperation,
       });
     } else {
       // Else, add the point without pressure
-      const blurExtent = (settings.brushSoftness * settings.brushWidth) / 200;
       await selectedEntity.bufferRenderer.setBuffer({
         id: getPrefixedId('brush_line'),
         type: 'brush_line',
         points: [alignedPoint.x, alignedPoint.y],
         strokeWidth: settings.brushWidth,
         color: this.manager.stateApi.getCurrentColor(),
-        clip: expandClipForSoftness(this.parent.getClip(selectedEntity.state), blurExtent),
-        softness: settings.brushSoftness,
+        clip: this.parent.getClip(selectedEntity.state),
+        hardness,
         globalCompositeOperation,
       });
     }
@@ -300,6 +285,7 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
     const isTransparencyLocked =
       selectedEntity.state.type === 'raster_layer' && selectedEntity.state.isTransparencyLocked;
     const globalCompositeOperation = isTransparencyLocked ? 'source-atop' : undefined;
+    const hardness = settings.brushHardness;
 
     if (e.evt.pointerType === 'pen' && settings.pressureSensitivity) {
       // We need to get the last point of the last line to create a straight line if shift is held
@@ -336,11 +322,8 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
         color: this.manager.stateApi.getCurrentColor(),
         // When shift is held, the line may extend beyond the clip region. Clip only if we are clipping to bbox. If we
         // are clipping to stage, we don't need to clip at all.
-        clip: expandClipForSoftness(
-          isShiftDraw && !settings.clipToBbox ? null : this.parent.getClip(selectedEntity.state),
-          (settings.brushSoftness * settings.brushWidth) / 200
-        ),
-        softness: settings.brushSoftness,
+        clip: isShiftDraw && !settings.clipToBbox ? null : this.parent.getClip(selectedEntity.state),
+        hardness,
         globalCompositeOperation,
       });
     } else {
@@ -366,11 +349,8 @@ export class CanvasBrushToolModule extends CanvasModuleBase {
         color: this.manager.stateApi.getCurrentColor(),
         // When shift is held, the line may extend beyond the clip region. Clip only if we are clipping to bbox. If we
         // are clipping to stage, we don't need to clip at all.
-        clip: expandClipForSoftness(
-          isShiftDraw && !settings.clipToBbox ? null : this.parent.getClip(selectedEntity.state),
-          (settings.brushSoftness * settings.brushWidth) / 200
-        ),
-        softness: settings.brushSoftness,
+        clip: isShiftDraw && !settings.clipToBbox ? null : this.parent.getClip(selectedEntity.state),
+        hardness,
         globalCompositeOperation,
       });
     }

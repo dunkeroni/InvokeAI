@@ -5,9 +5,9 @@ import { useToolIsSelected } from 'features/controlLayers/components/Tool/hooks'
 import { ToolFillColorPicker } from 'features/controlLayers/components/Tool/ToolFillColorPicker';
 import { ToolGradientClipToggle } from 'features/controlLayers/components/Tool/ToolGradientClipToggle';
 import { ToolGradientModeToggle } from 'features/controlLayers/components/Tool/ToolGradientModeToggle';
+import { ToolHardnessPicker } from 'features/controlLayers/components/Tool/ToolHardnessPicker';
 import { ToolLassoModeToggle } from 'features/controlLayers/components/Tool/ToolLassoModeToggle';
 import { ToolOptionsRowContainer } from 'features/controlLayers/components/Tool/ToolOptionsRowContainer';
-import { ToolSoftnessPicker } from 'features/controlLayers/components/Tool/ToolSoftnessPicker';
 import { ToolWidthPicker } from 'features/controlLayers/components/Tool/ToolWidthPicker';
 import { CanvasToolbarFitBboxToLayersButton } from 'features/controlLayers/components/Toolbar/CanvasToolbarFitBboxToLayersButton';
 import { CanvasToolbarFitBboxToMasksButton } from 'features/controlLayers/components/Toolbar/CanvasToolbarFitBboxToMasksButton';
@@ -67,7 +67,7 @@ export const CanvasToolbar = memo(() => {
           </Box>
         )}
         {isTextSelected ? <TextToolOptions /> : showToolWithPicker && <ToolWidthPicker />}
-        {showToolWithPicker && isBrushSelected && <ToolSoftnessPicker />}
+        {showToolWithPicker && isBrushSelected && <ToolHardnessPicker />}
       </ToolOptionsRowContainer>
       <Flex alignItems="center" h="full">
         <CanvasToolbarScale />
