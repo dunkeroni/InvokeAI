@@ -1,4 +1,5 @@
 import {
+  Box,
   CompositeNumberInput,
   CompositeSlider,
   Flex,
@@ -19,6 +20,7 @@ import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
 import { clamp } from 'es-toolkit/compat';
 import {
   selectCanvasSettingsSlice,
+  settingsBrushHardnessChanged,
   settingsBrushWidthChanged,
   settingsEraserWidthChanged,
 } from 'features/controlLayers/store/canvasSettingsSlice';
@@ -72,7 +74,9 @@ const marks = [
 const sliderDefaultValue = mapRawValueToSliderValue(50);
 
 const SLIDER_VS_DROPDOWN_CONTAINER_WIDTH_THRESHOLD = 280;
+const CONTROL_TRACK_WIDTH = 200;
 const DEFAULT_TOOL_WIDTH = 50;
+const DEFAULT_BRUSH_HARDNESS = 100;
 const parseInputValue = (value: string) => Number.parseFloat(value);
 const getInputValueFromEvent = (
   event?: Pick<FocusEvent<HTMLElement> | KeyboardEvent<HTMLElement>, 'target' | 'currentTarget'>
@@ -86,21 +90,197 @@ const getInputValueFromEvent = (
   return { input, parsed: input ? parseInputValue(input.value) : NaN };
 };
 
+const formatPct = (v: number | string) => `${v}%`;
+
+const brushHardnessMarks = [0, 25, 50, 75, 100];
+
+const getHardnessFromClientX = (clientX: number, element: HTMLDivElement) => {
+  const rect = element.getBoundingClientRect();
+  if (rect.width === 0) {
+    return DEFAULT_BRUSH_HARDNESS;
+  }
+  const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
+  return Math.round(ratio * 100);
+};
+
 interface ToolWidthPickerComponentProps {
+  showHardness: boolean;
+  localHardness: number;
   localValue: number;
   onChangeSlider: (value: number) => void;
   onChangeInput: (value: number) => void;
+  onChangeHardness: (value: number) => void;
   onBlur: (event?: FocusEvent<HTMLElement>) => void;
   onKeyDown: (value: KeyboardEvent<HTMLInputElement>) => void;
   onPointerDownCapture: (value: PointerEvent<HTMLDivElement>) => void;
   onPointerUpCapture: (value: PointerEvent<HTMLDivElement>) => void;
 }
 
-const DropDownToolWidthPickerComponent = memo(
+const BrushHardnessTrack = memo(({ hardness, onChange }: { hardness: number; onChange: (value: number) => void }) => {
+  const { t } = useTranslation();
+
+  const updateFromClientX = useCallback(
+    (clientX: number, element: HTMLDivElement) => {
+      onChange(getHardnessFromClientX(clientX, element));
+    },
+    [onChange]
+  );
+
+  const onPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      updateFromClientX(event.clientX, event.currentTarget);
+    },
+    [updateFromClientX]
+  );
+
+  const onPointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.hasPointerCapture(event.pointerId) && event.buttons === 0) {
+        return;
+      }
+      updateFromClientX(event.clientX, event.currentTarget);
+    },
+    [updateFromClientX]
+  );
+
+  const onPointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
+
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        onChange(clamp(hardness - 1, 0, 100));
+        return;
+      }
+      if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        onChange(clamp(hardness + 1, 0, 100));
+        return;
+      }
+      if (event.key === 'PageDown') {
+        event.preventDefault();
+        onChange(clamp(hardness - 10, 0, 100));
+        return;
+      }
+      if (event.key === 'PageUp') {
+        event.preventDefault();
+        onChange(clamp(hardness + 10, 0, 100));
+        return;
+      }
+      if (event.key === 'Home') {
+        event.preventDefault();
+        onChange(0);
+        return;
+      }
+      if (event.key === 'End') {
+        event.preventDefault();
+        onChange(100);
+      }
+    },
+    [hardness, onChange]
+  );
+
+  const hardnessLabel = t('controlLayers.tool.hardness', { defaultValue: 'Hardness' });
+
+  return (
+    <Flex direction="column" gap={0.5} w={CONTROL_TRACK_WIDTH}>
+      <Box
+        role="slider"
+        aria-label={hardnessLabel}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={hardness}
+        aria-valuetext={formatPct(hardness)}
+        tabIndex={0}
+        position="relative"
+        h={4}
+        cursor="pointer"
+        style={{ touchAction: 'none' }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onKeyDown={onKeyDown}
+        outline="none"
+        _focusVisible={{
+          boxShadow: '0 0 0 2px var(--invoke-colors-accent-300)',
+          borderRadius: 'base',
+        }}
+      >
+        <Box position="absolute" insetInline={0} top="50%" h="2px" bg="base.700" transform="translateY(-50%)" />
+        {brushHardnessMarks.map((mark) => (
+          <Box
+            key={mark}
+            position="absolute"
+            left={`${mark}%`}
+            top="50%"
+            w="1px"
+            h="6px"
+            bg="base.500"
+            transform="translate(-50%, -50%)"
+          />
+        ))}
+        <Box position="absolute" left={`${hardness}%`} top="0" transform="translateX(-50%)">
+          <Box
+            w="0"
+            h="0"
+            borderInlineStart="6px solid transparent"
+            borderInlineEnd="6px solid transparent"
+            borderBottom="8px solid"
+            borderBottomColor="accent.300"
+          />
+        </Box>
+      </Box>
+    </Flex>
+  );
+});
+BrushHardnessTrack.displayName = 'BrushHardnessTrack';
+
+const WidthTrackControl = memo(
   ({
     localValue,
     onChangeSlider,
+    localHardness,
+    onChangeHardness,
+    showHardness,
+  }: Pick<
+    ToolWidthPickerComponentProps,
+    'localValue' | 'onChangeSlider' | 'localHardness' | 'onChangeHardness' | 'showHardness'
+  >) => {
+    return (
+      <Flex direction="column" gap={showHardness ? 1 : 0} w={CONTROL_TRACK_WIDTH} minW={0}>
+        {showHardness && <BrushHardnessTrack hardness={localHardness} onChange={onChangeHardness} />}
+        <CompositeSlider
+          w={CONTROL_TRACK_WIDTH}
+          h="unset"
+          min={0}
+          max={100}
+          value={mapRawValueToSliderValue(localValue)}
+          onChange={onChangeSlider}
+          defaultValue={sliderDefaultValue}
+          marks={marks}
+          formatValue={formatSliderValue}
+          alwaysShowMarks
+        />
+      </Flex>
+    );
+  }
+);
+WidthTrackControl.displayName = 'WidthTrackControl';
+
+const DropDownToolWidthPickerComponent = memo(
+  ({
+    showHardness,
+    localHardness,
+    localValue,
+    onChangeSlider,
     onChangeInput,
+    onChangeHardness,
     onKeyDown,
     onPointerDownCapture,
     onPointerUpCapture,
@@ -151,18 +331,15 @@ const DropDownToolWidthPickerComponent = memo(
           </PopoverAnchor>
         </FormControl>
         <Portal>
-          <PopoverContent w={200} pt={0} pb={2} px={4}>
+          <PopoverContent w={232} pt={0} pb={2} px={4}>
             <PopoverArrow />
             <PopoverBody>
-              <CompositeSlider
-                min={0}
-                max={100}
-                value={mapRawValueToSliderValue(localValue)}
-                onChange={onChangeSlider}
-                defaultValue={sliderDefaultValue}
-                marks={marks}
-                formatValue={formatSliderValue}
-                alwaysShowMarks
+              <WidthTrackControl
+                showHardness={showHardness}
+                localValue={localValue}
+                onChangeSlider={onChangeSlider}
+                localHardness={localHardness}
+                onChangeHardness={onChangeHardness}
               />
             </PopoverBody>
           </PopoverContent>
@@ -175,9 +352,12 @@ DropDownToolWidthPickerComponent.displayName = 'DropDownToolWidthPickerComponent
 
 const SliderToolWidthPickerComponent = memo(
   ({
+    showHardness,
+    localHardness,
     localValue,
     onChangeSlider,
     onChangeInput,
+    onChangeHardness,
     onKeyDown,
     onPointerDownCapture,
     onPointerUpCapture,
@@ -185,17 +365,12 @@ const SliderToolWidthPickerComponent = memo(
   }: ToolWidthPickerComponentProps) => {
     return (
       <Flex w={SLIDER_VS_DROPDOWN_CONTAINER_WIDTH_THRESHOLD} gap={4}>
-        <CompositeSlider
-          w={200}
-          h="unset"
-          min={0}
-          max={100}
-          value={mapRawValueToSliderValue(localValue)}
-          onChange={onChangeSlider}
-          defaultValue={sliderDefaultValue}
-          marks={marks}
-          formatValue={formatSliderValue}
-          alwaysShowMarks
+        <WidthTrackControl
+          showHardness={showHardness}
+          localValue={localValue}
+          onChangeSlider={onChangeSlider}
+          localHardness={localHardness}
+          onChangeHardness={onChangeHardness}
         />
         <CompositeNumberInput
           w={28}
@@ -218,6 +393,7 @@ const SliderToolWidthPickerComponent = memo(
 SliderToolWidthPickerComponent.displayName = 'SliderToolWidthPickerComponent';
 
 const selectBrushWidth = createSelector(selectCanvasSettingsSlice, (settings) => settings.brushWidth);
+const selectBrushHardness = createSelector(selectCanvasSettingsSlice, (settings) => settings.brushHardness);
 const selectEraserWidth = createSelector(selectCanvasSettingsSlice, (settings) => settings.eraserWidth);
 
 export const ToolWidthPicker = memo(() => {
@@ -229,6 +405,7 @@ export const ToolWidthPicker = memo(() => {
     return isBrushSelected || isEraserSelected;
   }, [isBrushSelected, isEraserSelected]);
   const brushWidth = useAppSelector(selectBrushWidth);
+  const brushHardness = useAppSelector(selectBrushHardness);
   const eraserWidth = useAppSelector(selectEraserWidth);
   const width = useMemo(() => {
     if (isBrushSelected) {
@@ -240,6 +417,7 @@ export const ToolWidthPicker = memo(() => {
     return 0;
   }, [isBrushSelected, isEraserSelected, brushWidth, eraserWidth]);
   const [localValue, setLocalValue] = useState(width);
+  const [localHardness, setLocalHardness] = useState(brushHardness);
   const [componentType, setComponentType] = useState<'slider' | 'dropdown' | null>(null);
   const isTypingRef = useRef(false);
   const inputPollRef = useRef<number | null>(null);
@@ -281,6 +459,15 @@ export const ToolWidthPicker = memo(() => {
       onValueChange(clamp(Math.round(value), 1, 600));
     },
     [onValueChange]
+  );
+
+  const onChangeHardness = useCallback(
+    (value: number) => {
+      const nextValue = clamp(Math.round(value), 0, 100);
+      setLocalHardness(nextValue);
+      dispatch(settingsBrushHardnessChanged(nextValue));
+    },
+    [dispatch]
   );
 
   const syncFromInputElement = useCallback(
@@ -429,6 +616,10 @@ export const ToolWidthPicker = memo(() => {
   }, [width]);
 
   useEffect(() => {
+    setLocalHardness(brushHardness);
+  }, [brushHardness]);
+
+  useEffect(() => {
     return () => {
       stopPollingInput();
     };
@@ -453,9 +644,12 @@ export const ToolWidthPicker = memo(() => {
     <Flex ref={ref} alignItems="center" flexGrow={1} flexShrink={1} minW={0}>
       {componentType === 'slider' && (
         <SliderToolWidthPickerComponent
+          showHardness={isBrushSelected}
+          localHardness={localHardness}
           localValue={localValue}
           onChangeSlider={onChangeSlider}
           onChangeInput={onChangeInput}
+          onChangeHardness={onChangeHardness}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           onPointerDownCapture={onPointerDownCapture}
@@ -464,9 +658,12 @@ export const ToolWidthPicker = memo(() => {
       )}
       {componentType === 'dropdown' && (
         <DropDownToolWidthPickerComponent
+          showHardness={isBrushSelected}
+          localHardness={localHardness}
           localValue={localValue}
           onChangeSlider={onChangeSlider}
           onChangeInput={onChangeInput}
+          onChangeHardness={onChangeHardness}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           onPointerDownCapture={onPointerDownCapture}
