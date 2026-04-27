@@ -21,7 +21,7 @@ export const invertLegacySoftness = (softness: number): number => {
 
 export const getBrushHardnessMetrics = (strokeWidth: number, hardness: number): BrushHardnessMetrics => {
   const clampedHardness = clampHardness(hardness);
-  const hardnessRatio = clampedHardness / 100;
+  const hardnessRatio = (clampedHardness / 100) ** 2; // Use a non-linear curve to give more control over lower hardness values
   const softnessRatio = 1 - hardnessRatio;
   const blurSigmaPx = (strokeWidth * softnessRatio) / 6;
   const blurExtentPx = blurSigmaPx * 3;

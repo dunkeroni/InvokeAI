@@ -64,12 +64,12 @@ function formatSliderValue(value: number) {
   return `${String(mapSliderValueToRawValue(value))} px`;
 }
 
-const marks = [
-  mapRawValueToSliderValue(1),
-  mapRawValueToSliderValue(50),
-  mapRawValueToSliderValue(200),
-  mapRawValueToSliderValue(600),
-];
+// const marks = [
+//   mapRawValueToSliderValue(1),
+//   mapRawValueToSliderValue(50),
+//   mapRawValueToSliderValue(200),
+//   mapRawValueToSliderValue(600),
+// ];
 
 const sliderDefaultValue = mapRawValueToSliderValue(50);
 
@@ -186,7 +186,7 @@ const BrushHardnessTrack = memo(({ hardness, onChange }: { hardness: number; onC
     [hardness, onChange]
   );
 
-  const hardnessLabel = t('controlLayers.tool.hardness', { defaultValue: 'Hardness' });
+  const hardnessLabel = t('controlLayers.tool.hardness');
 
   return (
     <Flex direction="column" gap={0.5} w={CONTROL_TRACK_WIDTH}>
@@ -231,8 +231,8 @@ const BrushHardnessTrack = memo(({ hardness, onChange }: { hardness: number; onC
             h="0"
             borderInlineStart="6px solid transparent"
             borderInlineEnd="6px solid transparent"
-            borderBottom="8px solid"
-            borderBottomColor="accent.300"
+            borderTop="8px solid"
+            borderTopColor="accent.300"
           />
         </Box>
       </Box>
@@ -253,7 +253,7 @@ const WidthTrackControl = memo(
     'localValue' | 'onChangeSlider' | 'localHardness' | 'onChangeHardness' | 'showHardness'
   >) => {
     return (
-      <Flex direction="column" gap={showHardness ? 1 : 0} w={CONTROL_TRACK_WIDTH} minW={0}>
+      <Flex direction="column" gap={0} w={CONTROL_TRACK_WIDTH} minW={0}>
         {showHardness && <BrushHardnessTrack hardness={localHardness} onChange={onChangeHardness} />}
         <CompositeSlider
           w={CONTROL_TRACK_WIDTH}
@@ -263,7 +263,7 @@ const WidthTrackControl = memo(
           value={mapRawValueToSliderValue(localValue)}
           onChange={onChangeSlider}
           defaultValue={sliderDefaultValue}
-          marks={marks}
+          // marks={marks}
           formatValue={formatSliderValue}
           alwaysShowMarks
         />
