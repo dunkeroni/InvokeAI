@@ -253,7 +253,13 @@ const WidthTrackControl = memo(
     'localValue' | 'onChangeSlider' | 'localHardness' | 'onChangeHardness' | 'showHardness'
   >) => {
     return (
-      <Flex direction="column" gap={0} w={CONTROL_TRACK_WIDTH} minW={0}>
+      <Flex
+        direction="column"
+        gap={0}
+        w={CONTROL_TRACK_WIDTH}
+        minW={0}
+        justifyContent={showHardness ? 'flex-start' : 'center'}
+      >
         {showHardness && <BrushHardnessTrack hardness={localHardness} onChange={onChangeHardness} />}
         <CompositeSlider
           w={CONTROL_TRACK_WIDTH}
