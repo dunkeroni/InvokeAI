@@ -19,10 +19,13 @@ import { addSocketConnectedEventListener } from 'app/store/middleware/listenerMi
 import { deepClone } from 'common/util/deepClone';
 import { merge } from 'es-toolkit';
 import { omit, pick } from 'es-toolkit/compat';
+import { authSliceConfig } from 'features/auth/store/authSlice';
 import { changeBoardModalSliceConfig } from 'features/changeBoardModal/store/slice';
 import { canvasSettingsSliceConfig } from 'features/controlLayers/store/canvasSettingsSlice';
 import { canvasSliceConfig } from 'features/controlLayers/store/canvasSlice';
 import { canvasSessionSliceConfig } from 'features/controlLayers/store/canvasStagingAreaSlice';
+import { canvasTextSliceConfig } from 'features/controlLayers/store/canvasTextSlice';
+import { canvasWorkflowIntegrationSliceConfig } from 'features/controlLayers/store/canvasWorkflowIntegrationSlice';
 import { lorasSliceConfig } from 'features/controlLayers/store/lorasSlice';
 import { paramsSliceConfig } from 'features/controlLayers/store/paramsSlice';
 import { refImagesSliceConfig } from 'features/controlLayers/store/refImagesSlice';
@@ -35,6 +38,7 @@ import { workflowSettingsSliceConfig } from 'features/nodes/store/workflowSettin
 import { upscaleSliceConfig } from 'features/parameters/store/upscaleSlice';
 import { queueSliceConfig } from 'features/queue/store/queueSlice';
 import { stylePresetSliceConfig } from 'features/stylePresets/store/stylePresetSlice';
+import { hotkeysSliceConfig } from 'features/system/store/hotkeysSlice';
 import { systemSliceConfig } from 'features/system/store/systemSlice';
 import { uiSliceConfig } from 'features/ui/store/uiSlice';
 import { diff } from 'jsondiffpatch';
@@ -50,6 +54,7 @@ import { actionSanitizer } from './middleware/devtools/actionSanitizer';
 import { actionsDenylist } from './middleware/devtools/actionsDenylist';
 import { stateSanitizer } from './middleware/devtools/stateSanitizer';
 import { addArchivedOrDeletedBoardListener } from './middleware/listenerMiddleware/listeners/addArchivedOrDeletedBoardListener';
+import { addPBRFilterListener } from './middleware/listenerMiddleware/listeners/addPBRFilterListener';
 import { addImageUploadedFulfilledListener } from './middleware/listenerMiddleware/listeners/imageUploaded';
 
 const listenerMiddleware = createListenerMiddleware();
@@ -58,12 +63,16 @@ const log = logger('system');
 
 // When adding a slice, add the config to the SLICE_CONFIGS object below, then add the reducer to ALL_REDUCERS.
 const SLICE_CONFIGS = {
+  [authSliceConfig.slice.reducerPath]: authSliceConfig,
   [canvasSessionSliceConfig.slice.reducerPath]: canvasSessionSliceConfig,
   [canvasSettingsSliceConfig.slice.reducerPath]: canvasSettingsSliceConfig,
+  [canvasTextSliceConfig.slice.reducerPath]: canvasTextSliceConfig,
   [canvasSliceConfig.slice.reducerPath]: canvasSliceConfig,
+  [canvasWorkflowIntegrationSliceConfig.slice.reducerPath]: canvasWorkflowIntegrationSliceConfig,
   [changeBoardModalSliceConfig.slice.reducerPath]: changeBoardModalSliceConfig,
   [dynamicPromptsSliceConfig.slice.reducerPath]: dynamicPromptsSliceConfig,
   [gallerySliceConfig.slice.reducerPath]: gallerySliceConfig,
+  [hotkeysSliceConfig.slice.reducerPath]: hotkeysSliceConfig,
   [lorasSliceConfig.slice.reducerPath]: lorasSliceConfig,
   [modelManagerSliceConfig.slice.reducerPath]: modelManagerSliceConfig,
   [nodesSliceConfig.slice.reducerPath]: nodesSliceConfig,
@@ -82,16 +91,20 @@ const SLICE_CONFIGS = {
 // Remember to wrap undoable reducers in `undoable()`!
 const ALL_REDUCERS = {
   [api.reducerPath]: api.reducer,
+  [authSliceConfig.slice.reducerPath]: authSliceConfig.slice.reducer,
   [canvasSessionSliceConfig.slice.reducerPath]: canvasSessionSliceConfig.slice.reducer,
   [canvasSettingsSliceConfig.slice.reducerPath]: canvasSettingsSliceConfig.slice.reducer,
+  [canvasTextSliceConfig.slice.reducerPath]: canvasTextSliceConfig.slice.reducer,
   // Undoable!
   [canvasSliceConfig.slice.reducerPath]: undoable(
     canvasSliceConfig.slice.reducer,
     canvasSliceConfig.undoableConfig?.reduxUndoOptions
   ),
+  [canvasWorkflowIntegrationSliceConfig.slice.reducerPath]: canvasWorkflowIntegrationSliceConfig.slice.reducer,
   [changeBoardModalSliceConfig.slice.reducerPath]: changeBoardModalSliceConfig.slice.reducer,
   [dynamicPromptsSliceConfig.slice.reducerPath]: dynamicPromptsSliceConfig.slice.reducer,
   [gallerySliceConfig.slice.reducerPath]: gallerySliceConfig.slice.reducer,
+  [hotkeysSliceConfig.slice.reducerPath]: hotkeysSliceConfig.slice.reducer,
   [lorasSliceConfig.slice.reducerPath]: lorasSliceConfig.slice.reducer,
   [modelManagerSliceConfig.slice.reducerPath]: modelManagerSliceConfig.slice.reducer,
   // Undoable!
@@ -276,5 +289,8 @@ addModelsLoadedListener(startAppListening);
 
 // Ad-hoc upscale workflwo
 addAdHocPostProcessingRequestedListener(startAppListening);
+
+// Filters
+addPBRFilterListener(startAppListening);
 
 addSetDefaultSettingsListener(startAppListening);

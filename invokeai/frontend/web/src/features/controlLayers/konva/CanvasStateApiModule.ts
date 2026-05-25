@@ -20,11 +20,13 @@ import {
   controlLayerAdded,
   entityBrushLineAdded,
   entityEraserLineAdded,
+  entityGradientAdded,
+  entityLassoAdded,
   entityMovedBy,
   entityMovedTo,
   entityRasterized,
-  entityRectAdded,
   entityReset,
+  entityShapeAdded,
   inpaintMaskAdded,
   rasterLayerAdded,
   rgAdded,
@@ -40,11 +42,13 @@ import type {
   CanvasState,
   EntityBrushLineAddedPayload,
   EntityEraserLineAddedPayload,
+  EntityGradientAddedPayload,
   EntityIdentifierPayload,
+  EntityLassoAddedPayload,
   EntityMovedByPayload,
   EntityMovedToPayload,
   EntityRasterizedPayload,
-  EntityRectAddedPayload,
+  EntityShapeAddedPayload,
   Rect,
   RgbaColor,
 } from 'features/controlLayers/store/types';
@@ -167,10 +171,24 @@ export class CanvasStateApiModule extends CanvasModuleBase {
   };
 
   /**
-   * Adds a rectangle to an entity, pushing state to redux.
+   * Adds a shape to an entity, pushing state to redux.
    */
-  addRect = (arg: EntityRectAddedPayload) => {
-    this.store.dispatch(entityRectAdded(arg));
+  addShape = (arg: EntityShapeAddedPayload) => {
+    this.store.dispatch(entityShapeAdded(arg));
+  };
+
+  /**
+   * Adds a lasso object to an entity, pushing state to redux.
+   */
+  addLasso = (arg: EntityLassoAddedPayload) => {
+    this.store.dispatch(entityLassoAdded(arg));
+  };
+
+  /**
+   * Adds a gradient to an entity, pushing state to redux.
+   */
+  addGradient = (arg: EntityGradientAddedPayload) => {
+    this.store.dispatch(entityGradientAdded(arg));
   };
 
   /**
@@ -213,6 +231,52 @@ export class CanvasStateApiModule extends CanvasModuleBase {
    */
   setGenerationBbox = (rect: Rect) => {
     this.store.dispatch(bboxChangedFromCanvas(rect));
+    this.manager.invalidateRegionalGuidanceRasterCache();
+  };
+
+  /**
+   * Waits for the current rasterization operation to complete.
+   *
+   * If no rasterization is in progress, this returns immediately. Use this
+   * before starting a new rasterization to avoid multiple simultaneous
+   * rasterization operations acting on the same canvas state.
+   *
+   * @returns A promise that resolves once rasterization has finished or
+   *          immediately if no rasterization is in progress.
+   */
+  waitForRasterizationToFinish = async () => {
+    if (!this.$rasterizingAdapter.get()) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      // Ensure we only resolve once, even if multiple events fire.
+      let resolved = false;
+
+      // Re-check before subscribing to avoid a race where rasterization completes
+      // between the outer check and listener registration.
+      if (!this.$rasterizingAdapter.get()) {
+        resolved = true;
+        resolve();
+        return;
+      }
+
+      const unsubscribe = this.$rasterizingAdapter.listen((adapter) => {
+        if (!adapter && !resolved) {
+          resolved = true;
+          unsubscribe();
+          resolve();
+        }
+      });
+
+      // Re-check immediately after subscribing to close the race where
+      // rasterization completes between the check above and `listen()`.
+      if (!this.$rasterizingAdapter.get() && !resolved) {
+        resolved = true;
+        unsubscribe();
+        resolve();
+      }
+    });
   };
 
   /**

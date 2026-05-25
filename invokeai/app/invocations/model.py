@@ -72,6 +72,21 @@ class GlmEncoderField(BaseModel):
     text_encoder: ModelIdentifierField = Field(description="Info to load text_encoder submodel")
 
 
+class QwenVLEncoderField(BaseModel):
+    """Field for Qwen2.5-VL encoder used by Qwen Image Edit models."""
+
+    tokenizer: ModelIdentifierField = Field(description="Info to load tokenizer submodel")
+    text_encoder: ModelIdentifierField = Field(description="Info to load text_encoder submodel")
+
+
+class Qwen3EncoderField(BaseModel):
+    """Field for Qwen3 text encoder used by Z-Image models."""
+
+    tokenizer: ModelIdentifierField = Field(description="Info to load tokenizer submodel")
+    text_encoder: ModelIdentifierField = Field(description="Info to load text_encoder submodel")
+    loras: List[LoRAField] = Field(default_factory=list, description="LoRAs to apply on model loading")
+
+
 class VAEField(BaseModel):
     vae: ModelIdentifierField = Field(description="Info to load vae submodel")
     seamless_axes: List[str] = Field(default_factory=list, description='Axes("x" and "y") to which apply seamless')
@@ -502,6 +517,7 @@ class VAELoaderInvocation(BaseInvocation):
             BaseModelType.StableDiffusionXL,
             BaseModelType.StableDiffusion3,
             BaseModelType.Flux,
+            BaseModelType.Flux2,
         ],
         ui_model_type=ModelType.VAE,
     )
@@ -568,7 +584,7 @@ class SeamlessModeInvocation(BaseInvocation):
         return SeamlessModeOutput(unet=unet, vae=vae)
 
 
-@invocation("freeu", title="Apply FreeU - SD1.5, SDXL", tags=["freeu"], category="unet", version="1.0.2")
+@invocation("freeu", title="Apply FreeU - SD1.5, SDXL", tags=["freeu"], category="model", version="1.0.2")
 class FreeUInvocation(BaseInvocation):
     """
     Applies FreeU to the UNet. Suggested values (b1/b2/s1/s2):

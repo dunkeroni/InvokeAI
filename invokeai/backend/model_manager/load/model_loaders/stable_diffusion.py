@@ -80,15 +80,17 @@ class StableDiffusionDiffusersModel(GenericDiffusersLoader):
                 model_path,
                 torch_dtype=self._torch_dtype,
                 variant=variant,
+                local_files_only=True,
             )
         except OSError as e:
             if variant and "no file named" in str(
                 e
             ):  # try without the variant, just in case user's preferences changed
-                result = load_class.from_pretrained(model_path, torch_dtype=self._torch_dtype)
+                result = load_class.from_pretrained(model_path, torch_dtype=self._torch_dtype, local_files_only=True)
             else:
                 raise e
 
+        result = self._apply_fp8_layerwise_casting(result, config, submodel_type)
         return result
 
     def _load_from_singlefile(
@@ -151,5 +153,8 @@ class StableDiffusionDiffusersModel(GenericDiffusersLoader):
             if subtype == submodel_type:
                 continue
             if submodel := getattr(pipeline, subtype.value, None):
+                self._apply_fp8_layerwise_casting(submodel, config, subtype)
                 self._ram_cache.put(get_model_cache_key(config.key, subtype), model=submodel)
-        return getattr(pipeline, submodel_type.value)
+        result = getattr(pipeline, submodel_type.value)
+        result = self._apply_fp8_layerwise_casting(result, config, submodel_type)
+        return result

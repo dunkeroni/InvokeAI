@@ -1,18 +1,18 @@
 import type { SystemStyleObject } from '@invoke-ai/ui-library';
-import { Box, Button, Flex, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, Text } from '@invoke-ai/ui-library';
+import { Box, Divider, Flex, Heading, Tab, TabList, TabPanel, TabPanels, Tabs } from '@invoke-ai/ui-library';
 import { useStore } from '@nanostores/react';
 import { $installModelsTabIndex } from 'features/modelManagerV2/store/installModelsStore';
+import { ExternalProvidersForm } from 'features/modelManagerV2/subpanels/AddModelPanel/ExternalProviders/ExternalProvidersForm';
+import { HuggingFaceForm } from 'features/modelManagerV2/subpanels/AddModelPanel/HuggingFaceFolder/HuggingFaceForm';
+import { InstallModelForm } from 'features/modelManagerV2/subpanels/AddModelPanel/InstallModelForm';
+import { LaunchpadForm } from 'features/modelManagerV2/subpanels/AddModelPanel/LaunchpadForm/LaunchpadForm';
+import { ModelInstallQueue } from 'features/modelManagerV2/subpanels/AddModelPanel/ModelInstallQueue/ModelInstallQueue';
+import { ScanModelsForm } from 'features/modelManagerV2/subpanels/AddModelPanel/ScanFolder/ScanFolderForm';
 import { StarterModelsForm } from 'features/modelManagerV2/subpanels/AddModelPanel/StarterModels/StarterModelsForm';
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PiCubeBold, PiFolderOpenBold, PiInfoBold, PiLinkSimpleBold, PiShootingStarBold } from 'react-icons/pi';
+import { PiCubeBold, PiFolderOpenBold, PiLinkSimpleBold, PiPlugBold, PiShootingStarBold } from 'react-icons/pi';
 import { SiHuggingface } from 'react-icons/si';
-
-import { HuggingFaceForm } from './AddModelPanel/HuggingFaceFolder/HuggingFaceForm';
-import { InstallModelForm } from './AddModelPanel/InstallModelForm';
-import { LaunchpadForm } from './AddModelPanel/LaunchpadForm/LaunchpadForm';
-import { ModelInstallQueue } from './AddModelPanel/ModelInstallQueue/ModelInstallQueue';
-import { ScanModelsForm } from './AddModelPanel/ScanFolder/ScanFolderForm';
 
 const installModelsTabSx: SystemStyleObject = {
   display: 'flex',
@@ -24,17 +24,21 @@ export const InstallModels = memo(() => {
   const { t } = useTranslation();
   const tabIndex = useStore($installModelsTabIndex);
 
-  const onClickLearnMore = useCallback(() => {
-    window.open('https://support.invoke.ai/support/solutions/articles/151000170961-supported-models');
-  }, []);
+  {
+    /* TO DO: This click target points to an out-of-date invokeai.ai URL. Reinstate when there is an updated web link. */
+  }
+  // const onClickLearnMore = useCallback(() => {
+  //   window.open('https://support.invoke.ai/support/solutions/articles/151000170961-supported-models');
+  // }, []);
 
   return (
     <Flex layerStyle="first" borderRadius="base" w="full" h="full" flexDir="column" gap={4}>
       <Flex alignItems="center" justifyContent="space-between">
         <Heading fontSize="xl">{t('modelManager.addModel')}</Heading>
-        <Button alignItems="center" variant="link" leftIcon={<PiInfoBold />} onClick={onClickLearnMore}>
+        {/* TO DO: This button points to an out-of-date invokeai.ai URL. Reinstate when there is an updated web link. */}
+        {/* <Button alignItems="center" variant="link" leftIcon={<PiInfoBold />} onClick={onClickLearnMore}>
           <Text variant="subtext">{t('modelManager.learnMoreAboutSupportedModels')}</Text>
-        </Button>
+        </Button> */}
       </Flex>
       <Tabs
         variant="line"
@@ -58,6 +62,10 @@ export const InstallModels = memo(() => {
             {t('modelManager.huggingFace')}
           </Tab>
           <Tab sx={installModelsTabSx}>
+            <PiPlugBold />
+            {t('modelManager.externalProviders')}
+          </Tab>
+          <Tab sx={installModelsTabSx}>
             <PiFolderOpenBold />
             {t('modelManager.scanFolder')}
           </Tab>
@@ -77,6 +85,9 @@ export const InstallModels = memo(() => {
             <HuggingFaceForm />
           </TabPanel>
           <TabPanel height="100%">
+            <ExternalProvidersForm />
+          </TabPanel>
+          <TabPanel height="100%">
             <ScanModelsForm />
           </TabPanel>
           <TabPanel height="100%">
@@ -84,7 +95,8 @@ export const InstallModels = memo(() => {
           </TabPanel>
         </TabPanels>
       </Tabs>
-      <Box layerStyle="second" borderRadius="base" h="50%">
+      <Divider />
+      <Box h="65%">
         <ModelInstallQueue />
       </Box>
     </Flex>

@@ -7,12 +7,17 @@ import { withResult, withResultAsync } from 'common/util/result';
 import { useCanvasManagerSafe } from 'features/controlLayers/contexts/CanvasManagerProviderGate';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { positivePromptAddedToHistory, selectPositivePrompt } from 'features/controlLayers/store/paramsSlice';
+import type { BaseModelType } from 'features/nodes/types/common';
 import { prepareLinearUIBatch } from 'features/nodes/util/graph/buildLinearBatchConfig';
+import { buildAnimaGraph } from 'features/nodes/util/graph/generation/buildAnimaGraph';
 import { buildCogView4Graph } from 'features/nodes/util/graph/generation/buildCogView4Graph';
+import { buildExternalGraph } from 'features/nodes/util/graph/generation/buildExternalGraph';
 import { buildFLUXGraph } from 'features/nodes/util/graph/generation/buildFLUXGraph';
+import { buildQwenImageGraph } from 'features/nodes/util/graph/generation/buildQwenImageGraph';
 import { buildSD1Graph } from 'features/nodes/util/graph/generation/buildSD1Graph';
 import { buildSD3Graph } from 'features/nodes/util/graph/generation/buildSD3Graph';
 import { buildSDXLGraph } from 'features/nodes/util/graph/generation/buildSDXLGraph';
+import { buildZImageGraph } from 'features/nodes/util/graph/generation/buildZImageGraph';
 import { selectCanvasDestination } from 'features/nodes/util/graph/graphBuilderUtils';
 import type { GraphBuilderArg } from 'features/nodes/util/graph/types';
 import { UnsupportedGenerationModeError } from 'features/nodes/util/graph/types';
@@ -51,10 +56,19 @@ const enqueueCanvas = async (store: AppStore, canvasManager: CanvasManager, prep
         return await buildSD1Graph(graphBuilderArg);
       case `sd-3`:
         return await buildSD3Graph(graphBuilderArg);
-      case `flux`:
+      case 'flux':
+      case 'flux2':
         return await buildFLUXGraph(graphBuilderArg);
       case 'cogview4':
         return await buildCogView4Graph(graphBuilderArg);
+      case 'qwen-image':
+        return await buildQwenImageGraph(graphBuilderArg);
+      case 'z-image':
+        return await buildZImageGraph(graphBuilderArg);
+      case 'external':
+        return await buildExternalGraph(graphBuilderArg);
+      case 'anima':
+        return await buildAnimaGraph(graphBuilderArg);
       default:
         assert(false, `No graph builders for base ${base}`);
     }
@@ -87,7 +101,7 @@ const enqueueCanvas = async (store: AppStore, canvasManager: CanvasManager, prep
     prepareLinearUIBatch({
       state,
       g,
-      base,
+      base: base as BaseModelType,
       prepend,
       seedNode: seed,
       positivePromptNode: positivePrompt,

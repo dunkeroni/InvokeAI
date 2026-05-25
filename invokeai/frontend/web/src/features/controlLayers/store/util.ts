@@ -10,15 +10,18 @@ import type {
   ControlLoRAConfig,
   ControlNetConfig,
   CroppableImageWithDims,
+  Flux2ReferenceImageConfig,
   FluxKontextReferenceImageConfig,
   FLUXReduxConfig,
   ImageWithDims,
   IPAdapterConfig,
+  QwenImageReferenceImageConfig,
   RasterLayerAdjustments,
   RefImageState,
   RegionalGuidanceIPAdapterConfig,
   RgbColor,
   T2IAdapterConfig,
+  ZImageControlConfig,
 } from 'features/controlLayers/store/types';
 import type { ImageDTO } from 'services/api/types';
 import { assert } from 'tsafe';
@@ -111,6 +114,14 @@ export const initialFluxKontextReferenceImage: FluxKontextReferenceImageConfig =
   image: null,
   model: null,
 };
+export const initialFlux2ReferenceImage: Flux2ReferenceImageConfig = {
+  type: 'flux2_reference_image',
+  image: null,
+};
+export const initialQwenImageReferenceImage: QwenImageReferenceImageConfig = {
+  type: 'qwen_image_reference_image',
+  image: null,
+};
 export const initialT2IAdapter: T2IAdapterConfig = {
   type: 't2i_adapter',
   model: null,
@@ -128,6 +139,12 @@ export const initialControlLoRA: ControlLoRAConfig = {
   type: 'control_lora',
   model: null,
   weight: 0.75,
+};
+export const initialZImageControl: ZImageControlConfig = {
+  type: 'z_image_control',
+  model: null,
+  weight: 0.75, // control_context_scale, recommended 0.65-0.80
+  beginEndStepPct: [0, 1],
 };
 
 export const makeDefaultRasterLayerAdjustments = (mode: 'simple' | 'curves' = 'simple'): RasterLayerAdjustments => ({
@@ -222,6 +239,7 @@ export const getRasterLayerState = (
     type: 'raster_layer',
     isEnabled: true,
     isLocked: false,
+    isTransparencyLocked: false,
     objects: [],
     opacity: 1,
     position: { x: 0, y: 0 },

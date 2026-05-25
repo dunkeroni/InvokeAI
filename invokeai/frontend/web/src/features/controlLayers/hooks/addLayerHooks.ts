@@ -26,15 +26,19 @@ import type {
   CanvasRegionalGuidanceState,
   ControlLoRAConfig,
   ControlNetConfig,
+  Flux2ReferenceImageConfig,
   FluxKontextReferenceImageConfig,
   IPAdapterConfig,
+  QwenImageReferenceImageConfig,
   RegionalGuidanceIPAdapterConfig,
   T2IAdapterConfig,
 } from 'features/controlLayers/store/types';
 import {
   initialControlNet,
+  initialFlux2ReferenceImage,
   initialFluxKontextReferenceImage,
   initialIPAdapter,
+  initialQwenImageReferenceImage,
   initialRegionalGuidanceIPAdapter,
   initialT2IAdapter,
 } from 'features/controlLayers/store/util';
@@ -74,13 +78,25 @@ export const selectDefaultControlAdapter = createSelector(
   }
 );
 
-export const getDefaultRefImageConfig = (getState: AppGetState): IPAdapterConfig | FluxKontextReferenceImageConfig => {
+export const getDefaultRefImageConfig = (
+  getState: AppGetState
+): IPAdapterConfig | FluxKontextReferenceImageConfig | Flux2ReferenceImageConfig | QwenImageReferenceImageConfig => {
   const state = getState();
 
   const mainModelConfig = selectMainModelConfig(state);
   const ipAdapterModelConfigs = selectIPAdapterModels(state);
 
   const base = mainModelConfig?.base;
+
+  // FLUX.2 Klein has built-in reference image support - no model needed
+  if (base === 'flux2') {
+    return deepClone(initialFlux2ReferenceImage);
+  }
+
+  // Qwen Image Edit has built-in reference image support - no model needed
+  if (base === 'qwen-image') {
+    return deepClone(initialQwenImageReferenceImage);
+  }
 
   if (base === 'flux' && mainModelConfig?.name?.toLowerCase().includes('kontext')) {
     const config = deepClone(initialFluxKontextReferenceImage);

@@ -23,6 +23,7 @@ import type {
   StringFieldCollectionInputTemplate,
   StringFieldInputTemplate,
   StringGeneratorFieldInputTemplate,
+  StylePresetFieldInputTemplate,
 } from 'features/nodes/types/field';
 import {
   getFloatGeneratorArithmeticSequenceDefaults,
@@ -289,6 +290,20 @@ const buildBoardFieldInputTemplate: FieldInputTemplateBuilder<BoardFieldInputTem
   return template;
 };
 
+const buildStylePresetFieldInputTemplate: FieldInputTemplateBuilder<StylePresetFieldInputTemplate> = ({
+  schemaObject,
+  baseField,
+  fieldType,
+}) => {
+  const template: StylePresetFieldInputTemplate = {
+    ...baseField,
+    type: fieldType,
+    default: schemaObject.default ?? undefined,
+  };
+
+  return template;
+};
+
 const buildImageFieldInputTemplate: FieldInputTemplateBuilder<ImageFieldInputTemplate> = ({
   schemaObject,
   baseField,
@@ -460,6 +475,7 @@ const TEMPLATE_BUILDER_MAP: Record<StatefulFieldType['name'], FieldInputTemplate
   ModelIdentifierField: buildModelIdentifierFieldInputTemplate,
   SchedulerField: buildSchedulerFieldInputTemplate,
   StringField: buildStringFieldInputTemplate,
+  StylePresetField: buildStylePresetFieldInputTemplate,
   FloatGeneratorField: buildFloatGeneratorFieldInputTemplate,
   IntegerGeneratorField: buildIntegerGeneratorFieldInputTemplate,
   StringGeneratorField: buildStringGeneratorFieldInputTemplate,
@@ -483,6 +499,7 @@ export const buildFieldInputTemplate = (
     ui_model_type,
     ui_model_variant,
     ui_model_format,
+    ui_model_provider_id,
   } = fieldSchema;
 
   // This is the base field template that is common to all fields. The builder function will add all other
@@ -503,6 +520,7 @@ export const buildFieldInputTemplate = (
     ui_model_type,
     ui_model_variant,
     ui_model_format,
+    ui_model_provider_id,
   };
 
   if (isStatefulFieldType(fieldType)) {

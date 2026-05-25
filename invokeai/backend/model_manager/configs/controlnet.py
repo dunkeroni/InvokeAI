@@ -54,6 +54,10 @@ MODEL_NAME_TO_PREPROCESSOR = {
 class ControlAdapterDefaultSettings(BaseModel):
     # This could be narrowed to controlnet processor nodes, but they change. Leaving this a string is safer.
     preprocessor: str | None
+    fp8_storage: bool | None = Field(
+        default=None,
+        description="Store weights in FP8 to reduce VRAM usage (~50% savings). Weights are cast to compute dtype during inference.",
+    )
     model_config = ConfigDict(extra="forbid")
 
     @classmethod
@@ -88,7 +92,9 @@ class ControlNet_Diffusers_Config_Base(Diffusers_Config_Base):
 
         cls._validate_base(mod)
 
-        return cls(**override_fields)
+        repo_variant = {"repo_variant": override_fields.get("repo_variant", cls._get_repo_variant_or_raise(mod))}
+        args = override_fields | repo_variant
+        return cls(**args)
 
     @classmethod
     def _validate_base(cls, mod: ModelOnDisk) -> None:
@@ -228,3 +234,47 @@ class ControlNet_Checkpoint_SDXL_Config(ControlNet_Checkpoint_Config_Base, Confi
 
 class ControlNet_Checkpoint_FLUX_Config(ControlNet_Checkpoint_Config_Base, Config_Base):
     base: Literal[BaseModelType.Flux] = Field(default=BaseModelType.Flux)
+
+
+def _has_z_image_control_keys(state_dict: dict) -> bool:
+    """Check if state dict contains Z-Image Control specific keys."""
+    z_image_control_keys = {"control_layers", "control_all_x_embedder", "control_noise_refiner"}
+    for key in state_dict.keys():
+        if isinstance(key, str):
+            prefix = key.split(".")[0]
+            if prefix in z_image_control_keys:
+                return True
+    return False
+
+
+class ControlNet_Checkpoint_ZImage_Config(Checkpoint_Config_Base, Config_Base):
+    """Model config for Z-Image Control adapter models (Safetensors checkpoint).
+
+    Z-Image Control models are standalone adapters containing only the control layers
+    (control_layers, control_all_x_embedder, control_noise_refiner) that extend
+    the base Z-Image transformer with spatial conditioning capabilities.
+
+    Supports: Canny, HED, Depth, Pose, MLSD.
+    Recommended control_context_scale: 0.65-0.80.
+    """
+
+    type: Literal[ModelType.ControlNet] = Field(default=ModelType.ControlNet)
+    format: Literal[ModelFormat.Checkpoint] = Field(default=ModelFormat.Checkpoint)
+    base: Literal[BaseModelType.ZImage] = Field(default=BaseModelType.ZImage)
+    default_settings: ControlAdapterDefaultSettings | None = Field(None)
+
+    @classmethod
+    def from_model_on_disk(cls, mod: ModelOnDisk, override_fields: dict[str, Any]) -> Self:
+        raise_if_not_file(mod)
+
+        raise_for_override_fields(cls, override_fields)
+
+        cls._validate_looks_like_z_image_control(mod)
+
+        return cls(**override_fields)
+
+    @classmethod
+    def _validate_looks_like_z_image_control(cls, mod: ModelOnDisk) -> None:
+        state_dict = mod.load_state_dict()
+        if not _has_z_image_control_keys(state_dict):
+            raise NotAMatchError("state dict does not look like a Z-Image Control model")

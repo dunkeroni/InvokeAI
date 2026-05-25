@@ -3,10 +3,16 @@ import denoisingStrength from 'public/assets/images/denoising-strength.png';
 
 export type Feature =
   | 'clipSkip'
+  | 'fluxDypePreset'
+  | 'fluxDypeScale'
+  | 'fluxDypeExponent'
   | 'hrf'
   | 'paramNegativeConditioning'
   | 'paramPositiveConditioning'
   | 'paramScheduler'
+  | 'seedVarianceEnhancer'
+  | 'seedVarianceStrength'
+  | 'seedVarianceRandomizePercent'
   | 'compositingMaskBlur'
   | 'compositingBlurMethod'
   | 'compositingCoherencePass'
@@ -62,6 +68,7 @@ export type Feature =
   | 'scaleBeforeProcessing'
   | 'seamlessTilingXAxis'
   | 'seamlessTilingYAxis'
+  | 'colorCompensation'
   | 'upscaleModel'
   | 'scale'
   | 'creativity'
@@ -69,7 +76,9 @@ export type Feature =
   | 'tileSize'
   | 'tileOverlap'
   | 'optimizedDenoising'
-  | 'fluxDevLicense';
+  | 'fluxDevLicense'
+  | 'cpuOnly'
+  | 'fp8Storage';
 
 export type PopoverData = PopoverProps & {
   image?: string;
@@ -83,6 +92,15 @@ export const POPOVER_DATA: { [key in Feature]?: PopoverData } = {
   },
   clipSkip: {
     href: 'https://support.invoke.ai/support/solutions/articles/151000178161-advanced-settings',
+  },
+  fluxDypePreset: {
+    placement: 'right',
+  },
+  fluxDypeScale: {
+    placement: 'right',
+  },
+  fluxDypeExponent: {
+    placement: 'right',
   },
   inpainting: {
     href: 'https://support.invoke.ai/support/solutions/articles/151000096702-inpainting-outpainting-and-bounding-box',
