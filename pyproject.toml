@@ -50,7 +50,7 @@ dependencies = [
   # >=2.10 so the rocm extra can use torch 2.12.0+rocm7.2, while macOS stays on 2.7.x — newer macOS torch
   # wheels exercise MPS on CI runners (no usable Metal GPU) and fail with MPS OOM.
   "torch~=2.12.0; sys_platform != 'darwin'",
-  "torch>=2.7.0,<2.8.0; sys_platform == 'darwin'",
+  #"torch>=2.7.0,<2.8.0; sys_platform == 'darwin'",
   "torchsde",                             # diffusers needs this for SDE solvers, but it is not an explicit dep of diffusers
   "torchvision",
   "transformers>=5.0.0",
