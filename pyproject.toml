@@ -41,7 +41,8 @@ dependencies = [
   "mediapipe==0.10.35",                   # needed for "mediapipeface" controlnet model
   #"numpy<=2.0.0",                         # TODO: figure out why numpy<2.0.0 was pinned?
   "onnx==1.21.0",
-  "onnxruntime==1.26.0",
+  "onnxruntime==1.27.0",
+  "protobuf==7.35.1",                       #older versions causing tp_new error (C++ no longer supported)
   "opencv-contrib-python",
   "safetensors",
   "sentencepiece==0.2.1",                 # 0.2.1 coredumps windows when loading t5 tokenizer
