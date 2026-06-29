@@ -30,9 +30,9 @@
               "type": "str"
             }
           ],
-          "return_type": "Optional[MetadataField]",
+          "return_type": "MetadataField | None",
           "returns": "The image's metadata, if it has any.",
-          "signature": "(image_name: str) -> Optional[MetadataField]"
+          "signature": "(image_name: str) -> MetadataField | None"
         },
         {
           "description": "Gets the internal path to an image or thumbnail.",
@@ -69,12 +69,12 @@
               "default": "None",
               "description": "The color mode to convert the image to. If None, the original mode is used.",
               "name": "mode",
-              "type": "Optional[Literal['L', 'RGB', 'RGBA', 'CMYK', 'YCbCr', 'LAB', 'HSV', 'I', 'F']]"
+              "type": "Literal['L', 'RGB', 'RGBA', 'CMYK', 'YCbCr', 'LAB', 'HSV', 'I', 'F'] | None"
             }
           ],
           "return_type": "Image",
           "returns": "The image as a PIL Image object.",
-          "signature": "(image_name: str, mode: Optional[Literal['L', 'RGB', 'RGBA', 'CMYK', 'YCbCr', 'LAB', 'HSV', 'I', 'F']] = None) -> Image"
+          "signature": "(image_name: str, mode: Literal['L', 'RGB', 'RGBA', 'CMYK', 'YCbCr', 'LAB', 'HSV', 'I', 'F'] | None = None) -> Image"
         },
         {
           "description": "Saves an image, returning its DTO.\nIf the current queue item has a workflow or metadata, it is automatically saved with the image.",
@@ -90,7 +90,7 @@
               "default": "None",
               "description": "The board ID to add the image to, if it should be added. It the invocation             inherits from `WithBoard`, that board will be used automatically. **Use this only if             you want to override or provide a board manually!**",
               "name": "board_id",
-              "type": "Optional[str]"
+              "type": "str | None"
             },
             {
               "default": "ImageCategory.GENERAL",
@@ -102,12 +102,12 @@
               "default": "None",
               "description": "The metadata to save with the image, if it should have any. If the             invocation inherits from `WithMetadata`, that metadata will be used automatically.             **Use this only if you want to override or provide metadata manually!**",
               "name": "metadata",
-              "type": "Optional[MetadataField]"
+              "type": "MetadataField | None"
             }
           ],
           "return_type": "ImageDTO",
           "returns": "The saved image DTO.",
-          "signature": "(image: Image, board_id: Optional[str] = None, image_category: ImageCategory = ImageCategory.GENERAL, metadata: Optional[MetadataField] = None) -> ImageDTO"
+          "signature": "(image: Image, board_id: str | None = None, image_category: ImageCategory = ImageCategory.GENERAL, metadata: MetadataField | None = None) -> ImageDTO"
         }
       ],
       "name": "ImagesInterface"
@@ -210,12 +210,12 @@
               "default": "",
               "description": "The key or ModelField representing the model.",
               "name": "identifier",
-              "type": "Union[str, ModelIdentifierField]"
+              "type": "str | ModelIdentifierField"
             }
           ],
           "return_type": "bool",
           "returns": "True if the model exists, False if not.",
-          "signature": "(identifier: Union[str, ModelIdentifierField]) -> bool"
+          "signature": "(identifier: str | ModelIdentifierField) -> bool"
         },
         {
           "description": "Gets the absolute path for a given model config or path.\nFor example, if the model's path is `flux/main/FLUX Dev.safetensors`, and the models path is\n`/home/username/InvokeAI/models`, this method will return\n`/home/username/InvokeAI/models/flux/main/FLUX Dev.safetensors`.",
@@ -225,12 +225,12 @@
               "default": "",
               "description": "The model config or path.",
               "name": "config_or_path",
-              "type": "Union[AnyModelConfig, Path, str]"
+              "type": "AnyModelConfig | Path | str"
             }
           ],
           "return_type": "Path",
           "returns": "The absolute path to the model.",
-          "signature": "(config_or_path: Union[AnyModelConfig, Path, str]) -> Path"
+          "signature": "(config_or_path: AnyModelConfig | Path | str) -> Path"
         },
         {
           "description": "Get a model's config.",
@@ -240,12 +240,12 @@
               "default": "",
               "description": "The key or ModelField representing the model.",
               "name": "identifier",
-              "type": "Union[str, ModelIdentifierField]"
+              "type": "str | ModelIdentifierField"
             }
           ],
           "return_type": "AnyModelConfig",
           "returns": "The model's config.",
-          "signature": "(identifier: Union[str, ModelIdentifierField]) -> AnyModelConfig"
+          "signature": "(identifier: str | ModelIdentifierField) -> AnyModelConfig"
         },
         {
           "description": "Load a model.",
@@ -255,18 +255,18 @@
               "default": "",
               "description": "The key or ModelField representing the model.",
               "name": "identifier",
-              "type": "Union[str, ModelIdentifierField]"
+              "type": "str | ModelIdentifierField"
             },
             {
               "default": "None",
               "description": "The submodel of the model to get.",
               "name": "submodel_type",
-              "type": "Optional[SubModelType]"
+              "type": "SubModelType | None"
             }
           ],
           "return_type": "LoadedModel",
           "returns": "An object representing the loaded model.",
-          "signature": "(identifier: Union[str, ModelIdentifierField], submodel_type: Optional[SubModelType] = None) -> LoadedModel"
+          "signature": "(identifier: str | ModelIdentifierField, submodel_type: SubModelType | None = None) -> LoadedModel"
         },
         {
           "description": "Load a model by its attributes.",
@@ -294,12 +294,12 @@
               "default": "None",
               "description": "The type of submodel to load, e.g. `SubModelType.UNet`, `SubModelType.TextEncoder`, etc. Only main models have submodels.",
               "name": "submodel_type",
-              "type": "Optional[SubModelType]"
+              "type": "SubModelType | None"
             }
           ],
           "return_type": "LoadedModel",
           "returns": "An object representing the loaded model.",
-          "signature": "(name: str, base: BaseModelType, type: ModelType, submodel_type: Optional[SubModelType] = None) -> LoadedModel"
+          "signature": "(name: str, base: BaseModelType, type: ModelType, submodel_type: SubModelType | None = None) -> LoadedModel"
         },
         {
           "description": "Load the model file located at the indicated path\nIf a loader callable is provided, it will be invoked to load the model. Otherwise,\n`safetensors.torch.load_file()` or `torch.load()` will be called to load the model.\nBe aware that the LoadedModelWithoutConfig object has no `config` attribute",
@@ -315,12 +315,12 @@
               "default": "None",
               "description": "A Callable that expects a Path and returns a dict[str|int, Any]",
               "name": "loader",
-              "type": "Optional[Callable[[Path], AnyModel]]"
+              "type": "Callable[[Path], ModelMixin | RawModel | Module | Dict[str, Tensor] | DiffusionPipeline | InferenceSession] | None"
             }
           ],
           "return_type": "LoadedModelWithoutConfig",
           "returns": "A LoadedModelWithoutConfig object.",
-          "signature": "(model_path: Path, loader: Optional[Callable[[Path], AnyModel]] = None) -> LoadedModelWithoutConfig"
+          "signature": "(model_path: Path, loader: Callable[[Path], ModelMixin | RawModel | Module | Dict[str, Tensor] | DiffusionPipeline | InferenceSession] | None = None) -> LoadedModelWithoutConfig"
         },
         {
           "description": "Download, cache, and load the model file located at the indicated URL or repo_id.\nIf the model is already downloaded, it will be loaded from the cache.\nIf the a loader callable is provided, it will be invoked to load the model. Otherwise,\n`safetensors.torch.load_file()` or `torch.load()` will be called to load the model.\nBe aware that the LoadedModelWithoutConfig object has no `config` attribute",
@@ -336,12 +336,12 @@
               "default": "None",
               "description": "A Callable that expects a Path and returns a dict[str|int, Any]",
               "name": "loader",
-              "type": "Optional[Callable[[Path], AnyModel]]"
+              "type": "Callable[[Path], ModelMixin | RawModel | Module | Dict[str, Tensor] | DiffusionPipeline | InferenceSession] | None"
             }
           ],
           "return_type": "LoadedModelWithoutConfig",
           "returns": "A LoadedModelWithoutConfig object.",
-          "signature": "(source: str | AnyHttpUrl, loader: Optional[Callable[[Path], AnyModel]] = None) -> LoadedModelWithoutConfig"
+          "signature": "(source: str | AnyHttpUrl, loader: Callable[[Path], ModelMixin | RawModel | Module | Dict[str, Tensor] | DiffusionPipeline | InferenceSession] | None = None) -> LoadedModelWithoutConfig"
         },
         {
           "description": "Search for models by attributes.",
@@ -351,30 +351,30 @@
               "default": "None",
               "description": "The name to search for (exact match).",
               "name": "name",
-              "type": "Optional[str]"
+              "type": "str | None"
             },
             {
               "default": "None",
               "description": "The base to search for, e.g. `BaseModelType.StableDiffusion1`, `BaseModelType.StableDiffusionXL`, etc.",
               "name": "base",
-              "type": "Optional[BaseModelType]"
+              "type": "BaseModelType | None"
             },
             {
               "default": "None",
               "description": "Type type of model to search for, e.g. `ModelType.Main`, `ModelType.Vae`, etc.",
               "name": "type",
-              "type": "Optional[ModelType]"
+              "type": "ModelType | None"
             },
             {
               "default": "None",
               "description": "The format of model to search for, e.g. `ModelFormat.Checkpoint`, `ModelFormat.Diffusers`, etc.",
               "name": "format",
-              "type": "Optional[ModelFormat]"
+              "type": "ModelFormat | None"
             }
           ],
           "return_type": "list[AnyModelConfig]",
           "returns": "A list of models that match the attributes.",
-          "signature": "(name: Optional[str] = None, base: Optional[BaseModelType] = None, type: Optional[ModelType] = None, format: Optional[ModelFormat] = None) -> list[AnyModelConfig]"
+          "signature": "(name: str | None = None, base: BaseModelType | None = None, type: ModelType | None = None, format: ModelFormat | None = None) -> list[AnyModelConfig]"
         },
         {
           "description": "Search for models by path.",

@@ -56,7 +56,7 @@ def _simplify_signature(sig: str) -> str:
     result = sig
     while True:
         # Find the start of an AnyModelConfig union block
-        marker = "Annotated[Union[Annotated["
+        marker = "Annotated[Annotated["
         start = result.find(marker)
         if start == -1:
             break
