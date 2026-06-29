@@ -161,36 +161,52 @@ export class CanvasBackgroundModule extends CanvasModuleBase {
     let _x = 0;
     let _y = 0;
 
-    this.konva.linesGroup.destroyChildren();
-    this.konva.lines = [];
+    const totalLines = xSteps + ySteps;
 
+    this.konva.lines.splice(totalLines).forEach((line) => line.destroy());
+
+    let lineIndex = 0;
     for (let i = 0; i < xSteps; i++) {
       _x = gridFullRect.x1 + i * gridSpacing;
-      const line = new Konva.Line({
+      const line =
+        this.konva.lines[lineIndex] ??
+        new Konva.Line({
+          listening: false,
+          perfectDrawEnabled: false,
+        });
+      line.setAttrs({
         x: _x,
         y: gridFullRect.y1,
         points: [0, 0, 0, ySize],
         stroke: _x % 64 ? this.config.GRID_LINE_COLOR_FINE : this.config.GRID_LINE_COLOR_COARSE,
         strokeWidth,
-        listening: false,
-        perfectDrawEnabled: false,
       });
-      this.konva.lines.push(line);
-      this.konva.linesGroup.add(line);
+      this.konva.lines[lineIndex] = line;
+      if (line.getParent() !== this.konva.linesGroup) {
+        this.konva.linesGroup.add(line);
+      }
+      lineIndex += 1;
     }
     for (let i = 0; i < ySteps; i++) {
       _y = gridFullRect.y1 + i * gridSpacing;
-      const line = new Konva.Line({
+      const line =
+        this.konva.lines[lineIndex] ??
+        new Konva.Line({
+          listening: false,
+          perfectDrawEnabled: false,
+        });
+      line.setAttrs({
         x: gridFullRect.x1,
         y: _y,
         points: [0, 0, xSize, 0],
         stroke: _y % 64 ? this.config.GRID_LINE_COLOR_FINE : this.config.GRID_LINE_COLOR_COARSE,
         strokeWidth,
-        listening: false,
-        perfectDrawEnabled: false,
       });
-      this.konva.lines.push(line);
-      this.konva.linesGroup.add(line);
+      this.konva.lines[lineIndex] = line;
+      if (line.getParent() !== this.konva.linesGroup) {
+        this.konva.linesGroup.add(line);
+      }
+      lineIndex += 1;
     }
   };
 
