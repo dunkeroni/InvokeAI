@@ -3,7 +3,7 @@ import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
 import type { CanvasToolModule } from 'features/controlLayers/konva/CanvasTool/CanvasToolModule';
 import { getPrefixedId } from 'features/controlLayers/konva/util';
-import type { RgbaColor } from 'features/controlLayers/store/types';
+import type { Rect, RgbaColor } from 'features/controlLayers/store/types';
 import { RGBA_BLACK } from 'features/controlLayers/store/types';
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
@@ -125,6 +125,16 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
    * The color currently under the cursor. Only has a value when the color picker tool is active.
    */
   $colorUnderCursor = atom<RgbaColor>(RGBA_BLACK);
+
+  /**
+   * Cached composited snapshot of all visible raster layers, built once when the tool activates.
+   */
+  snapshotCanvas: HTMLCanvasElement | null = null;
+
+  /**
+   * The rect that the snapshotCanvas covers, in stage-relative coordinates.
+   */
+  snapshotRect: Rect | null = null;
 
   /**
    * The Konva objects that make up the color picker tool preview:
@@ -303,11 +313,13 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
   render = () => {
     if (this.parent.$tool.get() !== 'colorPicker') {
       this.setVisibility(false);
+      this.invalidateSnapshot();
       return;
     }
 
     if (!this.getCanPick()) {
       this.setVisibility(false);
+      this.invalidateSnapshot();
       return;
     }
 
@@ -315,6 +327,7 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
 
     if (!cursorPos) {
       this.setVisibility(false);
+      this.invalidateSnapshot();
       return;
     }
 
@@ -438,37 +451,62 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
     this.syncColorUnderCursor();
   };
 
+  buildSnapshot = (): boolean => {
+    const adapters = this.manager.compositor.getVisibleAdaptersOfType('raster_layer');
+
+    if (adapters.length === 0) {
+      return false;
+    }
+
+    const rect = this.manager.compositor.getVisibleRectOfType('raster_layer');
+
+    if (rect.width === 0 || rect.height === 0) {
+      return false;
+    }
+
+    this.snapshotCanvas = this.manager.compositor.getCompositeCanvas(adapters, rect);
+    this.snapshotRect = rect;
+    return true;
+  };
+
+  invalidateSnapshot = () => {
+    this.snapshotCanvas = null;
+    this.snapshotRect = null;
+  };
+
   syncColorUnderCursor = rafThrottle(() => {
     const cursorPos = this.parent.$cursorPos.get();
     if (!cursorPos) {
       return;
     }
 
-    const adapters = this.manager.compositor.getVisibleAdaptersOfType('raster_layer');
+    if (!this.snapshotCanvas) {
+      const built = this.buildSnapshot();
+      if (!built) {
+        return;
+      }
+    }
 
-    if (adapters.length === 0) {
+    const snapshotCanvas = this.snapshotCanvas!;
+    const snapshotRect = this.snapshotRect!;
+
+    const cursorX = Math.round(cursorPos.relative.x);
+    const cursorY = Math.round(cursorPos.relative.y);
+
+    const px = cursorX - snapshotRect.x;
+    const py = cursorY - snapshotRect.y;
+
+    if (px < 0 || px >= snapshotRect.width || py < 0 || py >= snapshotRect.height) {
+      this.$colorUnderCursor.set(RGBA_BLACK);
       return;
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const ctx = canvas.getContext('2d');
+    const ctx = snapshotCanvas.getContext('2d');
     if (!ctx) {
       return;
     }
-    ctx.imageSmoothingEnabled = false;
 
-    const rect = { x: Math.round(cursorPos.relative.x), y: Math.round(cursorPos.relative.y), width: 1, height: 1 };
-
-    for (const adapter of adapters) {
-      const operation = adapter.state.globalCompositeOperation ?? 'source-over';
-      ctx.globalCompositeOperation = operation;
-      const adapterCanvas = adapter.getCanvas(rect);
-      ctx.drawImage(adapterCanvas, 0, 0);
-    }
-
-    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    const [r, g, b, a] = ctx.getImageData(px, py, 1, 1).data;
     if (r !== undefined && g !== undefined && b !== undefined && a !== undefined) {
       this.$colorUnderCursor.set({ r, g, b, a });
     }
