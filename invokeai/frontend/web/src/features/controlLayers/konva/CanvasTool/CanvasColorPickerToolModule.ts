@@ -2,7 +2,7 @@ import { rgbColorToString } from 'common/util/colorCodeTransformers';
 import type { CanvasManager } from 'features/controlLayers/konva/CanvasManager';
 import { CanvasModuleBase } from 'features/controlLayers/konva/CanvasModuleBase';
 import type { CanvasToolModule } from 'features/controlLayers/konva/CanvasTool/CanvasToolModule';
-import { getColorAtCoordinate, getPrefixedId } from 'features/controlLayers/konva/util';
+import { getPrefixedId } from 'features/controlLayers/konva/util';
 import type { RgbaColor } from 'features/controlLayers/store/types';
 import { RGBA_BLACK } from 'features/controlLayers/store/types';
 import Konva from 'konva';
@@ -444,13 +444,33 @@ export class CanvasColorPickerToolModule extends CanvasModuleBase {
       return;
     }
 
-    // Hide the background layer so we can get the color under the cursor without the grid interfering
-    this.manager.background.konva.layer.visible(false);
-    const color = getColorAtCoordinate(this.manager.stage.konva.stage, cursorPos.absolute);
-    this.manager.background.konva.layer.visible(true);
+    const adapters = this.manager.compositor.getVisibleAdaptersOfType('raster_layer');
 
-    if (color) {
-      this.$colorUnderCursor.set(color);
+    if (adapters.length === 0) {
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+    ctx.imageSmoothingEnabled = false;
+
+    const rect = { x: Math.round(cursorPos.relative.x), y: Math.round(cursorPos.relative.y), width: 1, height: 1 };
+
+    for (const adapter of adapters) {
+      const operation = adapter.state.globalCompositeOperation ?? 'source-over';
+      ctx.globalCompositeOperation = operation;
+      const adapterCanvas = adapter.getCanvas(rect);
+      ctx.drawImage(adapterCanvas, 0, 0);
+    }
+
+    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    if (r !== undefined && g !== undefined && b !== undefined && a !== undefined) {
+      this.$colorUnderCursor.set({ r, g, b, a });
     }
   });
 
