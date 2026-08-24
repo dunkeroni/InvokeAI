@@ -748,21 +748,52 @@ export const getPointerType = (e: KonvaEventObject<PointerEvent>): 'mouse' | 'pe
 };
 
 /**
- * Gets the color at the given coordinate on the stage.
+ * Gets the color at the given coordinate on the stage, correctly compositing all visible layers with their CSS
+ * blend modes (mix-blend-mode). Using stage.toCanvas() is not sufficient because it renders each layer via the
+ * Canvas 2D API without applying CSS mix-blend-mode, which is a browser compositor-level operation. Instead, we
+ * manually composite each visible layer's canvas using the corresponding Canvas 2D globalCompositeOperation.
  * @param stage The konva stage.
  * @param coord The coordinate to get the color at. This must be the _absolute_ coordinate on the stage.
  * @returns The color under the coordinate, or null if there was a problem getting the color.
  */
 export const getColorAtCoordinate = (stage: Konva.Stage, coord: Coordinate): RgbaColor | null => {
-  const ctx = stage
-    .toCanvas({ x: coord.x, y: coord.y, width: 1, height: 1, imageSmoothingEnabled: false })
-    .getContext('2d');
+  const offscreenCanvas = document.createElement('canvas');
+  offscreenCanvas.width = 1;
+  offscreenCanvas.height = 1;
+  const offscreenCtx = offscreenCanvas.getContext('2d');
 
-  if (!ctx) {
+  if (!offscreenCtx) {
     return null;
   }
 
-  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  // coord is in CSS pixel coordinates (from stage.getPointerPosition()). The underlying layer canvas elements
+  // are scaled by devicePixelRatio for HiDPI displays, so we must convert to physical pixel coordinates.
+  const pixelRatio = window.devicePixelRatio || 1;
+  const sourceX = Math.floor(coord.x * pixelRatio);
+  const sourceY = Math.floor(coord.y * pixelRatio);
+
+  for (const layer of stage.getLayers()) {
+    if (!layer.visible()) {
+      continue;
+    }
+
+    // Access the underlying HTML canvas element for this Konva layer. This uses the internal `_canvas` property,
+    // consistent with the pattern used elsewhere in this codebase (e.g. CanvasEntityAdapterRasterLayer).
+    const htmlCanvas = (layer.getCanvas() as { _canvas?: HTMLCanvasElement })._canvas;
+    if (!htmlCanvas || sourceX < 0 || sourceY < 0 || sourceX >= htmlCanvas.width || sourceY >= htmlCanvas.height) {
+      continue;
+    }
+
+    // Map the CSS mix-blend-mode to a Canvas 2D globalCompositeOperation. CSS 'normal' corresponds to Canvas 2D
+    // 'source-over'; all other blend mode names are identical between CSS and Canvas 2D.
+    const mixBlendMode = htmlCanvas.style.mixBlendMode;
+    const compositeOp = !mixBlendMode || mixBlendMode === 'normal' ? 'source-over' : mixBlendMode;
+
+    offscreenCtx.globalCompositeOperation = compositeOp as GlobalCompositeOperation;
+    offscreenCtx.drawImage(htmlCanvas, sourceX, sourceY, 1, 1, 0, 0, 1, 1);
+  }
+
+  const [r, g, b, a] = offscreenCtx.getImageData(0, 0, 1, 1).data;
 
   if (r === undefined || g === undefined || b === undefined || a === undefined) {
     return null;
