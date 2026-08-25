@@ -7,6 +7,7 @@ import type { Coordinate, Dimensions, Rect, StageAttrs } from 'features/controlL
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { atom, computed } from 'nanostores';
+import rafThrottle from 'raf-throttle';
 import type { Logger } from 'roarr';
 
 type CanvasStageModuleConfig = {
@@ -605,8 +606,12 @@ export class CanvasStageModule extends CanvasModuleBase {
       return;
     }
 
-    this.syncStageAttrs();
+    this.syncStageAttrsThrottled();
   };
+
+  syncStageAttrsThrottled = rafThrottle(() => {
+    this.syncStageAttrs();
+  });
 
   onStageDragEnd = (e: KonvaEventObject<DragEvent>) => {
     if (e.target !== this.konva.stage) {
@@ -713,6 +718,7 @@ export class CanvasStageModule extends CanvasModuleBase {
 
   destroy = () => {
     this.log.debug('Destroying module');
+    this.syncStageAttrsThrottled.cancel();
     this.subscriptions.forEach((unsubscribe) => unsubscribe());
     this.subscriptions.clear();
     if (this.resizeObserver) {
